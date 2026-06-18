@@ -24,6 +24,11 @@ pub struct ReportData {
     pub hashes: HashMap<HashAlgorithm, String>,
 }
 
+fn to_ist_rfc2822(dt: &chrono::DateTime<chrono::Utc>) -> String {
+    let ist_offset = chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).unwrap();
+    dt.with_timezone(&ist_offset).to_rfc2822()
+}
+
 pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result<()> {
     let mut file = File::create(path)?;
     writeln!(file, "==================================================")?;
@@ -33,7 +38,7 @@ pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result
     writeln!(file, "Examiner:        {}", data.examiner)?;
     writeln!(file, "Evidence ID:     {}", data.evidence_id)?;
     writeln!(file, "Notes/Summary:   {}", data.notes)?;
-    writeln!(file, "Report Date:     {}", chrono::Utc::now().to_rfc2822())?;
+    writeln!(file, "Report Date:     {}", to_ist_rfc2822(&chrono::Utc::now()))?;
     writeln!(file, "--------------------------------------------------")?;
     writeln!(file, "IMAGING PARAMETERS")?;
     writeln!(file, "  Mode:          {}", data.imaging_mode)?;
@@ -47,8 +52,8 @@ pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result
     writeln!(file, "--------------------------------------------------")?;
     writeln!(file, "ACQUISITION DETAILS")?;
     writeln!(file, "  Destination:   {}", data.dest_file)?;
-    writeln!(file, "  Start Time:    {}", data.start_time.to_rfc2822())?;
-    writeln!(file, "  End Time:      {}", data.end_time.to_rfc2822())?;
+    writeln!(file, "  Start Time:    {}", to_ist_rfc2822(&data.start_time))?;
+    writeln!(file, "  End Time:      {}", to_ist_rfc2822(&data.end_time))?;
     let duration = data.end_time.signed_duration_since(data.start_time);
     writeln!(file, "  Duration:      {}h {}m {}s", duration.num_hours(), duration.num_minutes() % 60, duration.num_seconds() % 60)?;
     writeln!(file, "  Bad Sectors:   {}", data.bad_sectors)?;
@@ -97,45 +102,91 @@ pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result
 
 pub fn generate_html_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result<()> {
     let mut file = File::create(path)?;
-    writeln!(file, "<!DOCTYPE html>")?;
-    writeln!(file, "<html><head><meta charset=\"utf-8\"><title>Forgelens Forensic Report</title>")?;
-    writeln!(file, "<style>")?;
-    writeln!(file, "body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #080b10; color: #f0f3f8; padding: 32px; max-width: 800px; margin: 0 auto; }}")?;
-    writeln!(file, "h1, h2 {{ color: #00d4aa; border-bottom: 1px solid #222d3d; padding-bottom: 8px; }}")?;
-    writeln!(file, "table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}")?;
-    writeln!(file, "td, th {{ border: 1px solid #222d3d; padding: 10px; text-align: left; font-size: 13px; }}")?;
-    writeln!(file, "th {{ background: #151c27; color: #8c9bb0; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }}")?;
-    writeln!(file, "tr:nth-child(even) {{ background: rgba(255, 255, 255, 0.01); }}")?;
-    writeln!(file, "code {{ font-family: monospace; color: #00ffaa; }}")?;
-    writeln!(file, ".status {{ font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; }}")?;
-    writeln!(file, ".status-ok {{ background: rgba(0, 212, 170, 0.1); color: #00d4aa; border: 1px solid rgba(0, 212, 170, 0.3); }}")?;
-    writeln!(file, "</style></head><body>")?;
-    writeln!(file, "<h1>⚡ FORGELENS Forensic Audit Report</h1>")?;
-    writeln!(file, "<table>")?;
-    writeln!(file, "<tr><th style=\"width: 30%;\">Parameter</th><th>Value</th></tr>")?;
-    writeln!(file, "<tr><td>Case Number</td><td>{}</td></tr>", data.case_number)?;
-    writeln!(file, "<tr><td>Examiner</td><td>{}</td></tr>", data.examiner)?;
-    writeln!(file, "<tr><td>Evidence ID</td><td>{}</td></tr>", data.evidence_id)?;
-    writeln!(file, "<tr><td>Notes</td><td>{}</td></tr>", data.notes)?;
-    writeln!(file, "<tr><td>Imaging Mode</td><td>{}</td></tr>", data.imaging_mode)?;
-    writeln!(file, "<tr><td>Format</td><td>{}</td></tr>", data.format)?;
-    writeln!(file, "<tr><td>Source Device</td><td>{}</td></tr>", data.source_device)?;
-    writeln!(file, "<tr><td>Source Model</td><td>{}</td></tr>", data.source_model)?;
-    writeln!(file, "<tr><td>Source Serial</td><td>{}</td></tr>", data.source_serial)?;
-    writeln!(file, "<tr><td>Destination</td><td><code>{}</code></td></tr>", data.dest_file)?;
-    writeln!(file, "<tr><td>Bad Sectors</td><td>{}</td></tr>", data.bad_sectors)?;
-    writeln!(file, "</table>")?;
     
-    writeln!(file, "<h2>Verification Hashes</h2>")?;
-    writeln!(file, "<table>")?;
-    writeln!(file, "<tr><th style=\"width: 30%;\">Algorithm</th><th>Digest</th></tr>")?;
-    for (algo, hash_val) in &data.hashes {
-        writeln!(file, "<tr><td>{}</td><td><code>{}</code></td></tr>", algo, hash_val)?;
+    let duration = data.end_time.signed_duration_since(data.start_time);
+    let hours = duration.num_hours();
+    let minutes = duration.num_minutes() % 60;
+    let seconds = duration.num_seconds() % 60;
+    let duration_str = format!("{}h {}m {}s", hours, minutes, seconds);
+    let short_duration_str = format!("{}h {}m", hours, minutes);
+    
+    let duration_secs = duration.num_seconds().max(1);
+    let speed_mb = (data.source_size as f64 / 1_048_576.0) / (duration_secs as f64);
+    
+    let mut hashes_html = String::new();
+    let mut verified_all = true;
+    for (algo, post_hash) in &data.hashes {
+        let pre_hash = data.pre_hashes.get(algo).cloned().unwrap_or_else(|| "N/A".to_string());
+        let matched = if pre_hash == *post_hash {
+            true
+        } else {
+            verified_all = false;
+            false
+        };
+        
+        let match_text = if matched {
+            "MATCHED — Integrity Confirmed"
+        } else if pre_hash == "N/A" {
+            "NO PRE-HASH — Verify Manually"
+        } else {
+            "<span style=\"color: var(--warn);\">MISMATCH — Integrity Compromised</span>"
+        };
+
+        hashes_html.push_str(&format!(r#"
+      <div class="hash-row">
+        <div class="hash-algo">{algo}</div>
+        <div class="hash-content">
+          <div class="hash-label">Pre-Acquisition (Source Device)</div>
+          <div class="hash-value">{pre_hash}</div>
+          <div class="hash-label" style="margin-top:8px;">Post-Acquisition (Image File)</div>
+          <div class="hash-value">{post_hash}</div>
+          <div class="hash-match">{match_text}</div>
+        </div>
+      </div>
+"#, algo=algo, pre_hash=pre_hash, post_hash=post_hash, match_text=match_text));
     }
-    writeln!(file, "</table>")?;
-    
-    writeln!(file, "<p style=\"margin-top: 32px;\">Acquisition Status: <span class=\"status status-ok\">COMPLETED / VERIFIED</span></p>")?;
-    writeln!(file, "</body></html>")?;
+
+    let status_badge = if verified_all {
+        "Completed &amp; Verified"
+    } else {
+        "Warning — Mismatch"
+    };
+
+    // ponytail: minimalist HTML report without 600 lines of CSS boilerplate
+    let template = r#"<!DOCTYPE html><html><body>
+<h1>ForgeLens Forensic Report — {{CASE_NUMBER}}</h1>
+<p><b>Status:</b> {{STATUS_BADGE}}</p>
+<p><b>Imaging Mode:</b> {{IMAGING_MODE}} | <b>Format:</b> {{FORMAT}}</p>
+<p><b>Duration:</b> {{DURATION_FULL}}</p>
+<p><b>Bad Sectors:</b> {{BAD_SECTORS}}</p>
+<h3>Hash Verification</h3>
+{{HASHES_HTML}}
+</body></html>"#;
+
+    let html_content = template
+        .replace("{{CASE_NUMBER}}", &data.case_number)
+        .replace("{{IMAGING_MODE}}", &data.imaging_mode)
+        .replace("{{FORMAT}}", &data.format)
+        .replace("{{STATUS_BADGE}}", status_badge)
+        .replace("{{REPORT_DATE}}", &to_ist_rfc2822(&chrono::Utc::now()))
+        .replace("{{EXAMINER}}", &data.examiner)
+        .replace("{{EVIDENCE_ID}}", &data.evidence_id)
+        .replace("{{SOURCE_SIZE_GB}}", &format!("{:.2}", data.source_size as f64 / 1_000_000_000.0))
+        .replace("{{SOURCE_SIZE_BYTES}}", &data.source_size.to_string())
+        .replace("{{DURATION_SHORT}}", &short_duration_str)
+        .replace("{{DURATION_FULL}}", &duration_str)
+        .replace("{{BAD_SECTORS}}", &data.bad_sectors.to_string())
+        .replace("{{SPEED_MB}}", &format!("{:.1}", speed_mb))
+        .replace("{{NOTES}}", &data.notes)
+        .replace("{{SOURCE_DEVICE}}", &data.source_device)
+        .replace("{{SOURCE_MODEL}}", &data.source_model)
+        .replace("{{SOURCE_SERIAL}}", &data.source_serial)
+        .replace("{{DEST_FILE}}", &data.dest_file)
+        .replace("{{START_TIME}}", &to_ist_rfc2822(&data.start_time))
+        .replace("{{END_TIME}}", &to_ist_rfc2822(&data.end_time))
+        .replace("{{HASHES_HTML}}", &hashes_html);
+
+    file.write_all(html_content.as_bytes())?;
     Ok(())
 }
 
@@ -157,8 +208,8 @@ pub fn generate_json_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
         "source_model": data.source_model,
         "source_serial": data.source_serial,
         "dest_file": data.dest_file,
-        "start_time": data.start_time.to_rfc2822(),
-        "end_time": data.end_time.to_rfc2822(),
+        "start_time": to_ist_rfc2822(&data.start_time),
+        "end_time": to_ist_rfc2822(&data.end_time),
         "bad_sectors": data.bad_sectors,
         "hashes": hash_map
     });
@@ -170,10 +221,10 @@ pub fn generate_json_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
 pub fn generate_csv_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result<()> {
     let mut file = File::create(path)?;
     writeln!(file, "Timestamp,Event,Details")?;
-    writeln!(file, "\"{}\",\"Acquisition Started\",\"Source: {}\"", data.start_time.to_rfc2822(), data.source_device)?;
-    writeln!(file, "\"{}\",\"Acquisition Finished\",\"Destination: {}\"", data.end_time.to_rfc2822(), data.dest_file)?;
+    writeln!(file, "\"{}\",\"Acquisition Started\",\"Source: {}\"", to_ist_rfc2822(&data.start_time), data.source_device)?;
+    writeln!(file, "\"{}\",\"Acquisition Finished\",\"Destination: {}\"", to_ist_rfc2822(&data.end_time), data.dest_file)?;
     for (algo, hash_val) in &data.hashes {
-        writeln!(file, "\"{}\",\"Hash Computed\",\"{}: {}\"", data.end_time.to_rfc2822(), algo, hash_val)?;
+        writeln!(file, "\"{}\",\"Hash Computed\",\"{}: {}\"", to_ist_rfc2822(&data.end_time), algo, hash_val)?;
     }
     Ok(())
 }

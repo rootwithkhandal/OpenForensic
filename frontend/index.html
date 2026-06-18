@@ -22,8 +22,9 @@
         <span class="version-tag">v0.1.14</span>
       </div>
       <div class="header-status">
+        <button id="btn-theme-toggle" class="btn btn-secondary btn-sm" style="background: transparent; border-color: var(--color-border); color: var(--text-main);" title="Toggle Light/Dark Theme">☀</button>
         <div id="admin-badge" class="badge badge-loading">Checking privileges...</div>
-        <div id="clock-display" class="clock-display">00:00:00 UTC</div>
+        <div id="clock-display" class="clock-display">00:00:00 IST</div>
       </div>
     </header>
 
@@ -139,8 +140,19 @@
                   <label for="select-blocksize">Block Size:</label>
                   <select id="select-blocksize">
                     <option value="512">512 KB</option>
-                    <option value="1024">1024 KB</option>
-                    <option value="2048">2048 KB</option>
+                    <option value="1024">1024 KB (1 MB)</option>
+                    <option value="2048">2048 KB (2 MB)</option>
+                    <option value="4096">4096 KB (4 MB)</option>
+                    <option value="8192">8192 KB (8 MB)</option>
+                    <option value="16384">16384 KB (16 MB)</option>
+                    <option value="32768">32768 KB (32 MB)</option>
+                    <option value="65536">65536 KB (64 MB)</option>
+                    <option value="131072">131072 KB (128 MB)</option>
+                    <option value="262144">262144 KB (256 MB)</option>
+                    <option value="512000">512000 KB (500 MB)</option>
+                    <option value="1048576">1048576 KB (1 GB)</option>
+                    <option value="5242880">5242880 KB (5 GB)</option>
+                    <option value="10485760" selected>10485760 KB (10 GB)</option>
                   </select>
                 </div>
 

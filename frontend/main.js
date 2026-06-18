@@ -178,6 +178,7 @@ let state = {
 const elements = {
   adminBadge: document.getElementById('admin-badge'),
   clockDisplay: document.getElementById('clock-display'),
+  btnThemeToggle: document.getElementById('btn-theme-toggle'),
   btnRescan: document.getElementById('btn-rescan'),
   modePhysical: document.getElementById('mode-physical'),
   modeLogical: document.getElementById('mode-logical'),
@@ -234,6 +235,9 @@ const elements = {
 async function init() {
   logMessage('SYSTEM', 'Forgelens Disk Imager UI loaded.');
   
+  // 0. Initialize Theme
+  initTheme();
+  
   // 1. Start Clock Updater
   startClock();
   
@@ -252,12 +256,40 @@ async function init() {
   await doRescan();
 }
 
-// Live Clock in UTC
+function initTheme() {
+  const savedTheme = localStorage.getItem('forgelens-theme');
+  if (savedTheme === 'light') {
+    document.documentElement.classList.add('light-theme');
+    elements.btnThemeToggle.textContent = '☾';
+    elements.btnThemeToggle.title = 'Switch to Dark Mode';
+  } else {
+    document.documentElement.classList.remove('light-theme');
+    elements.btnThemeToggle.textContent = '☀';
+    elements.btnThemeToggle.title = 'Switch to Light Mode';
+  }
+}
+
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light-theme');
+  if (isLight) {
+    localStorage.setItem('forgelens-theme', 'light');
+    elements.btnThemeToggle.textContent = '☾';
+    elements.btnThemeToggle.title = 'Switch to Dark Mode';
+  } else {
+    localStorage.setItem('forgelens-theme', 'dark');
+    elements.btnThemeToggle.textContent = '☀';
+    elements.btnThemeToggle.title = 'Switch to Light Mode';
+  }
+}
+
+// Live Clock in IST
 function startClock() {
   function update() {
     const now = new Date();
-    const utcStr = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-    elements.clockDisplay.textContent = utcStr;
+    // Offset by +5:30 for IST
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    const istStr = istTime.toISOString().replace('T', ' ').substring(0, 19) + ' IST';
+    elements.clockDisplay.textContent = istStr;
   }
   setInterval(update, 1000);
   update();
@@ -278,6 +310,9 @@ function updateAdminBadge(isAdmin) {
 
 // Event Listeners
 function setupEventListeners() {
+  // Theme toggle button
+  elements.btnThemeToggle.addEventListener('click', toggleTheme);
+
   // Mode selection buttons
   elements.modePhysical.addEventListener('click', () => setImagingMode('Physical'));
   elements.modeLogical.addEventListener('click', () => setImagingMode('Logical'));
@@ -586,11 +621,11 @@ async function doRescan() {
           <div class="device-icon">💾</div>
           <div class="device-info">
             <div class="device-meta-row">
-              <span class="device-path">${dev.path} <span style="font-size: 10px; color: var(--accent-primary); background: rgba(0,212,170,0.1); padding: 1px 4px; border-radius: 4px; font-weight: normal; margin-left: 6px;">${dev.device_type}</span></span>
+              <span class="device-path">${dev.path} <span class="chip chip-blue">${dev.device_type}</span></span>
               <span class="device-size">${formatBytes(dev.size)}</span>
             </div>
             <div class="device-model">${dev.vendor} ${dev.model} ${dev.serial ? '(S/N: ' + dev.serial + ')' : ''}</div>
-            <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">⚡ Health: <span style="color: var(--accent-primary);">${dev.smart_health || 'Healthy (100% Life)'}</span></div>
+            <div class="device-health-row">⚡ Health: <span class="chip chip-green">${dev.smart_health || 'Healthy (100% Life)'}</span></div>
           </div>
         </div>
         ${partitionsHtml}

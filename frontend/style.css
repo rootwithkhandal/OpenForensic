@@ -38,6 +38,28 @@
   --blur-glass: blur(12px);
 }
 
+:root.light-theme {
+  --bg-app: #f5f7fa;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-selected: #e6edff;
+  
+  --accent-primary: #0057ff;
+  --accent-secondary: #0044cc;
+  --accent-glow: rgba(0, 87, 255, 0.15);
+  
+  --text-main: #0f1923;
+  --text-muted: #6b7d91;
+  --text-dark: #ffffff;
+  
+  --color-border: #dde3ea;
+  --color-border-focus: #0057ff;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-teal: 0 0 16px rgba(0, 87, 255, 0.2);
+}
+
 /* Reset and Base Styles */
 * {
   box-sizing: border-box;
@@ -92,6 +114,7 @@ body {
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
   z-index: 100;
+  color: var(--text-main);
 }
 
 .header-brand {
@@ -198,7 +221,8 @@ body {
   display: flex;
   padding: 12px 20px;
   gap: 8px;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .mode-btn {
@@ -251,8 +275,8 @@ body {
 
 .device-card {
   background-color: var(--bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 6px;
   padding: 12px;
   cursor: pointer;
   display: flex;
@@ -744,29 +768,71 @@ input[type="text"]:focus, select:focus {
   100% { opacity: 0.6; }
 }
 
+/* Chip Utilities */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 6px;
+  font-family: var(--font-mono);
+}
+
+.chip-blue {
+  background-color: rgba(0, 87, 255, 0.1);
+  color: #0057ff;
+}
+
+.chip-green {
+  background-color: rgba(0, 212, 170, 0.1);
+  color: #00d4aa;
+}
+
+.chip-gray {
+  background-color: rgba(107, 125, 145, 0.1);
+  color: #6b7d91;
+}
+
+.device-health-row {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+}
+
 /* Partition List & Items Nested Under Device Cards */
 .partition-list {
   margin-top: 8px;
-  padding-left: 12px;
-  border-left: 1px dashed var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   width: 100%;
+  background-color: var(--bg-surface);
 }
 
 .partition-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 11px;
   color: var(--text-muted);
-  padding: 2px 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.partition-item:last-child {
+  border-bottom: none;
 }
 
 .partition-icon {
-  color: var(--accent-primary);
-  opacity: 0.7;
+  color: var(--text-muted);
 }
 
 .partition-name {
@@ -781,13 +847,14 @@ input[type="text"]:focus, select:focus {
 .partition-type {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--accent-primary);
+  color: var(--text-muted);
 }
 
 .partition-size {
   font-family: var(--font-mono);
-  margin-left: auto;
+  font-weight: 600;
   font-size: 10px;
+  color: var(--text-main);
 }
 
 /* Tab Navigation Styles */

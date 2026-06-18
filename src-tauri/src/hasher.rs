@@ -40,10 +40,10 @@ impl HasherInner {
     }
     fn finalize(self) -> String {
         match self {
-            HasherInner::MD5(h)    => hex::encode(h.finalize()),
-            HasherInner::SHA1(h)   => hex::encode(h.finalize()),
-            HasherInner::SHA256(h) => hex::encode(h.finalize()),
-            HasherInner::SHA512(h) => hex::encode(h.finalize()),
+            HasherInner::MD5(h)    => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
+            HasherInner::SHA1(h)   => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
+            HasherInner::SHA256(h) => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
+            HasherInner::SHA512(h) => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
         }
     }
 }
@@ -83,5 +83,5 @@ pub fn generate_report_seal(report_content: &str, case_number: &str) -> String {
     hasher.update(report_content.as_bytes());
     hasher.update(case_number.as_bytes());
     hasher.update(b"FORGELENS-SECURE-FORENSIC-SIGNING-SALT-2026");
-    hex::encode(hasher.finalize())
+    hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
 }

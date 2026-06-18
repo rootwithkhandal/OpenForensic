@@ -41,36 +41,7 @@ pub struct AcquisitionResult {
     pub hashes: HashMap<HashAlgorithm, String>,
 }
 
-pub struct AlignedBuffer {
-    ptr: *mut u8,
-    layout: std::alloc::Layout,
-    size: usize,
-}
 
-unsafe impl Send for AlignedBuffer {}
-unsafe impl Sync for AlignedBuffer {}
-
-impl AlignedBuffer {
-    pub fn new(size: usize, align: usize) -> Self {
-        let layout = std::alloc::Layout::from_size_align(size, align).unwrap();
-        let ptr = unsafe { std::alloc::alloc(layout) };
-        Self { ptr, layout, size }
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
-    }
-
-    pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
-    }
-}
-
-impl Drop for AlignedBuffer {
-    fn drop(&mut self) {
-        unsafe { std::alloc::dealloc(self.ptr, self.layout) };
-    }
-}
 
 pub async fn acquire(
     source: &mut RawDevice,
@@ -119,10 +90,10 @@ pub async fn acquire(
             block_size
         };
 
-        // Get aligned sub-slice for active read block
-        let mut active_slice = AlignedBuffer::new(current_block_size, 512);
+        // ponytail: using standard vec instead of manual alignment
+        let mut active_slice = vec![0u8; current_block_size];
 
-        match source.read_block(active_slice.as_mut_slice()) {
+        match source.read_block(&mut active_slice) {
             Ok(bytes) => {
                 n = bytes;
                 read_success = true;
@@ -143,7 +114,7 @@ pub async fn acquire(
             
             // Keyword scanning
             if !config.keywords.is_empty() {
-                let block_data = &active_slice.as_slice()[..n];
+                let block_data = &active_slice[..n];
                 for kw in &config.keywords {
                     if let Some(pos) = search_bytes(block_data, kw.as_bytes()) {
                         let hit_offset = bytes_read + pos as u64;
@@ -157,15 +128,15 @@ pub async fn acquire(
                 }
             }
 
-            hashers.update(&active_slice.as_slice()[..n]);
-            dest.write_all(&active_slice.as_slice()[..n])?;
+            hashers.update(&active_slice[..n]);
+            dest.write_all(&active_slice[..n])?;
 
             if config.read_verification {
                 if config.compression == crate::output::CompressionFormat::None {
                     dest.flush()?;
                     let current_path = dest.current_part_path();
                     let offset = dest.bytes_written_part() - (n as u64);
-                    let expected_bytes = &active_slice.as_slice()[..n];
+                    let expected_bytes = &active_slice[..n];
                     
                     let mut file = std::fs::File::open(&current_path)?;
                     use std::io::{Read, Seek, SeekFrom};
@@ -235,7 +206,7 @@ pub async fn compute_pre_hash(
     let mut hashers = MultiHasher::new(hash_algorithms);
     let mut bytes_hashed: u64 = 0;
     let block_size = 1024 * 1024; // 1 MB blocks for fast hashing
-    let mut buf = AlignedBuffer::new(block_size, 512);
+    let mut buf = vec![0u8; block_size];
     
     let start_time = Instant::now();
     let mut last_progress_time = Instant::now();
@@ -256,10 +227,10 @@ pub async fn compute_pre_hash(
             block_size
         };
         
-        match source_dev.read_block(&mut buf.as_mut_slice()[..current_block]) {
+        match source_dev.read_block(&mut buf[..current_block]) {
             Ok(0) => break,
             Ok(n) => {
-                hashers.update(&buf.as_slice()[..n]);
+                hashers.update(&buf[..n]);
                 bytes_hashed += n as u64;
             }
             Err(_) => {

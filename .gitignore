@@ -50,3 +50,4 @@ triage_*/
 src-tauri/target/
 src-tauri/*.key
 src-tauri/*.pub
+.obsidian

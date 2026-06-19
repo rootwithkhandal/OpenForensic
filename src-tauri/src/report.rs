@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::error::Result;
 use crate::hasher::HashAlgorithm;
 
+#[derive(serde::Serialize)]
 pub struct ReportData {
     pub case_number: String,
     pub examiner: String,
@@ -255,30 +256,9 @@ pub fn generate_html_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
 }
 
 pub fn generate_json_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result<()> {
-    let mut file = File::create(path)?;
-    let mut hash_map = HashMap::new();
-    for (k, v) in &data.hashes {
-        hash_map.insert(k.to_string(), v.clone());
-    }
-    let data_json = serde_json::json!({
-        "case_number": data.case_number,
-        "examiner": data.examiner,
-        "evidence_id": data.evidence_id,
-        "notes": data.notes,
-        "imaging_mode": data.imaging_mode,
-        "format": data.format,
-        "source_device": data.source_device,
-        "source_size": data.source_size,
-        "source_model": data.source_model,
-        "source_serial": data.source_serial,
-        "dest_file": data.dest_file,
-        "start_time": to_ist_rfc2822(&data.start_time),
-        "end_time": to_ist_rfc2822(&data.end_time),
-        "bad_sectors": data.bad_sectors,
-        "hashes": hash_map
-    });
-    let content = serde_json::to_string_pretty(&data_json)?;
-    file.write_all(content.as_bytes())?;
+    // ponytail: derive Serialize is strictly better than manually mapping fields.
+    let file = File::create(path)?;
+    serde_json::to_writer_pretty(file, data)?;
     Ok(())
 }
 

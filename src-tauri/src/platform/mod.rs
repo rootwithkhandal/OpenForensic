@@ -32,6 +32,7 @@ pub trait DeviceBackend {
 // Struct to represent a Raw Device handle
 pub struct RawDevice {
     pub size: u64,
+    pub path: String,
     
     #[cfg(target_os = "windows")]
     pub handle: ::windows::Win32::Foundation::HANDLE,

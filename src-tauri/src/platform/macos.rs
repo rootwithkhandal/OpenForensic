@@ -63,6 +63,7 @@ impl DeviceBackend for MacosBackend {
 
         Ok(RawDevice {
             size,
+            path: path.to_string(),
             file,
         })
     }

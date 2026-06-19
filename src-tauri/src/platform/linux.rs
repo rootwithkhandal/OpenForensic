@@ -126,6 +126,7 @@ impl DeviceBackend for LinuxBackend {
 
         Ok(RawDevice {
             size,
+            path: path.to_string(),
             file,
         })
     }

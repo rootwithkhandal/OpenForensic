@@ -191,13 +191,88 @@ impl DeviceBackend for WindowsBackend {
 
         Ok(RawDevice {
             size,
+            path: path.to_string(),
             handle,
         })
     }
 
-    fn enforce_write_block(_device: &mut RawDevice) -> Result<()> {
-        // In Windows, opening the raw physical drive handle with GENERIC_READ only
-        // and FILE_SHARE_READ/FILE_SHARE_WRITE acts as a software write-block.
+    fn enforce_write_block(device: &mut RawDevice) -> Result<()> {
+        use windows::Win32::Foundation::GENERIC_WRITE;
+        let path_w: Vec<u16> = std::ffi::OsStr::new(&device.path)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        // We must open the drive with GENERIC_WRITE to set disk attributes
+        let handle = unsafe {
+            CreateFileW(
+                PCWSTR(path_w.as_ptr()),
+                GENERIC_READ.0 | GENERIC_WRITE.0,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                None,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                None,
+            )
+        };
+
+        if handle.is_err() {
+            return Err(ForgelensError::Backend(format!(
+                "Failed to open device {} for write-blocking: {}",
+                device.path,
+                std::io::Error::last_os_error()
+            )));
+        }
+        let handle = handle.unwrap();
+
+        const IOCTL_DISK_SET_DISK_ATTRIBUTES: u32 = 0x7C0F4;
+        const DISK_ATTRIBUTE_READ_ONLY: u64 = 0x0000000000000002;
+
+        #[repr(C)]
+        struct SET_DISK_ATTRIBUTES {
+            version: u32,
+            persist: u8,
+            reserved1: [u8; 3],
+            attributes: u64,
+            attributes_mask: u64,
+            reserved2: [u32; 4],
+        }
+
+        let mut attrs = SET_DISK_ATTRIBUTES {
+            version: std::mem::size_of::<SET_DISK_ATTRIBUTES>() as u32,
+            persist: 1, // persist the read-only attribute
+            reserved1: [0; 3],
+            attributes: DISK_ATTRIBUTE_READ_ONLY,
+            attributes_mask: DISK_ATTRIBUTE_READ_ONLY,
+            reserved2: [0; 4],
+        };
+
+        let mut bytes_returned = 0u32;
+        let res = unsafe {
+            DeviceIoControl(
+                handle,
+                IOCTL_DISK_SET_DISK_ATTRIBUTES,
+                Some(&mut attrs as *mut _ as *mut _),
+                std::mem::size_of::<SET_DISK_ATTRIBUTES>() as u32,
+                None,
+                0,
+                Some(&mut bytes_returned),
+                None,
+            )
+        };
+
+        unsafe {
+            let _ = windows::Win32::Foundation::CloseHandle(handle);
+        }
+
+        if res.is_err() {
+            return Err(ForgelensError::Backend(format!(
+                "Failed to set disk {} to Read-Only: {}",
+                device.path,
+                std::io::Error::last_os_error()
+            )));
+        }
+
         Ok(())
     }
 

@@ -31,54 +31,14 @@ pub struct MemoryDumpResult {
 /// Find the memory dumping tool on the system.
 #[cfg(target_os = "windows")]
 fn find_memory_tool(custom_path: &Option<String>) -> Option<PathBuf> {
-    // 1. Check custom path
     if let Some(ref path) = custom_path {
         let p = PathBuf::from(path);
         if p.exists() {
             return Some(p);
         }
     }
-
-    // 2. Check common locations
-    let candidates = [
-        "winpmem_mini_x64.exe",
-        "winpmem.exe",
-        "winpmem_mini_x86.exe",
-    ];
-
-    // Check adjacent to the executable
-    if let Ok(exe_dir) = std::env::current_exe() {
-        if let Some(dir) = exe_dir.parent() {
-            for name in &candidates {
-                let path = dir.join(name);
-                if path.exists() {
-                    return Some(path);
-                }
-            }
-            // Also check a "tools" subdirectory
-            for name in &candidates {
-                let path = dir.join("tools").join(name);
-                if path.exists() {
-                    return Some(path);
-                }
-            }
-        }
-    }
-
-    // 3. Check PATH
-    for name in &candidates {
-        if let Ok(output) = std::process::Command::new("where").arg(name).output() {
-            if output.status.success() {
-                let path_str = String::from_utf8_lossy(&output.stdout);
-                let first_line = path_str.lines().next().unwrap_or("").trim();
-                if !first_line.is_empty() {
-                    return Some(PathBuf::from(first_line));
-                }
-            }
-        }
-    }
-
-    None
+    // ponytail: let Command::new search PATH for us.
+    Some(PathBuf::from("winpmem_mini_x64.exe"))
 }
 
 #[cfg(target_os = "linux")]

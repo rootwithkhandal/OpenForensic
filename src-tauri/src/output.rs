@@ -154,15 +154,10 @@ impl OutputWriter {
             "SMART" => "=== SMART FORENSIC IMAGE HEADER (SMART) ===",
             _       => return Ok(()),
         };
+        let header = format!("{}\nCase Number: {}\nExaminer:    {}\nEvidence ID: {}\nNotes:       {}\nAcquisition: {} Staged Archive\n=======================================================\n", title, case, examiner, evidence_id, notes, format);
         let w = self.current_writer.as_write();
-        writeln!(w, "{}", title)?;
-        writeln!(w, "Case Number: {}", case)?;
-        writeln!(w, "Examiner:    {}", examiner)?;
-        writeln!(w, "Evidence ID: {}", evidence_id)?;
-        writeln!(w, "Notes:       {}", notes)?;
-        writeln!(w, "Acquisition: {} Staged Archive", format)?;
-        writeln!(w, "=======================================================")?;
-        self.bytes_written_part += 256;
+        w.write_all(header.as_bytes())?;
+        self.bytes_written_part += header.len() as u64;
         Ok(())
     }
 

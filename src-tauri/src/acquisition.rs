@@ -71,6 +71,11 @@ pub async fn acquire(
     let mut last_progress_time = Instant::now();
     let mut last_bytes_read = 0u64;
 
+    // allocate a slightly larger vector to guarantee 4096-byte alignment
+    let mut raw_buf = vec![0u8; block_size + 4096];
+    let ptr = raw_buf.as_ptr() as usize;
+    let align_offset = (4096 - (ptr % 4096)) % 4096;
+
     loop {
         if bytes_read >= total_size {
             break;
@@ -90,10 +95,9 @@ pub async fn acquire(
             block_size
         };
 
-        // ponytail: using standard vec instead of manual alignment
-        let mut active_slice = vec![0u8; current_block_size];
+        let active_slice = &mut raw_buf[align_offset .. align_offset + current_block_size];
 
-        match source.read_block(&mut active_slice) {
+        match source.read_block(active_slice) {
             Ok(bytes) => {
                 n = bytes;
                 read_success = true;
@@ -134,23 +138,25 @@ pub async fn acquire(
             if config.read_verification {
                 if config.compression == crate::output::CompressionFormat::None {
                     dest.flush()?;
-                    let current_path = dest.current_part_path();
-                    let offset = dest.bytes_written_part() - (n as u64);
-                    let expected_bytes = &active_slice[..n];
-                    
-                    let mut file = std::fs::File::open(&current_path)?;
-                    use std::io::{Read, Seek, SeekFrom};
-                    file.seek(SeekFrom::Start(offset))?;
-                    let mut read_buf = vec![0u8; n];
-                    file.read_exact(&mut read_buf)?;
-                    
-                    if read_buf != expected_bytes {
-                        let msg = format!("[ERROR] Read verification failed at offset {} of {}", offset, current_path.display());
-                        let _ = progress_tx.send(ProgressEvent::Log(msg.clone())).await;
-                        return Err(crate::error::ForgelensError::Io(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "Written data mismatch on verification read-back",
-                        )));
+                    if dest.bytes_written_part() >= (n as u64) {
+                        let current_path = dest.current_part_path();
+                        let offset = dest.bytes_written_part() - (n as u64);
+                        let expected_bytes = &active_slice[..n];
+                        
+                        let mut file = std::fs::File::open(&current_path)?;
+                        use std::io::{Read, Seek, SeekFrom};
+                        file.seek(SeekFrom::Start(offset))?;
+                        let mut read_buf = vec![0u8; n];
+                        file.read_exact(&mut read_buf)?;
+                        
+                        if read_buf != expected_bytes {
+                            let msg = format!("[ERROR] Read verification failed at offset {} of {}", offset, current_path.display());
+                            let _ = progress_tx.send(ProgressEvent::Log(msg.clone())).await;
+                            return Err(crate::error::ForgelensError::Io(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "Written data mismatch on verification read-back",
+                            )));
+                        }
                     }
                 }
             }
@@ -206,7 +212,9 @@ pub async fn compute_pre_hash(
     let mut hashers = MultiHasher::new(hash_algorithms);
     let mut bytes_hashed: u64 = 0;
     let block_size = 1024 * 1024; // 1 MB blocks for fast hashing
-    let mut buf = vec![0u8; block_size];
+    let mut raw_buf = vec![0u8; block_size + 4096];
+    let ptr = raw_buf.as_ptr() as usize;
+    let align_offset = (4096 - (ptr % 4096)) % 4096;
     
     let start_time = Instant::now();
     let mut last_progress_time = Instant::now();
@@ -227,10 +235,11 @@ pub async fn compute_pre_hash(
             block_size
         };
         
-        match source_dev.read_block(&mut buf[..current_block]) {
+        let active_slice = &mut raw_buf[align_offset .. align_offset + current_block];
+        match source_dev.read_block(active_slice) {
             Ok(0) => break,
             Ok(n) => {
-                hashers.update(&buf[..n]);
+                hashers.update(&active_slice[..n]);
                 bytes_hashed += n as u64;
             }
             Err(_) => {

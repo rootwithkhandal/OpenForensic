@@ -623,6 +623,8 @@ pub fn generate_html_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
             </div>
         </div>
 
+        {{LIVE_ACQUISITION_HTML}}
+
         <div class="hash-section">
             <div class="hash-header" id="hash-toggle">
                 <h3>Hash Verification</h3>
@@ -677,6 +679,43 @@ pub fn generate_html_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
 </body>
 </html>"#;
 
+        let live_acq_html = if data.vss_snapshot_id.is_some() || data.ram_dump_path.is_some() || !data.locked_files_copied.is_empty() {
+            let mut html = String::from(r#"<div class="card" style="grid-column: 1 / -1; margin-bottom: 32px;">
+                <h3>Live Acquisition Details</h3>
+                <div class="grid" style="margin-bottom: 0;">"#);
+
+            if let Some(ref vss_id) = data.vss_snapshot_id {
+                html.push_str(&format!(r#"
+                <div class="card" style="box-shadow: none; border-color: var(--border);">
+                    <h4 style="margin-top: 0; color: var(--text-muted); font-size: 12px;">VSS SNAPSHOT</h4>
+                    <div class="field"><div class="label">SHADOW COPY ID</div><div class="value data-mono">{}</div></div>
+                </div>"#, vss_id));
+            }
+
+            if let Some(ref ram_path) = data.ram_dump_path {
+                let size_str = if let Some(s) = data.ram_dump_size { format!("{} bytes", s) } else { "Unknown".to_string() };
+                html.push_str(&format!(r#"
+                <div class="card" style="box-shadow: none; border-color: var(--border);">
+                    <h4 style="margin-top: 0; color: var(--text-muted); font-size: 12px;">RAM ACQUISITION</h4>
+                    <div class="field"><div class="label">DUMP PATH</div><div class="value data-mono">{}</div></div>
+                    <div class="field"><div class="label">SIZE</div><div class="value">{}</div></div>
+                </div>"#, ram_path, size_str));
+            }
+
+            if !data.locked_files_copied.is_empty() {
+                html.push_str(&format!(r#"
+                <div class="card" style="box-shadow: none; border-color: var(--border);">
+                    <h4 style="margin-top: 0; color: var(--text-muted); font-size: 12px;">LOCKED FILES COPIED</h4>
+                    <div class="field"><div class="label">FILES</div><div class="value" style="font-size: 12px;">{}</div></div>
+                </div>"#, data.locked_files_copied.join("<br>")));
+            }
+
+            html.push_str("</div></div>");
+            html
+        } else {
+            String::new()
+        };
+
     let html_content = template
         .replace("{{CASE_NUMBER}}", &data.case_number)
         .replace("{{IMAGING_MODE}}", &data.imaging_mode)
@@ -699,7 +738,8 @@ pub fn generate_html_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
         .replace("{{DEST_FILE}}", &data.dest_file)
         .replace("{{START_TIME}}", &to_ist_rfc2822(&data.start_time))
         .replace("{{END_TIME}}", &to_ist_rfc2822(&data.end_time))
-        .replace("{{HASHES_HTML}}", &hashes_html);
+        .replace("{{HASHES_HTML}}", &hashes_html)
+        .replace("{{LIVE_ACQUISITION_HTML}}", &live_acq_html);
 
     file.write_all(html_content.as_bytes())?;
     Ok(())

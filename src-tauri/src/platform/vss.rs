@@ -35,30 +35,41 @@ impl VssSnapshot {
         };
 
         // Use wmic shadowcopy call create to work on both Server and Client editions
-        let output = Command::new("wmic")
+        let wmic_output = Command::new("wmic")
             .args(["shadowcopy", "call", "create", &format!("Volume='{}'", vol)])
-            .output()
-            .map_err(|e| ForgelensError::VssError(format!("Failed to execute wmic: {}", e)))?;
+            .output();
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            return Err(ForgelensError::VssError(format!(
-                "wmic shadow copy creation failed (exit code {:?}):\nstdout: {}\nstderr: {}",
-                output.status.code(),
-                stdout.trim(),
-                stderr.trim()
-            )));
+        let mut shadow_id = None;
+
+        match wmic_output {
+            Ok(out) if out.status.success() => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                shadow_id = Self::parse_shadow_id_from_wmic(&stdout);
+            }
+            _ => {
+                // Fallback to PowerShell using CIM (wmic is deprecated in Win 11 24H2+)
+                let ps_cmd = format!("(Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{{Volume='{}'}}).ShadowID", vol);
+                let ps_out = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &ps_cmd])
+                    .output()
+                    .map_err(|e| ForgelensError::VssError(format!("Failed to execute PowerShell VSS fallback: {}", e)))?;
+
+                if ps_out.status.success() {
+                    let stdout = String::from_utf8_lossy(&ps_out.stdout);
+                    let id = stdout.trim();
+                    if !id.is_empty() {
+                        shadow_id = Some(id.to_string());
+                    }
+                } else {
+                    let stderr = String::from_utf8_lossy(&ps_out.stderr);
+                    return Err(ForgelensError::VssError(format!("WMI and PowerShell VSS creation failed. PowerShell error: {}", stderr.trim())));
+                }
+            }
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        // Parse the ShadowID from wmic output — it contains a line like:
-        //   ShadowID = "{GUID}";
-        let shadow_id = Self::parse_shadow_id_from_wmic(&stdout)
-            .ok_or_else(|| ForgelensError::VssError(
-                format!("Could not parse ShadowID from wmic output:\n{}", stdout)
-            ))?;
+        let shadow_id = shadow_id.ok_or_else(|| ForgelensError::VssError(
+            "Could not parse ShadowID from VSS creation output".to_string()
+        ))?;
 
         // Query the device path for this shadow copy
         let device_path = Self::query_device_path(&shadow_id)?;
@@ -137,21 +148,39 @@ impl VssSnapshot {
         // Try querying via wmic for exact device object
         let wmic_out = Command::new("wmic")
             .args(["shadowcopy", "get", "DeviceObject,ID", "/format:list"])
-            .output()
-            .map_err(|e| ForgelensError::VssError(format!("Failed to query shadow copy details: {}", e)))?;
+            .output();
 
-        let wmic_stdout = String::from_utf8_lossy(&wmic_out.stdout);
-        let mut current_device = String::new();
-        for line in wmic_stdout.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("DeviceObject=") {
-                current_device = trimmed.strip_prefix("DeviceObject=").unwrap_or("").to_string();
-            }
-            if trimmed.starts_with("ID=") {
-                let id = trimmed.strip_prefix("ID=").unwrap_or("").trim();
-                if id == shadow_id && !current_device.is_empty() {
-                    return Ok(current_device);
+        if let Ok(out) = wmic_out {
+            if out.status.success() {
+                let wmic_stdout = String::from_utf8_lossy(&out.stdout);
+                let mut current_device = String::new();
+                for line in wmic_stdout.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("DeviceObject=") {
+                        current_device = trimmed.strip_prefix("DeviceObject=").unwrap_or("").to_string();
+                    }
+                    if trimmed.starts_with("ID=") {
+                        let id = trimmed.strip_prefix("ID=").unwrap_or("").trim();
+                        if id == shadow_id && !current_device.is_empty() {
+                            return Ok(current_device);
+                        }
+                    }
                 }
+            }
+        }
+
+        // Final fallback to PowerShell
+        let ps_cmd = format!("(Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object {{ $_.ID -eq '{}' }}).DeviceObject", shadow_id);
+        let ps_out = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_cmd])
+            .output()
+            .map_err(|e| ForgelensError::VssError(format!("Failed to run PowerShell Get-CimInstance: {}", e)))?;
+            
+        if ps_out.status.success() {
+            let stdout = String::from_utf8_lossy(&ps_out.stdout);
+            let device_object = stdout.trim();
+            if !device_object.is_empty() {
+                return Ok(device_object.to_string());
             }
         }
 

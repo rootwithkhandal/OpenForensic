@@ -247,14 +247,23 @@ pub async fn acquire_memory(
         ))?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        return Err(ForgelensError::Backend(format!(
-            "Memory acquisition tool '{}' failed:\nstdout: {}\nstderr: {}",
-            tool_name,
-            stdout.trim(),
-            stderr.trim()
-        )));
+        // WinPmem often exits with a non-zero code if it hits read errors (e.g. unreadable PTEs),
+        // but the dump is still valid. We check if the destination file exists and has data.
+        let dump_size = std::fs::metadata(dest_path).map(|m| m.len()).unwrap_or(0);
+        if dump_size > 0 {
+            let _ = progress_tx.send(ProgressEvent::Log(
+                format!("[MEMORY] WARNING: Tool exited with non-zero status, but memory dump was created ({} bytes). Proceeding.", dump_size)
+            )).await;
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return Err(ForgelensError::Backend(format!(
+                "Memory acquisition tool '{}' failed:\nstdout: {}\nstderr: {}",
+                tool_name,
+                stdout.trim(),
+                stderr.trim()
+            )));
+        }
     }
 
     // Log tool output

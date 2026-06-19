@@ -253,6 +253,7 @@ const elements = {
   
   consoleLogs: document.getElementById('console-logs'),
   btnClearLog: document.getElementById('btn-clear-log'),
+  btnExportLog: document.getElementById('btn-export-log'),
   
   monitorIdle: document.getElementById('monitor-idle'),
   monitorActive: document.getElementById('monitor-active'),
@@ -428,6 +429,25 @@ function setupEventListeners() {
   // Clear log console
   elements.btnClearLog.addEventListener('click', () => {
     elements.consoleLogs.innerHTML = '';
+  });
+
+  // Export log console
+  elements.btnExportLog.addEventListener('click', () => {
+    const logs = Array.from(elements.consoleLogs.children).map(c => c.textContent).join('\n');
+    if (!logs) {
+      alert('The console log is empty.');
+      return;
+    }
+    const blob = new Blob([logs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `forgelens_console_log_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    logMessage('SYSTEM', 'Console log exported successfully.');
   });
 
   // Start Acquisition

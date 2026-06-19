@@ -51,7 +51,16 @@ pub async fn acquire(
     checkpoint_path: &std::path::Path,
     start_offset: u64,
 ) -> Result<AcquisitionResult> {
-    let mut hashers = MultiHasher::new(&config.hash_algorithms);
+    let hash_algorithms = config.hash_algorithms.clone();
+    let (hash_tx, mut hash_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(4);
+    
+    let hashing_task = tokio::task::spawn_blocking(move || {
+        let mut hashers = MultiHasher::new(&hash_algorithms);
+        while let Some(chunk) = hash_rx.blocking_recv() {
+            hashers.update(&chunk);
+        }
+        hashers.finalize()
+    });
     let mut bytes_read: u64 = start_offset;
     let mut bad_sectors: u64 = 0;
     let block_size = config.block_size;
@@ -106,6 +115,10 @@ pub async fn acquire(
                 bad_sectors += 1;
                 // ponytail: always zero-fill bad sectors; Skip/Retry removed as unused.
                 let _ = source.seek_forward(current_block_size as u64);
+                let zeros = vec![0u8; current_block_size];
+                if let Err(_) = hash_tx.send(zeros).await {
+                    return Err(crate::error::ForgelensError::Backend("Hashing task died unexpectedly".to_string()));
+                }
                 dest.write_zeros(current_block_size)?;
                 bytes_read += current_block_size as u64;
             }
@@ -132,7 +145,11 @@ pub async fn acquire(
                 }
             }
 
-            hashers.update(&active_slice[..n]);
+            let chunk = active_slice[..n].to_vec();
+            if let Err(_) = hash_tx.send(chunk).await {
+                return Err(crate::error::ForgelensError::Backend("Hashing task died unexpectedly".to_string()));
+            }
+
             dest.write_all(&active_slice[..n])?;
 
             if config.read_verification {
@@ -190,8 +207,12 @@ pub async fn acquire(
     }
 
     dest.flush()?;
+    drop(hash_tx); // close the channel to signal the hashing task to finish
 
-    let final_hashes = hashers.finalize();
+    let final_hashes = hashing_task.await.map_err(|e| {
+        crate::error::ForgelensError::Backend(format!("Hashing task panic: {}", e))
+    })?;
+
     let result = AcquisitionResult {
         bytes_read,
         bad_sectors,

@@ -81,6 +81,12 @@ Because accessing raw disks and physical memory are highly privileged operations
 
 ---
 
+## 📚 Documentation & Guides
+
+*   [**ForgeLens Hash System Guide**](hashes_guides.md): Learn how our 3-stage hashing architecture works and why container hashes (like AFF) behave differently from raw evidence hashes.
+
+---
+
 ## 🛠️ Building from Source
 
 ### Prerequisites

@@ -476,7 +476,6 @@ function setupEventListeners() {
   document.getElementById('btn-tab-imaging').addEventListener('click', () => switchTab('imaging'));
   document.getElementById('btn-tab-triage').addEventListener('click', () => switchTab('triage'));
   document.getElementById('btn-tab-live').addEventListener('click', () => switchTab('live'));
-  document.getElementById('btn-tab-manager').addEventListener('click', () => switchTab('manager'));
 
   // Triage Destination folder browse
   document.getElementById('btn-browse-triage-dest').addEventListener('click', async () => {
@@ -603,58 +602,6 @@ function setupEventListeners() {
     }
   });
 
-  // Image Manager buttons
-  document.getElementById('btn-browse-mount-src').addEventListener('click', async () => {
-    try {
-      const file = await invoke('browse_file', { ext: 'dd' });
-      if (file) {
-        document.getElementById('mount-source-path').value = file;
-        logMessage('SYSTEM', 'Selected image file: ' + file);
-      }
-    } catch (e) {
-      logMessage('ERROR', 'Failed to browse file: ' + e);
-    }
-  });
-
-  document.getElementById('btn-browse-mount-point').addEventListener('click', async () => {
-    try {
-      const folder = await invoke('browse_folder');
-      if (folder) {
-        document.getElementById('mount-point-path').value = folder;
-        logMessage('SYSTEM', 'Selected mount point: ' + folder);
-      }
-    } catch (e) {
-      logMessage('ERROR', 'Failed to browse folder: ' + e);
-    }
-  });
-
-  document.getElementById('btn-verify-image').addEventListener('click', async () => {
-    const src = document.getElementById('mount-source-path').value;
-    if (!src) {
-      alert('Please select an image file to verify.');
-      return;
-    }
-    logMessage('SYSTEM', 'Starting integrity hash verification for image: ' + src);
-    logMessage('ACQUISITION', 'Reading evidence image blocks...');
-    await new Promise(r => setTimeout(r, 1000));
-    logMessage('SYSTEM', 'Integrity verified! Hash matching confirmed.');
-    alert('Evidence image integrity verified successfully!');
-  });
-
-  document.getElementById('btn-mount-image').addEventListener('click', async () => {
-    const src = document.getElementById('mount-source-path').value;
-    const dest = document.getElementById('mount-point-path').value;
-    if (!src || !dest) {
-      alert('Please select both the image file and mount point directory.');
-      return;
-    }
-    logMessage('SYSTEM', `Mounting ${src} to ${dest} read-only...`);
-    await new Promise(r => setTimeout(r, 800));
-    logMessage('SYSTEM', `Successfully mounted image to ${dest}. Write blocking active.`);
-    document.getElementById('mount-status-box').classList.remove('hidden');
-    alert(`Forensic image mounted read-only at ${dest}!`);
-  });
-
   // Listen to Tauri Backend events
   listen('acquisition-event', (event) => {
     handleBackendEvent(event.payload);
@@ -683,10 +630,6 @@ function switchTab(tabName) {
     if (volSelect.options.length <= 1) {
       document.getElementById('btn-refresh-volumes').click();
     }
-  } else if (tabName === 'manager') {
-    document.getElementById('btn-tab-manager').classList.add('active');
-    document.getElementById('tab-manager-content').classList.remove('hidden');
-    document.getElementById('sidebar-panel').classList.add('hidden');
   }
 }
 

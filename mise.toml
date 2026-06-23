@@ -6,5 +6,7 @@ description = "Build the forensic imager in release mode"
 run = "cargo build --release"
 
 [tasks.run]
-description = "Run the forensic imager in release mode"
-run = "cargo run --release"
+description = "Run the forensic imager in release mode (Prompts for Admin)"
+depends = ["build"]
+run = "powershell -Command \"Start-Process -FilePath '.\\target\\release\\forgelens-disk-imager.exe' -Verb RunAs\""
+

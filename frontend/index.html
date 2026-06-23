@@ -33,7 +33,6 @@
       <button class="tab-btn active" id="btn-tab-imaging" data-tab="imaging">📂 Disk Imaging</button>
       <button class="tab-btn" id="btn-tab-triage" data-tab="triage">⚡ System Triage</button>
       <button class="tab-btn" id="btn-tab-live" data-tab="live">🔴 Live Acquisition</button>
-      <button class="tab-btn" id="btn-tab-manager" data-tab="manager">📦 Image Manager</button>
     </div>
 
     <!-- MAIN DASHBOARD CONTENT -->
@@ -390,50 +389,6 @@
         </form>
       </div>
     </div>
-
-    <!-- ========================================== -->
-    <!-- IMAGE MANAGER TAB                          -->
-    <!-- ========================================== -->
-    <div class="tab-content" id="tab-manager-content">
-        <div id="tab-manager-content" class="tab-panel hidden">
-          <div class="panel-header">
-            <h2>📦 Forensic Image Manager</h2>
-          </div>
-          <div class="scroll-area">
-            <div class="config-form">
-              <div class="form-grid">
-
-                <div class="form-group full-width">
-                  <label for="mount-source-path">Select Forensic Image File:</label>
-                  <div class="input-browse-group">
-                    <input type="text" id="mount-source-path" placeholder="Select image file (.dd, .e01, .aff)..." readonly>
-                    <button type="button" id="btn-browse-mount-src" class="btn btn-secondary">Browse...</button>
-                  </div>
-                </div>
-
-                <div class="form-group full-width">
-                  <label for="mount-point-path">Mount Point (Folder):</label>
-                  <div class="input-browse-group">
-                    <input type="text" id="mount-point-path" placeholder="Select mount directory..." readonly>
-                    <button type="button" id="btn-browse-mount-point" class="btn btn-secondary">Browse...</button>
-                  </div>
-                </div>
-
-                <div class="form-group full-width" style="margin-top: 16px;">
-                  <div class="action-buttons" style="display: flex; gap: 16px;">
-                    <button type="button" id="btn-verify-image" class="btn btn-secondary" style="width: 220px;">🛡 Verify Hash Integrity</button>
-                    <button type="button" id="btn-mount-image" class="btn btn-primary" style="width: 220px;">🔌 Mount Read-Only</button>
-                  </div>
-                </div>
-
-                <div id="mount-status-box" class="help-text full-width hidden" style="grid-column: 1 / -1; border-left-color: var(--accent-primary);">
-                  Image mounted successfully in read-only write-blocked mode. You can safely explore the filesystem in your explorer.
-                </div>
-
-              </div>
-            </div>
-          </div>
-        </div>
 
       </main>
     </div>

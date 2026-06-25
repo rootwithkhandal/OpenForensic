@@ -28,7 +28,8 @@ Forgelens is a professional, cross-platform forensic disk imaging and system tri
     *   *Note: macOS memory capture is disabled by default due to System Integrity Protection (SIP).*
 *   **Rapid System Triage**: Captures live diagnostic data (running processes, network sockets, loaded modules), copies live configs (Registry hives on Windows, `/etc` files on Unix), grabs browser history (Chrome/Edge), and extracts event logs (EVTX/syslog).
 *   **Forensic Hash Verification**: Computes multi-algorithm digital fingerprints (MD5, SHA-1, SHA-256, SHA-512) simultaneously in a single pass to prove that the copy is a perfect match of the original.
-*   **Real-Time Keyword & IOC Pre-Scanning**: Searches for specific strings or Indicators of Compromise (IOCs) on-the-fly during acquisition.
+*   **Real-Time Keyword & YARA Scanning**: Searches for specific strings or Indicators of Compromise (IOCs) on-the-fly during acquisition. Supports dropping in `.yar` rulesets for full pattern matching via a pure-Rust `yara-x` engine.
+*   **Forensic Case Management System**: Automatically tracks all acquisitions in a secure local SQLite database. Generates court-admissible HTML reports mapping evidence tags, chain of custody hashes, and examiner notes to each case.
 *   **Sparse Imaging & Compression**: Optimizes storage space by skipping sectors containing all zeroes and supports advanced compression formats (zstd, gzip).
 *   **Advanced Filesystem & Encryption Detector**: Identifies partition formats (APFS, HFS+, ext2/3/4, XFS, Btrfs, ReFS) and encryption wrappers (BitLocker, LUKS, FileVault) automatically.
 *   **Modern User Interface**: A premium, responsive dashboard showing progress, speed, and real-time logs in dedicated panels.

@@ -221,6 +221,16 @@
                   <input type="text" id="input-keywords" placeholder="e.g., password, admin, key, secret">
                 </div>
 
+                <!-- YARA Rule Engine Integration -->
+                <div class="form-group">
+                  <label for="input-yara-path">YARA Rules Folder (Optional):</label>
+                  <div class="input-browse-group">
+                    <input type="text" id="input-yara-path" placeholder="Select folder containing .yar rules..." readonly>
+                    <button type="button" id="btn-browse-yara" class="btn btn-secondary">Browse...</button>
+                  </div>
+                  <p class="help-text">Drop .yar rulesets into a folder. Rules are compiled and applied in real-time during acquisition.</p>
+                </div>
+
                 <!-- Sparse & Signing Options -->
                 <div class="form-group checkbox-wrapper" style="flex-direction: row; gap: 20px; align-items: center; margin-top: 24px;">
                   <label class="checkbox-label">

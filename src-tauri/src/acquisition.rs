@@ -33,6 +33,7 @@ pub struct AcquisitionConfig {
     pub format: String,
     pub read_verification: bool,
     pub keywords: Vec<String>,
+    pub yara_rules_path: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -43,6 +44,7 @@ pub enum ProgressEvent {
     Error(String),
     Log(String),
     KeywordHit { keyword: String, offset: u64 },
+    YaraHit { rule_name: String, offset: u64, tags: Vec<String> },
 }
 
 #[derive(Debug, Clone)]
@@ -92,6 +94,37 @@ pub async fn acquire(
             }
         }
     });
+
+    let mut yara_tx_opt = None;
+    let mut yara_task = None;
+    if let Some(ref rules_path) = config.yara_rules_path {
+        let rules_dir = std::path::Path::new(rules_path);
+        match crate::yara_scanner::load_rules_from_dir(rules_dir) {
+            Ok(rules) => {
+                let _ = progress_tx.blocking_send(ProgressEvent::Log("[YARA] Rules compiled successfully. Starting scanner...".to_string()));
+                let (y_tx, mut y_rx) = tokio::sync::mpsc::channel::<(u64, std::sync::Arc<Vec<u8>>)>(4);
+                yara_tx_opt = Some(y_tx);
+                let yara_progress_tx = progress_tx.clone();
+                yara_task = Some(tokio::task::spawn_blocking(move || {
+                    while let Some((offset_base, chunk)) = y_rx.blocking_recv() {
+                        let hits = crate::yara_scanner::scan_chunk(&rules, &chunk, offset_base);
+                        for hit in hits {
+                            let msg = format!("[YARA MATCH] Rule '{}' matched at offset {}", hit.rule_name, hit.offset);
+                            let _ = yara_progress_tx.blocking_send(ProgressEvent::Log(msg));
+                            let _ = yara_progress_tx.blocking_send(ProgressEvent::YaraHit {
+                                rule_name: hit.rule_name,
+                                offset: hit.offset,
+                                tags: hit.tags,
+                            });
+                        }
+                    }
+                }));
+            }
+            Err(e) => {
+                let _ = progress_tx.blocking_send(ProgressEvent::Log(format!("[YARA WARNING] Failed to load rules: {}", e)));
+            }
+        }
+    }
 
     let read_verification = config.read_verification;
     let compression = config.compression;
@@ -251,6 +284,12 @@ pub async fn acquire(
                     return Err(crate::error::ForgelensError::Backend("Keyword scanning task died unexpectedly".to_string()));
                 }
             }
+            
+            if let Some(ref y_tx) = yara_tx_opt {
+                if let Err(_) = y_tx.send((bytes_read, chunk.clone())).await {
+                    return Err(crate::error::ForgelensError::Backend("YARA scanning task died unexpectedly".to_string()));
+                }
+            }
 
             if let Err(_) = hash_tx.send(chunk.clone()).await {
                 return Err(crate::error::ForgelensError::Backend("Hashing task died unexpectedly".to_string()));
@@ -290,6 +329,7 @@ pub async fn acquire(
     drop(hash_tx); // close the channel to signal the hashing task to finish
     drop(write_tx); // close the channel to signal the writing task to finish
     drop(kw_tx); // close the keyword task channel
+    drop(yara_tx_opt); // close YARA task channel
 
     let final_hashes = hashing_task.await.map_err(|e| {
         crate::error::ForgelensError::Backend(format!("Hashing task panic: {}", e))
@@ -300,6 +340,9 @@ pub async fn acquire(
     })??;
 
     let _ = kw_task.await;
+    if let Some(t) = yara_task {
+        let _ = t.await;
+    }
 
     let result = AcquisitionResult {
         bytes_read,

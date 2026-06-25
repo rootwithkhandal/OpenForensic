@@ -243,6 +243,8 @@ const elements = {
   inputSplitSize: document.getElementById('input-split-size'),
   checkReadVerification: document.getElementById('check-read-verification'),
   inputKeywords: document.getElementById('input-keywords'),
+  inputYaraPath: document.getElementById('input-yara-path'),
+  btnBrowseYara: document.getElementById('btn-browse-yara'),
   checkSparse: document.getElementById('check-sparse'),
   checkDigitalSignature: document.getElementById('check-digital-signature'),
   
@@ -392,6 +394,18 @@ function setupEventListeners() {
       }
     } catch (e) {
       logMessage('ERROR', 'Failed to save file dialog: ' + e);
+    }
+  });
+
+  // YARA Rules folder browse
+  elements.btnBrowseYara.addEventListener('click', async () => {
+    try {
+      const folder = await invoke('browse_yara_folder');
+      if (folder) {
+        elements.inputYaraPath.value = folder;
+      }
+    } catch (e) {
+      logMessage('ERROR', 'Failed to browse for YARA folder: ' + e);
     }
   });
 
@@ -833,6 +847,7 @@ async function handleStartAcquisition(isResume) {
     split_size_mb,
     read_verification,
     keywords: elements.inputKeywords.value ? elements.inputKeywords.value.split(',').map(s => s.trim()).filter(s => s.length > 0) : [],
+    yara_rules_path: elements.inputYaraPath.value || null,
     sparse: elements.checkSparse.checked,
     digital_signature: elements.checkDigitalSignature.checked
   };
@@ -881,6 +896,7 @@ function toggleFormInputs(disabled) {
     elements.hashMd5, elements.hashSha1, elements.hashSha256, elements.hashSha512,
     elements.btnBrowseSource, elements.btnBrowseDest,
     elements.inputKeywords, elements.checkSparse, elements.checkDigitalSignature,
+    elements.inputYaraPath, elements.btnBrowseYara,
     document.getElementById('btn-browse-triage-dest'),
     document.getElementById('btn-start-triage'),
     document.getElementById('btn-browse-mount-src'),
@@ -948,6 +964,11 @@ function handleBackendEvent(event) {
     alert('Acquisition Job Completed and Verified!');
     state.activeJob = false;
     toggleUIJobActive(false);
+  } else if (type === 'KeywordHit') {
+    logMessage('WARNING', `[KEYWORD HIT] Found '${data.keyword}' at offset ${data.offset}`);
+  } else if (type === 'YaraHit') {
+    const tags = data.tags.length > 0 ? ` [${data.tags.join(', ')}]` : '';
+    logMessage('WARNING', `[YARA HIT] Rule '${data.rule_name}'${tags} matched at offset ${data.offset}`);
   } else if (type === 'Error') {
     logMessage('ERROR', 'Critical backend error: ' + data);
     alert('Forensic Acquisition Error:\n' + data);

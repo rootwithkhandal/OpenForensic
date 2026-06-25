@@ -12,6 +12,7 @@ mod memory;
 mod locked_files;
 mod consistency;
 mod case_management;
+mod yara_scanner;
 
 use platform::{ActiveBackend, DeviceBackend, DeviceInfo};
 use acquisition::{AcquisitionConfig, ProgressEvent};
@@ -45,6 +46,7 @@ struct StartConfig {
     keywords: Vec<String>,
     sparse: bool,
     digital_signature: bool,
+    yara_rules_path: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -85,6 +87,13 @@ async fn scan_devices() -> Result<Vec<DeviceInfo>, String> {
 
 #[tauri::command]
 fn browse_folder() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_folder()
+        .map(|path| path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn browse_yara_folder() -> Option<String> {
     rfd::FileDialog::new()
         .pick_folder()
         .map(|path| path.to_string_lossy().to_string())
@@ -238,6 +247,7 @@ async fn start_acquisition(
             format: config_input.format_mode.clone(),
             read_verification: config_input.read_verification,
             keywords: config_input.keywords.clone(),
+            yara_rules_path: config_input.yara_rules_path.clone(),
         };
 
         let source_path = config_input.source_path.clone();
@@ -860,6 +870,7 @@ async fn start_live_acquisition(
                             format: "Raw / DD (.dd)".to_string(),
                             read_verification: false,
                             keywords: Vec::new(),
+                            yara_rules_path: None,
                         };
 
                         match crate::output::OutputWriter::new(
@@ -1036,7 +1047,8 @@ fn main() {
             start_live_acquisition,
             crate::case_management::get_cases,
             crate::case_management::get_case_details,
-            crate::case_management::export_case_report
+            crate::case_management::export_case_report,
+            browse_yara_folder
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

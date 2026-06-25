@@ -662,6 +662,15 @@ pub async fn acquire_triage(
     let dest_dir = PathBuf::from(dest_dir_str);
     fs::create_dir_all(&dest_dir)?;
 
+    let db_path = dest_dir.join("triage.db");
+    let triage_db = match crate::triage_db::init_triage_db(&db_path) {
+        Ok(db) => Some(db),
+        Err(e) => {
+            let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Failed to init SQLite DB: {}", e))).await;
+            None
+        }
+    };
+
     let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting live forensic triage collection...".to_string())).await;
 
     // 1. Collect Volatile States (Processes, Connections, Modules)
@@ -669,19 +678,45 @@ pub async fn acquire_triage(
         let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Gathering live volatile system state...".to_string())).await;
         
         // Save Processes
-        let process_file = dest_dir.join("processes.txt");
-        if cfg!(target_os = "windows") {
-            let _ = run_command_to_file("tasklist", &[], &process_file, &progress_tx).await;
-        } else {
-            let _ = run_command_to_file("ps", &["ax"], &process_file, &progress_tx).await;
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting running processes...".to_string())).await;
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        if let Some(ref db) = triage_db {
+            for (pid, process) in sys.processes() {
+                let name = process.name();
+                let exec_path = process.exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+                let cmd = process.cmd().join(" ");
+                let mem = process.memory();
+                let _ = db.execute(
+                    "INSERT INTO processes (pid, name, executable_path, command_line, memory_usage) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    rusqlite::params![pid.as_u32(), name, exec_path, cmd, mem as i64],
+                );
+            }
         }
 
         // Save Network Sockets
-        let network_file = dest_dir.join("network_connections.txt");
-        if cfg!(target_os = "windows") {
-            let _ = run_command_to_file("netstat", &["-ano"], &network_file, &progress_tx).await;
-        } else {
-            let _ = run_command_to_file("netstat", &["-an"], &network_file, &progress_tx).await;
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting network connections...".to_string())).await;
+        if let Some(ref db) = triage_db {
+            let cmd = if cfg!(target_os = "windows") { "netstat" } else { "netstat" };
+            let args = if cfg!(target_os = "windows") { &["-ano"] } else { &["-an"] };
+            if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
+                let text = String::from_utf8_lossy(&output.stdout);
+                for line in text.lines().skip(4) {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 4 {
+                        let proto = parts[0];
+                        let local = parts[1];
+                        let foreign = parts[2];
+                        let state = if parts.len() > 4 { parts[3] } else { "" };
+                        let pid_str = if parts.len() > 4 { parts[4] } else { parts[3] };
+                        let pid: u32 = pid_str.parse().unwrap_or(0);
+                        let _ = db.execute(
+                            "INSERT INTO network_connections (protocol, local_address, foreign_address, state, pid) VALUES (?1, ?2, ?3, ?4, ?5)",
+                            rusqlite::params![proto, local, foreign, state, pid],
+                        );
+                    }
+                }
+            }
         }
 
         // Save Loaded Modules
@@ -740,6 +775,8 @@ pub async fn acquire_triage(
             }
         }
 
+        let mut copied_dbs = Vec::new();
+
         if cfg!(target_os = "windows") {
             let base = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
             let entries = [
@@ -747,8 +784,9 @@ pub async fn acquire_triage(
                 (base.join("Microsoft/Edge/User Data/Default/History"),  browser_dir.join("edge_history"),  "Edge"),
             ];
             for (src, dst, label) in entries {
-                if let Some(msg) = copy_if_exists(src, dst, label) {
+                if let Some(msg) = copy_if_exists(src, dst.clone(), label) {
                     let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
+                    copied_dbs.push((dst, label.to_string()));
                 }
             }
         } else {
@@ -759,8 +797,37 @@ pub async fn acquire_triage(
                 ".config/google-chrome/Default/History"
             };
             let label = if cfg!(target_os = "macos") { "macOS Chrome" } else { "Linux Chrome" };
-            if let Some(msg) = copy_if_exists(home.join(chrome_rel), browser_dir.join("chrome_history"), label) {
+            let dst = browser_dir.join("chrome_history");
+            if let Some(msg) = copy_if_exists(home.join(chrome_rel), dst.clone(), label) {
                 let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
+                copied_dbs.push((dst, label.to_string()));
+            }
+        }
+
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Parsing browser history into SQLite...".to_string())).await;
+        if let Some(ref db) = triage_db {
+            for (db_file, browser) in copied_dbs {
+                if let Ok(hist_db) = rusqlite::Connection::open(&db_file) {
+                    if let Ok(mut stmt) = hist_db.prepare("SELECT url, title, visit_count, last_visit_time FROM urls") {
+                        let rows = stmt.query_map([], |row| {
+                            Ok((
+                                row.get::<_, String>(0)?,
+                                row.get::<_, String>(1)?,
+                                row.get::<_, i32>(2)?,
+                                row.get::<_, i64>(3)?,
+                            ))
+                        });
+                        if let Ok(iter) = rows {
+                            for row in iter.flatten() {
+                                let (url, title, count, time) = row;
+                                let _ = db.execute(
+                                    "INSERT INTO browser_history (browser_name, url, title, visit_time, visit_count) VALUES (?1, ?2, ?3, ?4, ?5)",
+                                    rusqlite::params![browser, url, title, time.to_string(), count],
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -774,6 +841,29 @@ pub async fn acquire_triage(
         if cfg!(target_os = "windows") {
             let _ = run_command_to_file("wevtutil", &["epl", "System", &logs_dir.join("System.evtx").to_string_lossy()], &logs_dir.join("system_logs_export_log.txt"), &progress_tx).await;
             let _ = run_command_to_file("wevtutil", &["epl", "Security", &logs_dir.join("Security.evtx").to_string_lossy()], &logs_dir.join("security_logs_export_log.txt"), &progress_tx).await;
+            
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Parsing Event Logs into Triage Database...".to_string())).await;
+            if let Some(ref db) = triage_db {
+                let script = "Get-WinEvent -LogName System -MaxEvents 500 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, ProviderName, Message | ConvertTo-Json -Compress";
+                if let Ok(output) = std::process::Command::new("powershell").args(&["-Command", script]).output() {
+                    let json_str = String::from_utf8_lossy(&output.stdout);
+                    if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                        if let Some(arr) = json_arr.as_array() {
+                            for ev in arr {
+                                let id = ev.get("Id").and_then(|v| v.as_i64()).unwrap_or(0);
+                                let provider = ev.get("ProviderName").and_then(|v| v.as_str()).unwrap_or("");
+                                let msg = ev.get("Message").and_then(|v| v.as_str()).unwrap_or("");
+                                let time = ev.get("TimeCreated").and_then(|t| t.get("value")).and_then(|v| v.as_str()).unwrap_or(ev.get("TimeCreated").and_then(|v| v.as_str()).unwrap_or(""));
+                                
+                                let _ = db.execute(
+                                    "INSERT INTO event_logs (log_name, event_id, source, time_created, message) VALUES (?1, ?2, ?3, ?4, ?5)",
+                                    rusqlite::params!["System", id, provider, time, msg],
+                                );
+                            }
+                        }
+                    }
+                }
+            }
         } else {
             let log_sources = [
                 "/var/log/syslog",

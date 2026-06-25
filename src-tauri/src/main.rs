@@ -14,6 +14,7 @@ mod consistency;
 mod case_management;
 mod yara_scanner;
 mod pdf_report;
+mod triage_db;
 
 use platform::{ActiveBackend, DeviceBackend, DeviceInfo};
 use acquisition::{AcquisitionConfig, ProgressEvent};
@@ -628,6 +629,42 @@ async fn start_triage(
 }
 
 #[tauri::command]
+async fn query_triage_db(db_path: String, table_name: String) -> Result<String, String> {
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    
+    let valid_tables = ["processes", "network_connections", "browser_history", "event_logs"];
+    if !valid_tables.contains(&table_name.as_str()) {
+        return Err("Invalid table name".to_string());
+    }
+
+    let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table_name)).map_err(|e| e.to_string())?;
+    let column_count = stmt.column_count();
+    let column_names: Vec<String> = stmt.column_names().into_iter().map(|s| s.to_string()).collect();
+
+    let rows = stmt.query_map([], |row| {
+        let mut map = serde_json::Map::new();
+        for i in 0..column_count {
+            let val = match row.get_ref(i).unwrap() {
+                rusqlite::types::ValueRef::Null => serde_json::Value::Null,
+                rusqlite::types::ValueRef::Integer(i) => serde_json::json!(i),
+                rusqlite::types::ValueRef::Real(f) => serde_json::json!(f),
+                rusqlite::types::ValueRef::Text(t) => serde_json::json!(String::from_utf8_lossy(t)),
+                rusqlite::types::ValueRef::Blob(b) => serde_json::json!(format!("<blob {} bytes>", b.len())),
+            };
+            map.insert(column_names[i].clone(), val);
+        }
+        Ok(serde_json::Value::Object(map))
+    }).map_err(|e| e.to_string())?;
+
+    let mut results = Vec::new();
+    for result in rows {
+        results.push(result.map_err(|e| e.to_string())?);
+    }
+
+    Ok(serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string()))
+}
+
+#[tauri::command]
 async fn list_volumes() -> Result<Vec<VolumeInfo>, String> {
     let mut volumes = Vec::new();
 
@@ -1063,7 +1100,8 @@ fn main() {
             crate::case_management::get_cases,
             crate::case_management::get_case_details,
             crate::case_management::export_case_report,
-            browse_yara_folder
+            browse_yara_folder,
+            query_triage_db
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

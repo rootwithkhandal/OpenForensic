@@ -270,7 +270,15 @@ const elements = {
   txtStatBad: document.getElementById('txt-stat-bad'),
   txtStatPercent: document.getElementById('txt-stat-percent'),
   progressBarFill: document.getElementById('progress-bar-fill'),
-  txtBytesProgress: document.getElementById('txt-bytes-progress')
+  txtBytesProgress: document.getElementById('txt-bytes-progress'),
+
+  // Triage Workbench
+  triageDbPath: document.getElementById('triage-db-path'),
+  btnBrowseTriageDb: document.getElementById('btn-browse-triage-db'),
+  triageTableSelect: document.getElementById('triage-table-select'),
+  btnLoadTriageTable: document.getElementById('btn-load-triage-table'),
+  triageTableHead: document.getElementById('triage-table-head'),
+  triageTableBody: document.getElementById('triage-table-body')
 };
 
 // Initialize Application
@@ -507,6 +515,43 @@ function setupEventListeners() {
     }
   });
 
+  // Triage Workbench Handlers
+  if (elements.btnBrowseTriageDb) {
+    elements.btnBrowseTriageDb.addEventListener('click', async () => {
+      try {
+        const file = await invoke('browse_file', { ext: 'db' });
+        if (file) {
+          elements.triageDbPath.value = file;
+          logMessage('SYSTEM', 'Loaded Triage DB: ' + file);
+        }
+      } catch (e) {
+        logMessage('ERROR', 'Failed to browse for Triage DB: ' + e);
+      }
+    });
+  }
+
+  if (elements.btnLoadTriageTable) {
+    elements.btnLoadTriageTable.addEventListener('click', async () => {
+      const dbPath = elements.triageDbPath.value;
+      if (!dbPath) {
+        alert("Please select a triage.db file first.");
+        return;
+      }
+      const table = elements.triageTableSelect.value;
+      elements.triageTableBody.innerHTML = '<tr><td style="padding: 12px; color: var(--text-muted);">Querying database...</td></tr>';
+      
+      try {
+        const resultJson = await invoke('query_triage_db', { dbPath, tableName: table });
+        const data = JSON.parse(resultJson);
+        renderTriageTable(data);
+        logMessage('SYSTEM', `Loaded ${data.length} records from ${table}.`);
+      } catch (e) {
+        elements.triageTableBody.innerHTML = `<tr><td style="padding: 12px; color: #ff5555;">Error: ${e}</td></tr>`;
+        logMessage('ERROR', 'Triage query failed: ' + e);
+      }
+    });
+  }
+
   // Triage Start button click
   document.getElementById('btn-start-triage').addEventListener('click', async (e) => {
     e.preventDefault();
@@ -533,6 +578,11 @@ function setupEventListeners() {
         collectBrowsers: collect_browsers,
         collectEventlogs: collect_eventlogs
       });
+      
+      // Auto-load DB path for analysis workbench if it succeeds
+      if (elements.triageDbPath) {
+         elements.triageDbPath.value = destPath + "\\triage.db";
+      }
     } catch (err) {
       state.activeJob = false;
       toggleUIJobActive(false);
@@ -540,6 +590,38 @@ function setupEventListeners() {
       alert('Failed to start triage: ' + err);
     }
   });
+
+  // Triage Workbench Renderer
+  function renderTriageTable(data) {
+    if (!data || data.length === 0) {
+      elements.triageTableHead.innerHTML = '<th>No Data</th>';
+      elements.triageTableBody.innerHTML = '<tr><td style="padding: 12px; color: var(--text-muted);">No records found in this table.</td></tr>';
+      return;
+    }
+    
+    // Build Headers from first row keys
+    const keys = Object.keys(data[0]);
+    let theadHtml = '';
+    keys.forEach(key => {
+      theadHtml += `<th style="padding: 12px; font-weight: 600; text-transform: capitalize;">${key.replace(/_/g, ' ')}</th>`;
+    });
+    elements.triageTableHead.innerHTML = theadHtml;
+    
+    // Build Rows
+    let tbodyHtml = '';
+    data.forEach(row => {
+      tbodyHtml += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">';
+      keys.forEach(key => {
+        let val = row[key];
+        if (val === null || val === undefined) val = '';
+        // Truncate very long texts
+        if (typeof val === 'string' && val.length > 200) val = val.substring(0, 200) + '...';
+        tbodyHtml += `<td style="padding: 10px 12px; word-break: break-word;">${val}</td>`;
+      });
+      tbodyHtml += '</tr>';
+    });
+    elements.triageTableBody.innerHTML = tbodyHtml;
+  }
 
   // Live Acquisition Buttons
   document.getElementById('btn-refresh-volumes').addEventListener('click', async () => {

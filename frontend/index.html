@@ -297,6 +297,42 @@
 
               </div>
             </form>
+
+            <hr style="margin: 30px 0; border: 0; border-top: 1px solid var(--color-border);" />
+
+            <div class="panel-header">
+              <h2>🔍 Triage Analysis Workbench</h2>
+            </div>
+            
+            <div class="workbench-controls" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
+              <div class="input-browse-group" style="flex: 1;">
+                <input type="text" id="triage-db-path" placeholder="Select triage.db file to analyze..." readonly style="width: 100%;">
+                <button type="button" id="btn-browse-triage-db" class="btn btn-secondary">Browse...</button>
+              </div>
+              <select id="triage-table-select" style="padding: 10px; background: var(--bg-deep); border: 1px solid var(--color-border); color: var(--text-main); border-radius: 6px; min-width: 200px;">
+                <option value="processes">Running Processes</option>
+                <option value="network_connections">Network Connections</option>
+                <option value="browser_history">Browser History</option>
+                <option value="event_logs">System Event Logs</option>
+              </select>
+              <button type="button" id="btn-load-triage-table" class="btn btn-primary">Query Data</button>
+            </div>
+
+            <div class="table-responsive" style="overflow-x: auto; background: var(--bg-deep); border: 1px solid var(--color-border); border-radius: 6px; min-height: 300px; max-height: 500px; overflow-y: auto;">
+              <table id="triage-data-table" class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; background: var(--bg-surface); box-shadow: 0 1px 0 var(--color-border);">
+                  <tr id="triage-table-head">
+                    <th style="padding: 12px;">No Data Loaded</th>
+                  </tr>
+                </thead>
+                <tbody id="triage-table-body">
+                  <tr>
+                    <td style="padding: 12px; color: var(--text-muted);">Please select a triage.db file and click Query Data.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
           </div>
         </div>
 

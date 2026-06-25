@@ -33,6 +33,7 @@
       <button class="tab-btn active" id="btn-tab-imaging" data-tab="imaging">📂 Disk Imaging</button>
       <button class="tab-btn" id="btn-tab-triage" data-tab="triage">⚡ System Triage</button>
       <button class="tab-btn" id="btn-tab-live" data-tab="live">🔴 Live Acquisition</button>
+      <button class="tab-btn" id="btn-tab-cases" data-tab="cases">📁 Case Management</button>
     </div>
 
     <!-- MAIN DASHBOARD CONTENT -->
@@ -386,9 +387,22 @@
             </div>
 
           </div>
-        </form>
-      </div>
-    </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- TAB 4: CASE MANAGEMENT -->
+        <div id="tab-cases-content" class="tab-panel hidden">
+          <div class="panel-header">
+            <h2>📁 Case Management</h2>
+            <button id="btn-refresh-cases" class="btn btn-secondary btn-sm" title="Refresh Cases">↻ Refresh</button>
+          </div>
+          <div class="scroll-area">
+            <div id="cases-list" class="cases-container">
+              <div class="info-message">Loading cases...</div>
+            </div>
+          </div>
+        </div>
 
       </main>
     </div>

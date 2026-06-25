@@ -468,7 +468,7 @@ function setupEventListeners() {
       logMessage('SYSTEM', 'Cancelling active acquisition job...');
       await invoke('cancel_acquisition');
     } catch (e) {
-      logMessage('ERROR', 'Failed to send cancel: ' + e);
+      logMessage('ERROR', 'Event system setup failed: ' + e);
     }
   });
 
@@ -476,6 +476,9 @@ function setupEventListeners() {
   document.getElementById('btn-tab-imaging').addEventListener('click', () => switchTab('imaging'));
   document.getElementById('btn-tab-triage').addEventListener('click', () => switchTab('triage'));
   document.getElementById('btn-tab-live').addEventListener('click', () => switchTab('live'));
+  document.getElementById('btn-tab-cases').addEventListener('click', () => { switchTab('cases'); loadCases(); });
+
+  document.getElementById('btn-refresh-cases').addEventListener('click', loadCases);
 
   // Triage Destination folder browse
   document.getElementById('btn-browse-triage-dest').addEventListener('click', async () => {
@@ -630,6 +633,10 @@ function switchTab(tabName) {
     if (volSelect.options.length <= 1) {
       document.getElementById('btn-refresh-volumes').click();
     }
+  } else if (tabName === 'cases') {
+    document.getElementById('btn-tab-cases').classList.add('active');
+    document.getElementById('tab-cases-content').classList.remove('hidden');
+    document.getElementById('sidebar-panel').classList.add('hidden');
   }
 }
 
@@ -987,3 +994,48 @@ function formatDuration(secs) {
 
 // Boot UI
 document.addEventListener('DOMContentLoaded', init);
+
+// Case Management Functions
+async function loadCases() {
+  const container = document.getElementById('cases-list');
+  container.innerHTML = '<div class="info-message">Loading cases...</div>';
+  try {
+    const cases = await invoke('get_cases');
+    if (cases.length === 0) {
+      container.innerHTML = '<div class="info-message">No cases found in the database.</div>';
+      return;
+    }
+    
+    let html = '<table style="width: 100%; border-collapse: collapse; color: var(--text-main);">';
+    html += '<tr style="border-bottom: 1px solid var(--color-border);"><th style="text-align: left; padding: 8px;">Case Number</th><th style="text-align: left; padding: 8px;">Examiner</th><th style="text-align: left; padding: 8px;">Created At</th><th style="text-align: right; padding: 8px;">Actions</th></tr>';
+    
+    for (const c of cases) {
+      html += `<tr style="border-bottom: 1px solid var(--color-bg);">
+        <td style="padding: 8px; font-family: 'JetBrains Mono', monospace;">${c.case_number}</td>
+        <td style="padding: 8px;">${c.examiner_name}</td>
+        <td style="padding: 8px;">${c.created_at}</td>
+        <td style="padding: 8px; text-align: right;">
+          <button class="btn btn-secondary btn-sm" onclick="exportCaseReport(${c.id}, '${c.case_number}')">Export Report</button>
+        </td>
+      </tr>`;
+    }
+    html += '</table>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="info-message" style="color: red;">Failed to load cases: ${e}</div>`;
+  }
+}
+
+async function exportCaseReport(caseId, caseNumber) {
+  try {
+    const file = await invoke('browse_file', { ext: 'html' });
+    if (file) {
+      logMessage('SYSTEM', `Exporting report for case ${caseNumber} to ${file}...`);
+      await invoke('export_case_report', { caseId: caseId, exportPath: file });
+      logMessage('SYSTEM', `Report for case ${caseNumber} exported successfully.`);
+    }
+  } catch (e) {
+    logMessage('ERROR', `Failed to export report for case ${caseNumber}: ` + e);
+    alert('Failed to export report: ' + e);
+  }
+}

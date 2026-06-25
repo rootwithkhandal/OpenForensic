@@ -11,6 +11,7 @@ mod platform;
 mod memory;
 mod locked_files;
 mod consistency;
+mod case_management;
 
 use platform::{ActiveBackend, DeviceBackend, DeviceInfo};
 use acquisition::{AcquisitionConfig, ProgressEvent};
@@ -319,6 +320,20 @@ async fn start_acquisition(
                     let _ = crate::report::generate_txt_report(report_path, &report_data);
                     log("[SYSTEM] Logical report generated successfully.".to_string()).await;
                     
+                    let hash_log = format!("Pre: {:?}\nPost: {:?}", report_data.pre_hashes, report_data.post_hashes);
+                    let _ = crate::case_management::log_acquisition_to_db(
+                        &app_handle,
+                        &config.case_number,
+                        &config.examiner,
+                        &config.notes,
+                        &config.evidence_id,
+                        &source_path,
+                        &dest_file_path.display().to_string(),
+                        &config.format,
+                        &hash_log,
+                        "Completed",
+                    );
+
                     let _ = tx.send(ProgressEvent::Finished {
                         bytes_read: result.bytes_read,
                         bad_sectors: 0,
@@ -503,6 +518,20 @@ async fn start_acquisition(
                     if checkpoint_path.exists() {
                         let _ = std::fs::remove_file(checkpoint_path);
                     }
+
+                    let hash_log = format!("Pre: {:?}\nPost: {:?}", report_data.pre_hashes, report_data.post_hashes);
+                    let _ = crate::case_management::log_acquisition_to_db(
+                        &app_handle,
+                        &config.case_number,
+                        &config.examiner,
+                        &config.notes,
+                        &config.evidence_id,
+                        &source_path,
+                        &dest_file_path.display().to_string(),
+                        &config.format,
+                        &hash_log,
+                        "Completed",
+                    );
 
                     let _ = tx.send(ProgressEvent::Finished {
                         bytes_read: result.bytes_read,
@@ -1004,8 +1033,15 @@ fn main() {
             cancel_acquisition,
             start_triage,
             list_volumes,
-            start_live_acquisition
+            start_live_acquisition,
+            crate::case_management::get_cases,
+            crate::case_management::get_case_details,
+            crate::case_management::export_case_report
         ])
+        .setup(|app| {
+            let _ = crate::case_management::init_db(app.handle());
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

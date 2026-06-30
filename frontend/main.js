@@ -278,7 +278,14 @@ const elements = {
   triageTableSelect: document.getElementById('triage-table-select'),
   btnLoadTriageTable: document.getElementById('btn-load-triage-table'),
   triageTableHead: document.getElementById('triage-table-head'),
-  triageTableBody: document.getElementById('triage-table-body')
+  triageTableBody: document.getElementById('triage-table-body'),
+
+  // Timeline
+  timelineImagePath: document.getElementById('timeline-image-path'),
+  btnBrowseTimelineImage: document.getElementById('btn-browse-timeline-image'),
+  timelineDestPath: document.getElementById('timeline-dest-path'),
+  btnBrowseTimelineDest: document.getElementById('btn-browse-timeline-dest'),
+  btnStartTimeline: document.getElementById('btn-start-timeline')
 };
 
 // Initialize Application
@@ -701,6 +708,68 @@ function setupEventListeners() {
     }
   });
 
+  // Timeline Handlers
+  if (elements.btnBrowseTimelineImage) {
+    elements.btnBrowseTimelineImage.addEventListener('click', async () => {
+      try {
+        const file = await invoke('browse_file', { ext: 'dd' });
+        if (file) {
+          elements.timelineImagePath.value = file;
+          logMessage('SYSTEM', 'Selected image for timeline: ' + file);
+        }
+      } catch (e) {
+        logMessage('ERROR', 'Failed to browse image: ' + e);
+      }
+    });
+  }
+
+  if (elements.btnBrowseTimelineDest) {
+    elements.btnBrowseTimelineDest.addEventListener('click', async () => {
+      try {
+        const folder = await invoke('browse_folder');
+        if (folder) {
+          elements.timelineDestPath.value = folder;
+          logMessage('SYSTEM', 'Selected timeline destination: ' + folder);
+        }
+      } catch (e) {
+        logMessage('ERROR', 'Failed to browse folder: ' + e);
+      }
+    });
+  }
+
+  if (elements.btnStartTimeline) {
+    elements.btnStartTimeline.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const imagePath = elements.timelineImagePath.value;
+      const destPath = elements.timelineDestPath.value;
+      
+      if (!imagePath || !destPath) {
+        alert('Please select both an image file and a destination directory.');
+        return;
+      }
+      
+      try {
+        logMessage('SYSTEM', 'Starting timeline generation... This may take a while.');
+        elements.btnStartTimeline.disabled = true;
+        elements.btnStartTimeline.textContent = 'Generating...';
+        
+        const result = await invoke('generate_image_timeline', {
+          imagePath: imagePath,
+          outputDir: destPath
+        });
+        
+        logMessage('SYSTEM', result);
+        alert(result);
+      } catch (err) {
+        logMessage('ERROR', 'Failed to generate timeline: ' + err);
+        alert('Failed to generate timeline: ' + err);
+      } finally {
+        elements.btnStartTimeline.disabled = false;
+        elements.btnStartTimeline.textContent = '▶ Generate Timeline';
+      }
+    });
+  }
+
   // Listen to Tauri Backend events
   listen('acquisition-event', (event) => {
     handleBackendEvent(event.payload);
@@ -726,9 +795,13 @@ function switchTab(tabName) {
     document.getElementById('sidebar-panel').classList.add('hidden');
     // Auto-refresh volumes if empty
     const volSelect = document.getElementById('live-volume-select');
-    if (volSelect.options.length <= 1) {
+    if (volSelect && volSelect.options.length <= 1) {
       document.getElementById('btn-refresh-volumes').click();
     }
+  } else if (tabName === 'timeline') {
+    document.getElementById('btn-tab-timeline').classList.add('active');
+    document.getElementById('tab-timeline-content').classList.remove('hidden');
+    document.getElementById('sidebar-panel').classList.add('hidden');
   } else if (tabName === 'cases') {
     document.getElementById('btn-tab-cases').classList.add('active');
     document.getElementById('tab-cases-content').classList.remove('hidden');

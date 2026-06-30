@@ -11,10 +11,11 @@ mod platform;
 mod memory;
 mod locked_files;
 mod consistency;
-mod case_management;
+pub mod case_management;
 mod yara_scanner;
 mod pdf_report;
 mod triage_db;
+pub mod timeline;
 
 use platform::{ActiveBackend, DeviceBackend, DeviceInfo};
 use acquisition::{AcquisitionConfig, ProgressEvent};
@@ -120,6 +121,20 @@ fn browse_file(ext: String) -> Option<String> {
             }
             path_str
         })
+}
+
+#[tauri::command]
+async fn generate_image_timeline(image_path: String, output_dir: String) -> Result<String, String> {
+    let img_path = std::path::PathBuf::from(&image_path);
+    let out_dir = std::path::PathBuf::from(&output_dir);
+    
+    std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
+    
+    crate::timeline::generate_timeline(&img_path, &out_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+        
+    Ok(format!("Timeline generated successfully in {}", out_dir.display()))
 }
 
 #[tauri::command]
@@ -1101,7 +1116,8 @@ fn main() {
             crate::case_management::get_case_details,
             crate::case_management::export_case_report,
             browse_yara_folder,
-            query_triage_db
+            query_triage_db,
+            generate_image_timeline
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

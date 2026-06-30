@@ -33,6 +33,7 @@
       <button class="tab-btn active" id="btn-tab-imaging" data-tab="imaging">📂 Disk Imaging</button>
       <button class="tab-btn" id="btn-tab-triage" data-tab="triage">⚡ System Triage</button>
       <button class="tab-btn" id="btn-tab-live" data-tab="live">🔴 Live Acquisition</button>
+      <button class="tab-btn" id="btn-tab-timeline" data-tab="timeline">⏱️ Timeline</button>
       <button class="tab-btn" id="btn-tab-cases" data-tab="cases">📁 Case Management</button>
     </div>
 
@@ -447,6 +448,42 @@
             <div id="cases-list" class="cases-container">
               <div class="info-message">Loading cases...</div>
             </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: TIMELINE GENERATOR -->
+        <div id="tab-timeline-content" class="tab-panel hidden">
+          <div class="panel-header">
+            <h2>⏱️ Forensic Timeline Generator</h2>
+          </div>
+          <div class="scroll-area">
+            <form id="timeline-form" class="config-form">
+              <p class="help-text full-width" style="grid-column: 1 / -1; margin-bottom: 15px;">
+                Extract and parse MFT, $LogFile, and Ext4 journals from a raw acquired image (.dd) to produce a chronological master timeline. Outputs to CSV and JSON formats.
+              </p>
+              <div class="form-grid">
+                
+                <div class="form-group full-width">
+                  <label for="timeline-image-path">Source Acquired Image (.dd):</label>
+                  <div class="input-browse-group">
+                    <input type="text" id="timeline-image-path" placeholder="Select raw disk image..." required readonly style="flex: 1;">
+                    <button type="button" id="btn-browse-timeline-image" class="btn btn-secondary">Browse...</button>
+                  </div>
+                </div>
+
+                <div class="form-group full-width">
+                  <label for="timeline-dest-path">Timeline Output Directory:</label>
+                  <div class="input-browse-group">
+                    <input type="text" id="timeline-dest-path" placeholder="Directory to save timeline.csv and timeline.json..." required readonly style="flex: 1;">
+                    <button type="button" id="btn-browse-timeline-dest" class="btn btn-secondary">Browse...</button>
+                  </div>
+                </div>
+
+                <div class="form-group full-width" style="margin-top: 24px;">
+                  <button type="button" id="btn-start-timeline" class="btn btn-primary" style="width: 260px;">▶ Generate Timeline</button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
 

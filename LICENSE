@@ -1,0 +1,120 @@
+Copyright (c) 2026 Priyansh Khandal (rootwithkhandal). All Rights Reserved.
+
+OpenForensic — Disk Imager & Digital Forensics Suite
+
+PROPRIETARY SOFTWARE LICENSE
+
+1. GRANT OF LICENSE
+
+Subject to the terms of this License, the copyright holder grants any
+individual who obtains a copy of this software and associated
+documentation files (the "Software") a limited, non-exclusive,
+non-transferable, revocable license to:
+
+  (a) view and inspect the Software's source code for personal
+      evaluation, security research, and educational purposes; and
+
+  (b) compile and execute the Software for personal, non-commercial
+      digital forensics, incident response, and academic research
+      purposes, subject to Section 4 (Lawful Use) below.
+
+No other rights are granted, whether by implication, estoppel, or
+otherwise.
+
+2. RESTRICTIONS
+
+Except as expressly permitted under Section 1, you may NOT, without
+prior written permission from the copyright holder:
+
+  (a) copy, modify, merge, publish, distribute, sublicense, sell, rent,
+      lease, or otherwise transfer copies of the Software or any
+      derivative work based on it;
+
+  (b) use the Software, in whole or in part, as a component of a
+      commercial product or service, including SaaS offerings, managed
+      IR/DFIR services, or paid consulting deliverables;
+
+  (c) remove, obscure, or alter any copyright, trademark, or attribution
+      notices contained in the Software;
+
+  (d) reverse engineer, decompile, or disassemble any compiled binary
+      distribution of the Software, except to the extent such
+      restriction is prohibited by applicable law;
+
+  (e) represent the Software, or any derivative of it, as your own
+      original work.
+
+3. CONTRIBUTIONS
+
+Any contribution submitted to this repository (via pull request, patch,
+or otherwise) is, unless explicitly and separately agreed to in writing,
+assigned to the copyright holder and becomes subject to this License.
+Contributors retain no separate rights over their submissions beyond
+attribution at the copyright holder's discretion.
+
+4. LAWFUL USE
+
+This Software is developed strictly for lawful digital forensics
+investigations, incident response, data recovery, and academic research.
+The Software provides low-level access to physical storage devices and
+volatile system memory, including the ability to bypass standard
+operating system file locks and read raw block devices.
+
+You may only use this Software against systems, devices, or data that
+you own, or for which you have obtained explicit, documented legal
+authorization from the owner or a competent legal/judicial authority.
+
+Accessing raw physical disks, acquiring volatile system memory, or
+imaging computer media without such authorization may violate local,
+state, national, or international computer crime and privacy laws
+(including, without limitation, statutes analogous to the U.S. Computer
+Fraud and Abuse Act, the UK Computer Misuse Act, and India's Information
+Technology Act, 2000). You assume full legal responsibility for your use
+of this Software.
+
+5. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+THE COPYRIGHT HOLDER MAKES NO REPRESENTATION THAT USE OF THIS SOFTWARE
+WILL NOT INFRINGE THE RIGHTS OF THIRD PARTIES, OR THAT EVIDENCE ACQUIRED
+USING THIS SOFTWARE WILL BE ADMISSIBLE IN ANY PARTICULAR JURISDICTION OR
+PROCEEDING.
+
+6. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES,
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR
+THE USE OR OTHER DEALINGS IN THE SOFTWARE, INCLUDING WITHOUT LIMITATION
+ANY LOSS OF DATA, LOSS OF EVIDENTIARY INTEGRITY, OR LEGAL LIABILITY
+ARISING FROM UNAUTHORIZED USE.
+
+7. THIRD-PARTY COMPONENTS
+
+This Software bundles or depends upon third-party open-source components
+(including but not limited to Tauri, Tokio, YARA-X, sequoia-openpgp,
+wasmtime, winpmem, avml, and LiME), each of which remains governed by
+its own respective license. Nothing in this License restricts your
+rights under those third-party licenses with respect to those
+components themselves. See each component's upstream repository for its
+specific license terms.
+
+8. TERMINATION
+
+This License is automatically terminated if you breach any of its terms.
+Upon termination, you must cease all use of the Software and destroy all
+copies in your possession.
+
+9. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the
+laws applicable to the copyright holder's jurisdiction, without regard
+to conflict-of-law principles.
+
+---
+
+For licensing inquiries outside the scope of this document (commercial
+licensing, redistribution rights, or partnership use), contact the
+copyright holder directly.

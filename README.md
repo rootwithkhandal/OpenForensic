@@ -29,6 +29,9 @@
 | **🔑 PGP Cryptographic Manifests** | Built-in RFC 4880 OpenPGP engine supporting **RSA-4096** and **Ed25519** keypair generation, key inspection, and detached tamper-evident signature creation (`.sig` / `.manifest`). Re-hashes evidence images during verification to guarantee chain-of-custody integrity. |
 | **📁 Case Management & Reporting** | Integrated SQLite case database tracking evidence tags, investigator notes, device metadata, and cryptographic hashes. Generates court-admissible HTML and PDF forensic reports. |
 
+> [!NOTE]
+> **Architectural Separation of Capture vs. Analysis**: To keep the live acquisition footprint lightweight and prevent accidental evidence modification during field triage, post-acquisition analysis and live streaming features (**Triage SQL Workbench**, **Volatility 3 RAM Analysis**, **Threat-Intel Enrichment**, **SIEM & SOC Integration**, **Timeline Generation**, and **RAM Master-Key Extraction**) are hidden and disabled by default during live capture. For instructions on how to re-enable these features in an all-in-one build, see the **[Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md)**.
+
 ---
 
 ## 🏛️ Architecture & Asynchronous Pipeline
@@ -197,24 +200,26 @@ sudo ./target/release/openforensic
 
 2. **⚡ System Triage Tab**:
    - One-click execution of rapid system collection: running processes, network sockets, browser histories, and event logs.
-   - Open the built-in **Triage Workbench** to load acquired SQLite databases (such as Chrome History or triage output) and run custom SQL queries.
+   - *(Note: The interactive **Triage Workbench** is disabled by default during live capture; see the [Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md) to re-enable).*
 
 3. **🔴 Live Acquisition Tab**:
    - Acquire live system volume shadow copies without rebooting.
    - Check **Capture Physical Memory (RAM)** to dump volatile system memory using auto-detected or custom tools (`winpmem`, `avml`).
 
-4. **⏱️ Timeline Generator Tab**:
+4. **⏱️ Timeline Generator Tab** *(Disabled by Default)*:
    - Input any acquired raw disk image (`.dd`).
    - Specify output destination to generate a unified, chronological timeline (`timeline.csv` / `timeline.json`) of file system modifications and journal entries.
+   - *Moved to the post-acquisition Analysis Suite. See [Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md) to re-enable.*
 
 5. **📁 Case Management Tab**:
    - Create and manage forensic cases with investigator details and agency metadata.
    - Review historical acquisition jobs, verify stored SHA-256/SHA-512 hashes, and export self-contained HTML evidence reports.
 
-6. **🧠 RAM Analysis Tab**:
+6. **🧠 RAM Analysis Tab** *(Disabled by Default)*:
    - Select an acquired memory dump (`.raw`, `.vmem`, `.dmp`) and specify your Volatility 3 script/executable path.
    - Select an analysis profile (e.g., `windows.pslist.PsList`, `windows.netstat.NetStat`, `windows.malfind.Malfind`).
    - Enable **AbuseIPDB** and **VirusTotal** API enrichment to automatically flag malicious remote IP connections and suspicious process hashes in real time.
+   - *Moved to the post-acquisition Analysis Suite. See [Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md) to re-enable.*
 
 ---
 

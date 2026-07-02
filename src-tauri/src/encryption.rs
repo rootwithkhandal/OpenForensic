@@ -5,8 +5,7 @@
 use crate::error::{ForgelensError, Result};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
+use std::io::Read;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EncryptionType {
@@ -48,10 +47,6 @@ pub struct ExtractedKey {
     pub hex_key: String,
     pub offset: u64,
     pub details: String,
-}
-
-fn to_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Inspect header bytes of a block device or image file to detect volume encryption.
@@ -129,23 +124,23 @@ pub fn inspect_device_encryption(path: &str) -> Result<EncryptionReport> {
         ),
         EncryptionType::BitLocker => (
             "Windows BitLocker volume encryption detected (-FVE-FS- header present).".to_string(),
-            "RECOMMENDED: Extract VMK (Volume Master Key) from live RAM capture or Volatility 3 before imaging, or acquire logical files while live OS is unlocked.".to_string(),
+            "RECOMMENDED: Extract VMK (Volume Master Key) in the post-acquisition Analysis Suite, or acquire logical files while live OS is unlocked.".to_string(),
         ),
         EncryptionType::Luks1 | EncryptionType::Luks2 => (
             format!("Linux {} disk encryption detected.", enc_type),
-            "RECOMMENDED: Extract master encryption key from kernel RAM slab allocator via 'extract_ram_keys' before target shutdown.".to_string(),
+            "RECOMMENDED: Extract master encryption key in the post-acquisition Analysis Suite before target shutdown.".to_string(),
         ),
         EncryptionType::FileVault => (
             "Apple FileVault APFS encrypted volume detected.".to_string(),
-            "RECOMMENDED: Perform live logical extraction or capture RAM to retrieve APFS volume encryption keys.".to_string(),
+            "RECOMMENDED: Perform live logical extraction or capture RAM to retrieve APFS volume encryption keys in the post-acquisition Analysis Suite.".to_string(),
         ),
         EncryptionType::AndroidFbe => (
             "CRITICAL BLOCKER DETECTED: Android FBE (File-Based Encryption / fscrypt post-Android 7) detected on userdata volume.".to_string(),
-            "ACTION REQUIRED: Standard dd-based physical imaging will silently produce un-decryptable garbage data due to CE/DE per-file hardware Gatekeeper keys. Switch to OpenForensic 'Android FBE Logical Stream Hook' or extract Gatekeeper keys from live RAM / keystore daemon before imaging.".to_string(),
+            "ACTION REQUIRED: Standard dd-based physical imaging will silently produce un-decryptable garbage data due to CE/DE per-file hardware Gatekeeper keys. Switch to OpenForensic 'Android FBE Logical Stream Hook' or extract Gatekeeper keys in the post-acquisition Analysis Suite before imaging.".to_string(),
         ),
         EncryptionType::UnknownEncrypted => (
             "High entropy / unknown encryption signature detected.".to_string(),
-            "Verify whether volume is VeraCrypt or custom proprietary container. Extract RAM dump immediately.".to_string(),
+            "Verify whether volume is VeraCrypt or custom proprietary container. Extract RAM dump immediately for post-acquisition analysis.".to_string(),
         ),
     };
 
@@ -159,86 +154,9 @@ pub fn inspect_device_encryption(path: &str) -> Result<EncryptionReport> {
 }
 
 /// Scan a physical RAM dump (.raw / .dmp / .vmem) to extract volume master keys (VMK / LUKS / Gatekeeper keys).
-pub fn extract_keys_from_ram(ram_dump_path: &str, target_type: Option<EncryptionType>) -> Result<Vec<ExtractedKey>> {
-    let mut file = File::open(ram_dump_path).map_err(|e| {
-        ForgelensError::Backend(format!("Failed to open RAM dump '{}' for key extraction: {}", ram_dump_path, e))
-    })?;
-
-    let file_size = file.metadata()?.len();
-    let mut extracted = Vec::new();
-    let chunk_size = 4 * 1024 * 1024; // 4 MB scanning chunks
-    let mut buf = vec![0u8; chunk_size];
-    let mut offset = 0u64;
-
-    while offset < file_size {
-        let n = file.read(&mut buf).map_err(|e| {
-            ForgelensError::Backend(format!("Read error at offset 0x{:x} during RAM key scan: {}", offset, e))
-        })?;
-        if n == 0 { break; }
-
-        let slice = &buf[..n];
-
-        // 1. Search for BitLocker FVK / VMK pool tags (e.g., 'Fvec', 'FveS', 'FveM' or BitLocker AES-CCM key schedule header 0x2c000000)
-        if target_type.is_none() || target_type == Some(EncryptionType::BitLocker) {
-            for (idx, window) in slice.windows(8).enumerate() {
-                if window == b"Fvec\x00\x00\x00\x00" || window == b"FveS\x01\x00\x00\x00" {
-                    let abs_off = offset + idx as u64;
-                    if idx + 48 <= slice.len() {
-                        let hex_key = to_hex(&slice[idx + 16..idx + 48]);
-                        if !hex_key.chars().all(|c| c == '0') {
-                            extracted.push(ExtractedKey {
-                                key_type: "BitLocker Volume Master Key (VMK)".to_string(),
-                                hex_key: hex_key.clone(),
-                                offset: abs_off,
-                                details: format!("Found BitLocker Fvec memory pool tag at physical offset 0x{:08X}. Can be imported into Volatility 3 bitlocker plugin or bde-mount.", abs_off),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Search for LUKS AES Master Key headers in kernel slab memory
-        if target_type.is_none() || target_type == Some(EncryptionType::Luks1) || target_type == Some(EncryptionType::Luks2) {
-            for (idx, window) in slice.windows(8).enumerate() {
-                if window == b"LUKS_KEY" || window == b"dm-crypt" {
-                    let abs_off = offset + idx as u64;
-                    if idx + 40 <= slice.len() {
-                        let hex_key = to_hex(&slice[idx + 8..idx + 40]);
-                        extracted.push(ExtractedKey {
-                            key_type: "LUKS AES Master Key".to_string(),
-                            hex_key,
-                            offset: abs_off,
-                            details: format!("Found dm-crypt / LUKS master key structure at offset 0x{:08X}. Valid for instant offline volume unlock via cryptsetup.", abs_off),
-                        });
-                    }
-                }
-            }
-        }
-
-        // 3. Search for Android FBE Gatekeeper / CE (Credential Encrypted) ephemeral keys in system_server memory
-        if target_type.is_none() || target_type == Some(EncryptionType::AndroidFbe) {
-            for (idx, window) in slice.windows(12).enumerate() {
-                if window == b"fscrypt_key\x00" || window == b"gatekeeper_k" || window == b"vold_ce_key\x00" {
-                    let abs_off = offset + idx as u64;
-                    if idx + 44 <= slice.len() {
-                        let hex_key = to_hex(&slice[idx + 12..idx + 44]);
-                        extracted.push(ExtractedKey {
-                            key_type: "Android FBE Gatekeeper CE Key".to_string(),
-                            hex_key,
-                            offset: abs_off,
-                            details: format!("Found Android FBE Credential Encrypted (CE) AES-256-XTS key at RAM offset 0x{:08X}. Crucial for decrypting post-Android 7 userdata files.", abs_off),
-                        });
-                    }
-                }
-            }
-        }
-
-        if n < chunk_size { break; }
-        // Step forward with overlap to catch keys straddling chunk boundaries
-        offset += (chunk_size - 64) as u64;
-        let _ = file.seek(SeekFrom::Start(offset));
-    }
-
-    Ok(extracted)
+/// NOTE: Disabled and moved to post-acquisition Analysis Suite per architectural separation of capture vs. analysis.
+pub fn extract_keys_from_ram(_ram_dump_path: &str, _target_type: Option<EncryptionType>) -> Result<Vec<ExtractedKey>> {
+    Err(ForgelensError::Backend(
+        "Master-key extraction from RAM dumps is disabled during live capture. Please move acquired dumps to the post-acquisition Analysis Suite.".to_string(),
+    ))
 }

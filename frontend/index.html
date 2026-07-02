@@ -33,9 +33,9 @@
       <button class="tab-btn active" id="btn-tab-imaging" data-tab="imaging">📂 Disk Imaging</button>
       <button class="tab-btn" id="btn-tab-triage" data-tab="triage">⚡ System Triage</button>
       <button class="tab-btn" id="btn-tab-live" data-tab="live">🔴 Live Acquisition</button>
-      <button class="tab-btn" id="btn-tab-timeline" data-tab="timeline">⏱️ Timeline</button>
+      <button class="tab-btn" id="btn-tab-timeline" data-tab="timeline" style="display: none;">⏱️ Timeline</button>
       <button class="tab-btn" id="btn-tab-cases" data-tab="cases">📁 Case Management</button>
-      <button class="tab-btn" id="btn-tab-ram" data-tab="ram">🧠 RAM Analysis</button>
+      <button class="tab-btn" id="btn-tab-ram" data-tab="ram" style="display: none;">🧠 RAM Analysis</button>
       <button class="tab-btn" id="btn-tab-pgp" data-tab="pgp">🔐 PGP Provenance</button>
     </div>
 
@@ -294,6 +294,7 @@
                   Rapid Triage collects volatile evidence and registry hives directly from the active system. Collected data is structured, timestamped, and packaged into the destination folder for instant forensic inspection.
                 </p>
 
+                <div id="siem-integration-disabled-wrapper" style="display: none;">
                 <div class="form-group full-width" style="margin-top: 15px; padding: 18px; background: var(--bg-deep); border: 1px solid var(--color-border); border-radius: 8px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
                     <label style="font-weight: 600; font-size: 1.05rem; color: #55ff99; margin: 0;">🛡️ SIEM & SOC Integration (Wazuh / Splunk HEC)</label>
@@ -330,6 +331,7 @@
                     </div>
                   </div>
                 </div>
+                </div>
 
                 <div class="form-group full-width" style="margin-top: 24px;">
                   <button type="button" id="btn-start-triage" class="btn btn-primary" style="width: 260px;">⚡ Start Triage Collection</button>
@@ -338,12 +340,18 @@
               </div>
             </form>
 
-            <hr style="margin: 30px 0; border: 0; border-top: 1px solid var(--color-border);" />
+            <!-- <hr style="margin: 30px 0; border: 0; border-top: 1px solid var(--color-border);" />
 
+            <div style="margin: 20px 0; padding: 16px; background: rgba(59, 130, 246, 0.1); border: 1px dashed var(--color-border); border-radius: 8px; color: var(--text-muted); text-align: center;">
+              ℹ️ <strong>Triage SQL Workbench Disabled & Hidden</strong><br/>
+              Interactive SQLite database query and inspection over collected SQLite databases has been moved to the post-acquisition <strong>Analysis Suite</strong>. Raw triage collection remains active above.
+            </div> -->
+
+            <div id="triage-workbench-disabled-wrapper" style="display: none;">
             <div class="panel-header">
               <h2>🔍 Triage Analysis Workbench</h2>
             </div>
-            
+
             <div class="workbench-controls" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
               <div class="input-browse-group" style="flex: 1;">
                 <input type="text" id="triage-db-path" placeholder="Select triage.db file to analyze..." readonly style="width: 100%;">
@@ -371,6 +379,7 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
             </div>
 
           </div>
@@ -501,7 +510,7 @@
                 Extract and parse MFT, $LogFile, and Ext4 journals from a raw acquired image (.dd) to produce a chronological master timeline. Outputs to CSV and JSON formats.
               </p>
               <div class="form-grid">
-                
+
                 <div class="form-group full-width">
                   <label for="timeline-image-path">Source Acquired Image (.dd):</label>
                   <div class="input-browse-group">
@@ -537,7 +546,7 @@
                 Analyze acquired RAM memory dumps (.raw, .vmem, .dmp) using Volatility 3 profiles. Enrich detected network artifacts with Threat Intelligence APIs (AbuseIPDB, VirusTotal).
               </p>
               <div class="form-grid">
-                
+
                 <div class="form-group full-width">
                   <label for="ram-image-path">Memory Dump Image (.raw / .vmem / .dmp):</label>
                   <div class="input-browse-group">
@@ -628,7 +637,7 @@
           </div>
           <div class="scroll-area">
             <div class="config-form" style="display: flex; flex-direction: column; gap: 20px;">
-              
+
               <!-- Key Management Card -->
               <div class="stat-card" style="padding: 20px; background: var(--bg-deep); border: 1px solid var(--color-border); border-radius: 8px;">
                 <h3 style="margin-top: 0; color: var(--color-primary); display: flex; align-items: center; gap: 8px;">

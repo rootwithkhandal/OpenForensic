@@ -105,24 +105,24 @@ pub enum CliSubcommand {
         #[arg(long)]
         no_eventlogs: bool,
 
-        /// Enable real-time SIEM export to Splunk HEC or Wazuh socket
-        #[arg(long)]
+        /// [DISABLED & HIDDEN] Enable real-time SIEM export to Splunk HEC or Wazuh socket
+        #[arg(long, hide = true)]
         siem_export: bool,
 
-        /// SIEM endpoint URL / host:port / file path
-        #[arg(long, default_value = "https://splunk.azure-soc.internal:8088")]
+        /// [DISABLED & HIDDEN] SIEM endpoint URL / host:port / file path
+        #[arg(long, default_value = "https://splunk.azure-soc.internal:8088", hide = true)]
         siem_endpoint: String,
 
-        /// SIEM destination type: splunk_hec, wazuh_socket, wazuh_local_log
-        #[arg(long, default_value = "splunk_hec")]
+        /// [DISABLED & HIDDEN] SIEM destination type: splunk_hec, wazuh_socket, wazuh_local_log
+        #[arg(long, default_value = "splunk_hec", hide = true)]
         siem_type: String,
 
-        /// Auth token / API key for SIEM
-        #[arg(long, default_value = "")]
+        /// [DISABLED & HIDDEN] Auth token / API key for SIEM
+        #[arg(long, default_value = "", hide = true)]
         siem_token: String,
 
-        /// SIEM index / sourcetype / tag
-        #[arg(long, default_value = "openforensic_triage")]
+        /// [DISABLED & HIDDEN] SIEM index / sourcetype / tag
+        #[arg(long, default_value = "openforensic_triage", hide = true)]
         siem_index: String,
     },
 
@@ -158,8 +158,8 @@ pub enum CliSubcommand {
         hashes: Vec<String>,
     },
 
-    /// Analyze RAM dump using Volatility 3 engine & Threat Intelligence
-    #[command(name = "ram", alias = "volatility")]
+    /// [DISABLED & HIDDEN] Analyze RAM dump using Volatility 3 engine & Threat Intelligence (Moved to Analysis Suite)
+    #[command(name = "ram", alias = "volatility", hide = true)]
     Ram {
         /// Path to acquired RAM dump (.raw, .dmp, .vmem)
         #[arg(short, long)]

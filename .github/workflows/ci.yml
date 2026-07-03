@@ -1,0 +1,56 @@
+name: OpenForensic CI/CD Verification Matrix
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Linux system dependencies (Tauri & WebKit)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev libasound2-dev
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Step 1 - Cargo Check (All Targets)
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
+
+      - name: Step 2 - Cargo Clippy (Deny Warnings)
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Step 3 - Run Unit Tests (Library suite)
+        # We run --lib so unit tests execute without requiring Administrator UAC elevation on Windows runners
+        run: cargo test --lib --manifest-path src-tauri/Cargo.toml
+
+      - name: Step 4 - Dependency Vulnerability Scan (Cargo Audit)
+        run: cargo audit

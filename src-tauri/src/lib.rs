@@ -1,3 +1,6 @@
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+
 pub mod acquisition;
 pub mod hasher;
 pub mod output;
@@ -21,4 +24,4 @@ pub mod cli;
 pub mod pgp;
 pub mod encryption;
 
-pub use state::{ActiveTaskState, clear_active_task};
+pub use state::{ActiveTaskState, clear_active_task, AcquisitionMode, AcquisitionModeState, require_analysis_mode};

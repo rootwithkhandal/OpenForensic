@@ -92,9 +92,38 @@ pub fn init_db(app: &AppHandle) -> Result<(), String> {
         [],
     ).map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            investigator TEXT NOT NULL,
+            case_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            details TEXT NOT NULL
+        )",
+        [],
+    ).map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
+pub fn log_audit_event(
+    app: &AppHandle,
+    investigator: &str,
+    case_id: &str,
+    event_type: &str,
+    details: &str,
+) -> Result<(), String> {
+    let db_path = get_db_path(app)?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO audit_logs (investigator, case_id, event_type, details) VALUES (?1, ?2, ?3, ?4)",
+        params![investigator, case_id, event_type, details],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn log_acquisition_to_db(
     app: &AppHandle,
     case_number: &str,
@@ -111,38 +140,36 @@ pub fn log_acquisition_to_db(
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
     // Create or get case
-    let case_id: i64;
-    match conn.query_row(
+    let case_id: i64 = match conn.query_row(
         "SELECT id FROM cases WHERE case_number = ?1",
         params![case_number],
         |row| row.get(0),
     ) {
-        Ok(id) => case_id = id,
+        Ok(id) => id,
         Err(_) => {
             conn.execute(
                 "INSERT INTO cases (case_number, examiner_name, notes) VALUES (?1, ?2, ?3)",
                 params![case_number, examiner_name, notes],
             ).map_err(|e| e.to_string())?;
-            case_id = conn.last_insert_rowid();
+            conn.last_insert_rowid()
         }
-    }
+    };
 
     // Create or get evidence item
-    let evidence_id: i64;
-    match conn.query_row(
+    let evidence_id: i64 = match conn.query_row(
         "SELECT id FROM evidence_items WHERE case_id = ?1 AND evidence_tag = ?2",
         params![case_id, evidence_tag],
         |row| row.get(0),
     ) {
-        Ok(id) => evidence_id = id,
+        Ok(id) => id,
         Err(_) => {
             conn.execute(
                 "INSERT INTO evidence_items (case_id, evidence_tag, source_path) VALUES (?1, ?2, ?3)",
                 params![case_id, evidence_tag, source_path],
             ).map_err(|e| e.to_string())?;
-            evidence_id = conn.last_insert_rowid();
+            conn.last_insert_rowid()
         }
-    }
+    };
 
     // Log acquisition
     conn.execute(

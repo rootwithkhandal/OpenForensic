@@ -1,301 +1,103 @@
-# Guide: Enabling Post-Acquisition & Analysis Suite Features
+# Guide: OpenForensic Analysis Suite & Dynamic Mode-Gating
 
-OpenForensic Disk Imager adheres to a strict forensic design principle: **separation of capture and analysis**. To keep the live acquisition footprint lightweight and prevent accidental evidence modification during field triage, several post-acquisition analytical features are disabled and hidden by default.
-
-These migrated features include:
-
-1. **Triage SQL Workbench**: Interactive SQLite query inspection over collected triage databases.
-2. **Headless CLI Volatility 3 Analysis (`ram` / `volatility`)**: Automated memory analysis and IOC reputation enrichment via AbuseIPDB/VirusTotal.
-3. **Memory Forensics Tab (`RAM Analysis`)**: Built-in Volatility 3 UI orchestration and log streaming.
-4. **RAM Master-Key Extraction**: In-memory scanning for BitLocker VMKs, LUKS master keys, and Android Gatekeeper CE keys.
-5. **Timeline Generation Tab (`Timeline`)**: Chronological reconstruction of file system metadata ($MFT, $LogFile, Ext4 journals).
-6. **SIEM & SOC Integration (Wazuh / Splunk HEC)**: Real-time event streaming and direct ingestion of triage databases into SIEM collectors.
-
-For investigators or organizations wishing to deploy OpenForensic as an **all-in-one capture and analysis suite**, follow the step-by-step instructions below to re-enable these features.
+> [!IMPORTANT]
+> **NEW IN v2.0.2+ (Dynamic Session Mode-Gating & Zero-Panic Guarantee)**: You do not need to modify source code or recompile the application to access analysis features. OpenForensic v2.0.2+ ships with built-in **Session Mode Toggling** and a compile-time **Zero-Panic Guarantee** (`#![deny(clippy::unwrap_used)]`). By default, the application boots strictly in **Capture Mode** (read-only acquisition and verification). All advanced analytical and streaming features can be dynamically unlocked per session.
 
 ---
 
-## 1. Re-Enabling Triage SQL Workbench
+## 🏛️ Forensic Boundary: Why Capture vs. Analysis?
 
-By default, the Triage SQL Workbench is hidden inside `frontend/index.html` behind an informational banner.
+OpenForensic Disk Imager adheres to a strict digital forensics design principle: **separation of capture and analysis**. In live field incident response (IR) and laboratory disk imaging, preserving chain-of-custody and guaranteeing zero evidence tampering are paramount. 
 
-### Step 1: Modify `frontend/index.html`
+To keep the active acquisition footprint lightweight and prevent accidental evidence modification or external network contamination during live collections, OpenForensic establishes a defense-in-depth boundary:
 
-Locate the Triage Analysis Workbench section inside the `#tab-triage-content` panel (around line 340).
-
-1. Remove the informational warning banner:
-
-```html
-<!-- REMOVE OR COMMENT OUT THIS BANNER -->
-<div
-  style="margin: 20px 0; padding: 16px; background: rgba(59, 130, 246, 0.1); border: 1px dashed var(--color-border); border-radius: 8px; color: var(--text-muted); text-align: center;"
->
-  ℹ️ <strong>Triage SQL Workbench Disabled & Hidden</strong><br />
-  ...
-</div>
-```
-
-2. Remove `style="display: none;"` from the workbench wrapper ID:
-
-```diff
-- <div id="triage-workbench-disabled-wrapper" style="display: none;">
-+ <div id="triage-workbench-disabled-wrapper">
-```
+1. **Default Capture Mode**: Confines the application to read-only block device cloning, physical memory acquisition, logical file copying, and cryptographic hashing (MD5, SHA-1, SHA-256, SHA-512). External network connections (SIEM streaming, IOC API lookups) and deep data mutations are restricted.
+2. **Opt-In Analysis Mode**: Unlocks post-acquisition investigative suites, memory inspection, interactive SQL databases, chronological timeline generation, and real-time SIEM event streaming.
 
 ---
 
-## 2. Re-Enabling Headless CLI Volatility 3 Analysis (`ram` / `volatility`)
+## 🔓 How to Switch to Analysis Mode
 
-In headless CLI mode, the `ram` subcommand is hidden from clap help menus and returns an informational notice when executed.
+Mode transitions are designed to be intentional, audited investigator actions rather than silent background toggles.
 
-### Step 1: Unhide the Subcommand in `src-tauri/src/cli/args.rs`
+### 1. In the Desktop GUI Dashboard
+1. Look at the top navigation header bar. By default, the status badge displays 🟢 **Capture Mode**.
+2. Click the **"Switch to Analysis Mode"** button.
+3. A modal confirmation dialog will appear:
+   > *"Switching to Analysis Mode unlocks deep analysis features, threat intelligence API enrichment, and live SIEM streaming. This disables further read-only evidence safeguards for this session. Do you wish to proceed?"*
+4. Click **Confirm**. The navigation bar will update to 🔴 **Analysis Mode Active**, and all previously locked analysis tabs will immediately become accessible.
 
-Locate `Ram` in the `CliSubcommand` enum (around line 160) and remove `hide = true`:
-
-```diff
-- /// [DISABLED & HIDDEN] Analyze RAM dump using Volatility 3 engine & Threat Intelligence (Moved to Analysis Suite)
-- #[command(name = "ram", alias = "volatility", hide = true)]
-+ /// Analyze RAM dump using Volatility 3 engine & Threat Intelligence
-+ #[command(name = "ram", alias = "volatility")]
-  Ram {
-      dump: String,
-      profile: String,
-      ioc_enrich: bool,
-  },
-```
-
-### Step 2: Restore Command Execution in `src-tauri/src/cli/runner.rs`
-
-Locate the matching arm for `CliSubcommand::Ram` (around line 364) and replace the disabled handler with the active Volatility execution engine:
-
-```rust
-CliSubcommand::Ram {
-    dump,
-    profile,
-    ioc_enrich,
-} => rt.block_on(async {
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::acquisition::ProgressEvent>(100);
-
-    let log_handle = tokio::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                crate::acquisition::ProgressEvent::Log(msg) => {
-                    println!("[VOLATILITY] {}", msg);
-                }
-                crate::acquisition::ProgressEvent::Error(err) => {
-                    eprintln!("[ERROR] {}", err);
-                }
-                _ => {}
-            }
-        }
-    });
-
-    let config = crate::ram_analysis::VolatilityConfig {
-        image_path: dump.clone(),
-        vol_path: "vol".to_string(),
-        profile: profile.clone(),
-        enrich_vt: ioc_enrich,
-        enrich_mb: false,
-        enrich_abuseip: ioc_enrich,
-        vt_key: "".to_string(),
-        mb_key: "".to_string(),
-        abuseip_key: "".to_string(),
-    };
-
-    println!("Starting Volatility 3 RAM analysis on {} (profile: {})", dump, profile);
-    match crate::ram_analysis::start_volatility_analysis_backend(&config, tx).await {
-        Ok(_) => {
-            let _ = log_handle.await;
-            println!("RAM analysis completed successfully.");
-            Ok(())
-        }
-        Err(e) => {
-            let _ = log_handle.await;
-            Err(format!("RAM analysis failed: {}", e))
-        }
-    }
-}),
-```
-
----
-
-## 3. Re-Enabling Memory Forensics Tab (`RAM Analysis`)
-
-To restore the graphical UI tab for Volatility 3 RAM Analysis:
-
-### Step 1: Unhide the Tab in `frontend/index.html`
-
-Locate the navigation bar `<div class="tab-navigation">` (around line 33) and remove `style="display: none;"` from the RAM analysis tab button:
-
-```diff
-- <button class="tab-btn" id="btn-tab-ram" data-tab="ram" style="display: none;">🧠 RAM Analysis</button>
-+ <button class="tab-btn" id="btn-tab-ram" data-tab="ram">🧠 RAM Analysis</button>
-```
-
----
-
-## 4. Re-Enabling RAM Master-Key Extraction
-
-During capture, live memory scanning for encryption keys is disabled. To enable automatic memory extraction of BitLocker VMKs, LUKS master keys, and Android Gatekeeper CE keys:
-
-### Step 1: Restore Memory Scanner in `src-tauri/src/encryption.rs`
-
-Locate `pub fn extract_keys_from_ram` and replace the stubbed error return with the scanning loop:
-
-```rust
-pub fn extract_keys_from_ram(ram_dump_path: &str, target_type: Option<EncryptionType>) -> Result<Vec<ExtractedKey>> {
-    let mut file = std::fs::File::open(ram_dump_path).map_err(|e| {
-        OpenForensicError::Backend(format!("Failed to open RAM dump '{}' for key extraction: {}", ram_dump_path, e))
-    })?;
-
-    let file_size = file.metadata()?.len();
-    let mut extracted = Vec::new();
-    let chunk_size = 4 * 1024 * 1024; // 4 MB chunks
-    let mut buf = vec![0u8; chunk_size];
-    let mut offset = 0u64;
-
-    while offset < file_size {
-        let n = file.read(&mut buf).map_err(|e| {
-            OpenForensicError::Backend(format!("Read error at offset 0x{:x} during RAM key scan: {}", offset, e))
-        })?;
-        if n == 0 { break; }
-
-        let slice = &buf[..n];
-
-        // 1. BitLocker FVK / VMK pool tags
-        if target_type.is_none() || target_type == Some(EncryptionType::BitLocker) {
-            for (idx, window) in slice.windows(8).enumerate() {
-                if window == b"Fvec\x00\x00\x00\x00" || window == b"FveS\x01\x00\x00\x00" {
-                    let abs_off = offset + idx as u64;
-                    if idx + 48 <= slice.len() {
-                        let hex_key = slice[idx + 16..idx + 48].iter().map(|b| format!("{:02x}", b)).collect::<String>();
-                        if !hex_key.chars().all(|c| c == '0') {
-                            extracted.push(ExtractedKey {
-                                key_type: "BitLocker Volume Master Key (VMK)".to_string(),
-                                hex_key,
-                                offset: abs_off,
-                                details: format!("Found BitLocker Fvec memory pool tag at physical offset 0x{:08X}.", abs_off),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. LUKS AES Master Key structures
-        if target_type.is_none() || target_type == Some(EncryptionType::Luks1) || target_type == Some(EncryptionType::Luks2) {
-            for (idx, window) in slice.windows(8).enumerate() {
-                if window == b"LUKS_KEY" || window == b"dm-crypt" {
-                    let abs_off = offset + idx as u64;
-                    if idx + 40 <= slice.len() {
-                        let hex_key = slice[idx + 8..idx + 40].iter().map(|b| format!("{:02x}", b)).collect::<String>();
-                        extracted.push(ExtractedKey {
-                            key_type: "LUKS AES Master Key".to_string(),
-                            hex_key,
-                            offset: abs_off,
-                            details: format!("Found dm-crypt / LUKS master key structure at offset 0x{:08X}.", abs_off),
-                        });
-                    }
-                }
-            }
-        }
-
-        // 3. Android FBE Gatekeeper CE Keys
-        if target_type.is_none() || target_type == Some(EncryptionType::AndroidFbe) {
-            for (idx, window) in slice.windows(12).enumerate() {
-                if window == b"fscrypt_key\x00" || window == b"gatekeeper_k" || window == b"vold_ce_key\x00" {
-                    let abs_off = offset + idx as u64;
-                    if idx + 44 <= slice.len() {
-                        let hex_key = slice[idx + 12..idx + 44].iter().map(|b| format!("{:02x}", b)).collect::<String>();
-                        extracted.push(ExtractedKey {
-                            key_type: "Android FBE Gatekeeper CE Key".to_string(),
-                            hex_key,
-                            offset: abs_off,
-                            details: format!("Found Android FBE Credential Encrypted (CE) AES-256-XTS key at RAM offset 0x{:08X}.", abs_off),
-                        });
-                    }
-                }
-            }
-        }
-
-        if n < chunk_size { break; }
-        offset += (chunk_size - 64) as u64;
-        let _ = std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(offset));
-    }
-
-    Ok(extracted)
-}
-```
-
----
-
-## 5. Re-Enabling Timeline Generation Tab (`Timeline`)
-
-To restore the Timeline tab for post-acquisition artifact reconstruction:
-
-### Step 1: Unhide the Tab in `frontend/index.html`
-
-Locate the navigation bar `<div class="tab-navigation">` (around line 33) and remove `style="display: none;"` from the Timeline tab button:
-
-```diff
-- <button class="tab-btn" id="btn-tab-timeline" data-tab="timeline" style="display: none;">⏱️ Timeline</button>
-+ <button class="tab-btn" id="btn-tab-timeline" data-tab="timeline">⏱️ Timeline</button>
-```
-
----
-
-## 6. Re-Enabling SIEM & SOC Integration (Wazuh / Splunk HEC)
-
-During field capture, real-time streaming to SIEM infrastructure is disabled by default to prevent network contamination and maintain air-gapped evidence integrity.
-
-### Step 1: Unhide SIEM Settings in `frontend/index.html`
-
-Locate the SIEM integration section inside `#tab-triage-content` (around line 297) and remove `style="display: none;"` from the wrapper div:
-
-```diff
-- <div id="siem-integration-disabled-wrapper" style="display: none;">
-+ <div id="siem-integration-disabled-wrapper">
-```
-
-### Step 2: Unhide CLI Flags in `src-tauri/src/cli/args.rs`
-
-Locate the Triage subcommand arguments (around line 108) and remove `hide = true` from all SIEM flags (`--siem-export`, `--siem-endpoint`, `--siem-type`, `--siem-token`, `--siem-index`).
-
-### Step 3: Restore SIEM Engine in `src-tauri/src/cli/runner.rs`
-
-In `runner.rs` under `CliSubcommand::Triage` (around line 275), restore the SIEM configuration builder:
-
-```rust
-let siem_config = if siem_export {
-    let dest_type = match siem_type.to_lowercase().as_str() {
-        "wazuh_socket" => crate::siem::SiemDestinationType::WazuhSocket,
-        "wazuh_local_log" => crate::siem::SiemDestinationType::WazuhLocalLog,
-        _ => crate::siem::SiemDestinationType::SplunkHec,
-    };
-    Some(crate::siem::SiemConfig {
-        destination_type: dest_type,
-        endpoint: siem_endpoint,
-        auth_token: siem_token,
-        index: siem_index,
-        enabled: true,
-    })
-} else {
-    None
-};
-```
-
----
-
-## Verification & Rebuilding
-
-After modifying the code to re-enable your desired analysis features, verify and compile the suite:
+### 2. In Headless CLI & Automation Mode
+When running automated triage scripts or cloud server investigations via the command-line interface (`--cli`), pass the `--mode analysis` flag before your target subcommand:
 
 ```bash
-# 1. Verify Rust backend syntax and type checking
-cd src-tauri
-cargo check
+# Run Rapid System Triage with real-time Splunk HEC SIEM streaming
+openforensic --cli --mode analysis triage --dest /mnt/evidence/triage --siem-export --siem-type splunk_hec --siem-endpoint https://splunk.example.com:8088 --siem-token <HEC_TOKEN>
 
-# 2. Build production release bundle
-cd ..
-mise run build
+# Analyze acquired RAM dump using Volatility 3 and AbuseIPDB IOC enrichment
+openforensic --cli --mode analysis ram --dump /mnt/evidence/memory.raw --profile windows.pslist.PsList --ioc-enrich
 ```
+
+---
+
+## 🌟 Features Gated by Analysis Mode
+
+The following six advanced forensic capabilities are protected behind the Analysis Mode boundary:
+
+| Feature Area | Description & Capabilities in Analysis Mode |
+| :--- | :--- |
+| **⚡ Triage SQL Workbench** | Unlocks an interactive SQLite query workbench directly within the Triage tab. Allows investigators to execute SQL queries (`SELECT * FROM processes WHERE pid > 1000`, etc.) against acquired system tables (`processes`, `network_connections`, `browser_history`, `event_logs`) without exporting to external database tools. |
+| **🧠 Volatility 3 RAM Analysis UI** | Enables the dedicated **RAM Analysis** dashboard tab. Orchestrates local or containerized **Volatility 3** engines against acquired memory images (`.raw`, `.vmem`, `.dmp`), streaming real-time log outputs and structured process tables. |
+| **💻 Headless CLI RAM Engine (`ram` / `volatility`)** | Unlocks the scriptable command-line memory analyzer for automated SOAR workflows and headless server triage. |
+| **🛡️ Threat Intelligence Enrichment** | Enables automated real-time IOC verification during memory analysis. Extracts public IP addresses and process hashes, verifying them against **AbuseIPDB** reputation scores and **VirusTotal** detection matrices. |
+| **⏱️ Timeline Generator Tab** | Unlocks the **Timeline** dashboard module. Parses timestamps from NTFS `$MFT` records, `$LogFile` transactions, and Linux Ext4 journals, synthesizing them into master chronological timelines exported as structured CSV or JSON files. |
+| **🛡️ SIEM & SOC Streaming** | Enables real-time emission of forensic records during live triage to **Splunk HTTP Event Collector (HEC)** and **Wazuh Agent Sockets / Syslog** (TCP/UDP port 1514). |
+| **🔑 RAM Master-Key Extraction** | Unlocks deep memory scanning routines that search physical RAM dumps for cryptographic master keys, including **BitLocker Volume Master Keys (VMKs)**, **Linux LUKS Master Keys**, and **Android Gatekeeper CE Keys**. |
+
+---
+
+## 🛡️ Technical Enforcement & Zero-Panic Architecture
+
+OpenForensic enforces session mode-gating and application stability through three distinct layers in the Rust kernel:
+
+### 1. Runtime State Guard (`require_analysis_mode`)
+Every backend Tauri command and CLI handler responsible for analysis features invokes a mandatory state guard before executing any business logic:
+
+```rust
+pub fn require_analysis_mode(state: &AcquisitionModeState) -> std::result::Result<(), String> {
+    let guard = state.lock().map_err(|_| "AcquisitionMode mutex poisoned".to_string())?;
+    match *guard {
+        AcquisitionMode::Analysis => Ok(()),
+        AcquisitionMode::Capture => Err("This feature is disabled in Capture Mode. Switch to Analysis Mode to continue.".into()),
+    }
+}
+```
+If an unauthorized invocation is attempted while in Capture Mode, the handler rejects the request with an explicit error and logs an alert.
+
+### 2. Dual Static Capability Allowlists
+Tauri 2 permissions are organized into modular capability manifests:
+* `capabilities/default.json`: Grants access strictly to capture, device scanning, hashing, and PGP manifest verification commands.
+* `capabilities/analysis.json`: Defines allowlists for analysis suite invocations (`query_triage_db`, `start_volatility_analysis`, `generate_image_timeline`, `export_triage_to_siem`, `test_siem_connection`, `save_siem_config`, and `extract_memory_keys`).
+
+### 3. Zero-Panic Forensic Reliability Guarantee (`#![deny(clippy::unwrap_used)]`)
+In digital forensics, a crash or panic mid-acquisition is unacceptable—it corrupts multi-gigabyte image files, loses volatile live evidence, and breaks chain of custody. OpenForensic v2.0.2+ enforces a strict **Zero-Panic Reliability Guarantee**:
+* **Compile-Time Prohibition**: Both `lib.rs` and `main.rs` enforce `#![deny(clippy::unwrap_used)]`. Any introduction of `.unwrap()` or `.expect()` in production code causes an immediate build failure.
+* **Fallible Error Propagation**: All state mutex locks, SQLite row evaluations, I/O streams, and child process pipes utilize fallible pattern matching (`match`, `if let Some/Ok`, or `map_err(...)?`) returning descriptive `OpenForensicError` variants.
+* **Strict Code Quality & Clippy Compliance**: Core acquisition, hashing, reporting, and plugin pipelines are maintained with zero compiler or clippy lint warnings (`-D warnings`), leveraging modern Rust idioms such as `&& let` chains and static zero-fill buffers for optimal memory efficiency.
+* **Graceful Degradation**: If an external dependency (like a Volatility pipe or SIEM socket) fails, the error is caught, logged to the UI progress stream, and recorded without terminating the acquisition engine.
+
+---
+
+## 📋 Chain-of-Custody Audit Logging
+
+To satisfy court admissibility and regulatory compliance (e.g., ISO/IEC 27037), every mode transition and feature unlock is cryptographically recorded in the active case's SQLite database (`audit_logs` table):
+
+```sql
+SELECT timestamp, event_type, details FROM audit_logs WHERE event_type = 'MODE_TRANSITION';
+```
+
+| Timestamp | Event Type | Details |
+| :--- | :--- | :--- |
+| `2026-07-03T07:15:00Z` | `APP_BOOT` | Application initialized in default Capture Mode. |
+| `2026-07-03T07:18:22Z` | `MODE_TRANSITION` | Examiner 'ID-4402' switched session mode from Capture to Analysis Mode. |
+| `2026-07-03T07:19:05Z` | `SIEM_EXPORT_START` | Triage database exported to Splunk HEC endpoint (index: `main_dfir`). |

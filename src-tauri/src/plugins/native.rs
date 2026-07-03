@@ -16,6 +16,10 @@ unsafe impl Sync for NativePlugin {}
 
 impl NativePlugin {
     /// Load a compiled native plugin (.so / .dll / .dylib) from disk and instantiate it.
+    ///
+    /// # Safety
+    /// The caller must ensure that the library at `path` is a valid OpenForensic native plugin exposing
+    /// a compatible `_openforensic_plugin_create` C ABI function that returns a valid trait object pointer.
     pub unsafe fn load(path: &Path) -> Result<Self, String> {
         unsafe {
             let lib = Library::new(path)

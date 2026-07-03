@@ -30,7 +30,7 @@
 | **📁 Case Management & Reporting** | Integrated SQLite case database tracking evidence tags, investigator notes, device metadata, and cryptographic hashes. Generates court-admissible HTML and PDF forensic reports. |
 
 > [!NOTE]
-> **Architectural Separation of Capture vs. Analysis**: To keep the live acquisition footprint lightweight and prevent accidental evidence modification during field triage, post-acquisition analysis and live streaming features (**Triage SQL Workbench**, **Volatility 3 RAM Analysis**, **Threat-Intel Enrichment**, **SIEM & SOC Integration**, **Timeline Generation**, and **RAM Master-Key Extraction**) are hidden and disabled by default during live capture. For instructions on how to re-enable these features in an all-in-one build, see the **[Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md)**.
+> **Strict Separation of Capture vs. Analysis (Defense-in-Depth)**: OpenForensic enforces a strict forensic boundary between data acquisition and post-acquisition analysis. On boot, the application defaults to **Capture Mode** (read-only physical/logical acquisition and hashing). To access analytical and streaming features (**Triage SQL Workbench**, **Volatility 3 RAM Analysis**, **Threat-Intel Enrichment**, **SIEM & SOC Integration**, **Timeline Generation**, and **RAM Master-Key Extraction**), investigators must explicitly toggle to **Analysis Mode** per session via an interactive UI confirmation dialog or `--mode analysis` CLI flag. Mode transitions are enforced by Rust runtime guards (`require_analysis_mode`), backed by dual static capability allowlists (`capabilities/default.json` and `capabilities/analysis.json`), and automatically recorded in the SQLite case database (`audit_logs` table) for chain-of-custody compliance. See the **[Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md)** for details.
 
 ---
 
@@ -86,6 +86,25 @@ graph TD
     VolEngine -->|Real-time Event Streams| UI
 ```
 
+### 🔒 Capture vs. Analysis Mode (Defense-in-Depth Security)
+
+To ensure digital evidence integrity and prevent accidental evidence modification during active field collections, OpenForensic implements a multi-layered boundary between data capture and analysis:
+
+- **Default Capture Mode**: On launch, the application operates strictly in **Capture Mode**. In this mode, only non-invasive physical/logical acquisition, cryptographic hashing, and general utilities are active.
+- **Session Analysis Mode Gate**: Switching to **Analysis Mode** requires explicit investigator confirmation via an interactive UI confirmation modal ("*Switching to Analysis Mode disables further evidence-modifying safeguards for this session*") or passing the `--mode analysis` flag in CLI mode.
+- **Runtime Rust Enforcement (`require_analysis_mode`)**: All 7 post-acquisition analytical and streaming commands (`query_triage_db`, `generate_image_timeline`, `start_volatility_analysis`, `test_siem_connection`, `save_siem_config`, `export_triage_to_siem`, and `extract_memory_keys`) are gated at the Rust runtime layer. Any attempt to invoke these handlers while in Capture Mode is immediately blocked and rejected.
+- **Chain-of-Custody Audit Logging**: Every session mode transition is cryptographically logged to the SQLite case database (`audit_logs` table) with timestamps and investigator actions.
+- **Modular Capability Allowlists**: Command invocation permissions are organized into two distinct static capability files: `capabilities/default.json` (always-active capture commands) and `capabilities/analysis.json` (analysis suite commands).
+
+### ⚡ Zero-Panic Forensic Reliability Guarantee
+
+In digital forensics, a software panic or crash mid-acquisition is unacceptable—it corrupts multi-gigabyte evidence images, destroys unsaved volatile memory artifacts, and breaks chain of custody. OpenForensic v2.0.2 enforces an uncompromising reliability standard across the entire Rust backend:
+
+- **Compile-Time Prohibition (`#![deny(clippy::unwrap_used)]`)**: Both core library modules (`lib.rs`) and the application binary (`main.rs`) enforce strict lint rules banning the use of `.unwrap()` and `.expect()` in production code. Any introduction of panic-prone assertions is caught and rejected at compile time.
+- **Fallible Error Propagation**: All system mutex locks, SQLite table evaluations, I/O streams, and child process pipes utilize pattern matching (`match`, `if let`, or `map_err(...)?`) returning descriptive `OpenForensicError` variants.
+- **Strict Code Quality & Clippy Compliance**: Core acquisition, hashing, reporting, and plugin engines are maintained with zero compiler or clippy lint warnings (`-D warnings`), leveraging modern Rust idioms such as `&& let` chains and static zero-fill buffers for optimal memory efficiency.
+- **Graceful Degradation**: When interacting with unreliable external sources (e.g., disconnected SIEM endpoints, missing third-party memory tools, or locked OS handles), the engine captures the failure, logs a timestamped event to the progress stream, and continues acquisition without terminating the application.
+
 ### 🛡️ Real-Time SIEM & SOC Integration
 
 OpenForensic bridges the gap between field disk imaging and Security Operations Center (SOC) incident response. During Rapid System Triage and live acquisitions, forensic findings are converted into timestamped, structured JSON records and streamed in real-time to enterprise SIEM platforms:
@@ -93,6 +112,7 @@ OpenForensic bridges the gap between field disk imaging and Security Operations 
 - **Splunk HTTP Event Collector (HEC)**: Emits structured events over HTTPS POST authenticated via HEC bearer tokens (`Authorization: Splunk <token>`). Automatically indexes running processes, network connections, browser visits, and OS event logs.
 - **Wazuh Agent Socket / Syslog**: Formats forensic records into Wazuh JSON lines and streams them directly over TCP/UDP sockets (default port 1514) or appends to local log queues monitored by the active Wazuh agent.
 - **One-Click IR Triage**: Responders can enable automatic SIEM emission during acquisition, instantly enriching enterprise SIEM dashboards with field IOCs without delaying physical data collection.
+- **Zero-Configuration Leakage**: To protect against shipping internal lab URLs or hostnames in compiled binaries, SIEM endpoints default cleanly to empty strings. Whenever `--siem-export` is activated in CLI mode, supplying a target `--siem-endpoint` is strictly validated and required by clap (`required_if_eq("siem_export", "true")`).
 
 ### 💻 Headless CLI & Automation Mode
 
@@ -105,11 +125,11 @@ openforensic --cli list-devices
 # Perform headless E01 physical imaging with zstd compression and SHA-256 hashing
 openforensic --cli acquire --source \\.\PhysicalDrive0 --dest D:\evidence\disk.e01 --format e01 --compression zstd --hashes md5,sha256
 
-# Run rapid live triage with real-time Splunk HEC SIEM streaming
-openforensic --cli triage --dest C:\triage_output --siem-export --siem-type splunk_hec --siem-endpoint https://splunk.soc:8088 --siem-token <token>
+# Run rapid live triage with real-time Splunk HEC SIEM streaming (requires Analysis Mode)
+openforensic --cli --mode analysis triage --dest C:\triage_output --siem-export --siem-type splunk_hec --siem-endpoint https://splunk.example.com:8088 --siem-token <token>
 
-# Analyze acquired RAM dump via Volatility 3 with AbuseIPDB threat intel enrichment
-openforensic --cli ram --dump memory.raw --profile windows.pslist.PsList --ioc-enrich
+# Analyze acquired RAM dump via Volatility 3 with AbuseIPDB threat intel enrichment (requires Analysis Mode)
+openforensic --cli --mode analysis ram --dump memory.raw --profile windows.pslist.PsList --ioc-enrich
 ```
 
 ### 🔑 OpenPGP Cryptographic Integrity Manifests
@@ -200,26 +220,26 @@ sudo ./target/release/openforensic
 
 2. **⚡ System Triage Tab**:
    - One-click execution of rapid system collection: running processes, network sockets, browser histories, and event logs.
-   - *(Note: The interactive **Triage Workbench** is disabled by default during live capture; see the [Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md) to re-enable).*
+   - *(Note: The interactive **Triage SQL Workbench** is gated behind **Analysis Mode**; click "Switch to Analysis Mode" in the top bar to unlock).*
 
 3. **🔴 Live Acquisition Tab**:
    - Acquire live system volume shadow copies without rebooting.
    - Check **Capture Physical Memory (RAM)** to dump volatile system memory using auto-detected or custom tools (`winpmem`, `avml`).
 
-4. **⏱️ Timeline Generator Tab** *(Disabled by Default)*:
+4. **⏱️ Timeline Generator Tab** *(Requires Analysis Mode)*:
    - Input any acquired raw disk image (`.dd`).
    - Specify output destination to generate a unified, chronological timeline (`timeline.csv` / `timeline.json`) of file system modifications and journal entries.
-   - *Moved to the post-acquisition Analysis Suite. See [Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md) to re-enable.*
+   - *Gated behind **Analysis Mode** to protect live acquisition sessions from evidence modification.*
 
 5. **📁 Case Management Tab**:
    - Create and manage forensic cases with investigator details and agency metadata.
    - Review historical acquisition jobs, verify stored SHA-256/SHA-512 hashes, and export self-contained HTML evidence reports.
 
-6. **🧠 RAM Analysis Tab** *(Disabled by Default)*:
+6. **🧠 RAM Analysis Tab** *(Requires Analysis Mode)*:
    - Select an acquired memory dump (`.raw`, `.vmem`, `.dmp`) and specify your Volatility 3 script/executable path.
    - Select an analysis profile (e.g., `windows.pslist.PsList`, `windows.netstat.NetStat`, `windows.malfind.Malfind`).
    - Enable **AbuseIPDB** and **VirusTotal** API enrichment to automatically flag malicious remote IP connections and suspicious process hashes in real time.
-   - *Moved to the post-acquisition Analysis Suite. See [Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md) to re-enable.*
+   - *Gated behind **Analysis Mode** to protect live acquisition sessions from evidence modification.*
 
 ---
 
@@ -234,9 +254,18 @@ git clone https://github.com/rootwithkhandal/OpenForensic.git
 cd OpenForensic
 npm install
 ```
-> with mise : mise run run
 
-### Step 2: Verify Toolchain & Check Build
+### Step 2: Clean Stale Cache & Artifacts (Recommended)
+
+When switching branches or upgrading Tauri dependencies, clean stale build artifacts:
+
+```bash
+mise run clean
+# Or manually:
+cargo clean --manifest-path src-tauri/Cargo.toml
+```
+
+### Step 3: Verify Toolchain & Check Build
 
 ```bash
 mise run check
@@ -244,31 +273,37 @@ mise run check
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-### Step 3: Run Development Server with Live-Reload
+### Step 4: Run Application in Development Mode
 
-To launch the Tauri dev window:
+To launch the OpenForensic desktop window with live reloading:
 
 ```bash
+mise run run
+# Or with npm:
 npm run tauri dev
 ```
 
 _(On Windows, run your terminal as Administrator if testing raw physical disk scanning)._
 
-### Step 4: Compile Production Executable
+### Step 5: Compile Production Release Binary
 
-To build the optimized release binary and installer packages:
+To build the optimized release executable:
 
 ```bash
+mise run build
+# Or with npm:
 npm run tauri build
 ```
 
-The compiled standalone binary will be output to `src-tauri/target/release/openforensic.exe`.
+The compiled standalone binary will be output to `src-tauri/target/release/openforensic.exe` (or `./target/release/openforensic` on Linux/macOS).
 
 ---
 
 ## 📚 Documentation & Reference Guides
 
+- [**OpenForensic Analysis Suite & Dynamic Mode-Gating Guide**](docs/enabling-analysis-suite-features.md): Comprehensive guide on the forensic boundary between Capture Mode and Analysis Mode, feature toggling, and the Zero-Panic reliability architecture.
 - [**OpenForensic Hash System Guide**](docs/hashes_guides.md): Deep dive into our 3-stage cryptographic verification architecture and how container hashes (E01/AFF) differ from raw stream hashes.
+- [**Memory Capture & Volatile Triage Guide**](docs/memory-dump.md): Overview of live physical RAM acquisition, kernel drivers (WinPmem, LiME), and explanations for memory-mapped hardware offset sizing.
 - [**PGP Integrity Manifests Guide**](docs/pgp_manifests.md): Comprehensive guide on generating examiner keypairs (RSA-4096 / Ed25519), signing evidence containers, and verifying chain of custody.
 - [**Security Policy**](SECURITY.md): Vulnerability reporting guidelines and scope definitions.
 

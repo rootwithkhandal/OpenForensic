@@ -25,9 +25,11 @@ pub struct VolatilityConfig {
 pub async fn start_volatility_analysis(
     config: VolatilityConfig,
     state: State<'_, ActiveTaskState>,
+    mode_state: State<'_, crate::state::AcquisitionModeState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    let mut lock = state.lock().unwrap();
+    crate::state::require_analysis_mode(&mode_state)?;
+    let mut lock = state.lock().map_err(|_| "ActiveTaskState mutex poisoned".to_string())?;
     if lock.is_some() {
         return Err("A task is already running.".to_string());
     }
@@ -79,8 +81,14 @@ pub async fn start_volatility_analysis_backend(
         }
     };
 
-    let stdout = child.stdout.take().expect("Failed to open stdout");
-    let stderr = child.stderr.take().expect("Failed to open stderr");
+    let stdout = match child.stdout.take() {
+        Some(s) => s,
+        None => return Err("Failed to open Volatility stdout".to_string()),
+    };
+    let stderr = match child.stderr.take() {
+        Some(s) => s,
+        None => return Err("Failed to open Volatility stderr".to_string()),
+    };
 
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
@@ -91,25 +99,27 @@ pub async fn start_volatility_analysis_backend(
     let _enrich_vt = config.enrich_vt;
     let enrich_abuseip = config.enrich_abuseip;
     
+    // Genuinely infallible: regex pattern is compiled from a static constant string with valid syntax
+    #[allow(clippy::unwrap_used)]
     let ip_re = regex::Regex::new(r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)\.(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)\.(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)\.(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)\b").unwrap();
 
     let stdout_task = tokio::spawn(async move {
         while let Ok(Some(line)) = stdout_reader.next_line().await {
             let _ = tx_out.send(ProgressEvent::Log(line.clone())).await;
 
-            if enrich_abuseip && !abuseip_key.is_empty() {
-                if let Some(caps) = ip_re.captures(&line) {
-                    let ip = &caps[0];
-                    if !ip.starts_with("127.") && !ip.starts_with("192.168.") && !ip.starts_with("10.") && !ip.starts_with("172.16.") && ip != "0.0.0.0" {
-                        let key = abuseip_key.clone();
-                        let ip_str = ip.to_string();
-                        let tx_inner = tx_out.clone();
-                        tokio::spawn(async move {
-                            if let Ok(res) = check_abuseip(&ip_str, &key).await {
-                                let _ = tx_inner.send(ProgressEvent::Log(format!("  [AbuseIPDB] Result for {}: {}", ip_str, res))).await;
-                            }
-                        });
-                    }
+            if enrich_abuseip && !abuseip_key.is_empty()
+                && let Some(caps) = ip_re.captures(&line)
+            {
+                let ip = &caps[0];
+                if !ip.starts_with("127.") && !ip.starts_with("192.168.") && !ip.starts_with("10.") && !ip.starts_with("172.16.") && ip != "0.0.0.0" {
+                    let key = abuseip_key.clone();
+                    let ip_str = ip.to_string();
+                    let tx_inner = tx_out.clone();
+                    tokio::spawn(async move {
+                        if let Ok(res) = check_abuseip(&ip_str, &key).await {
+                            let _ = tx_inner.send(ProgressEvent::Log(format!("  [AbuseIPDB] Result for {}: {}", ip_str, res))).await;
+                        }
+                    });
                 }
             }
         }

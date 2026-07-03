@@ -97,10 +97,10 @@ impl SiemClient {
                 }
 
                 // Fallback to UDP socket
-                if let Ok(udp) = tokio::net::UdpSocket::bind("0.0.0.0:0").await {
-                    if udp.send_to(json_line.as_bytes(), &self.config.endpoint).await.is_ok() {
-                        return Ok(());
-                    }
+                if let Ok(udp) = tokio::net::UdpSocket::bind("0.0.0.0:0").await
+                    && udp.send_to(json_line.as_bytes(), &self.config.endpoint).await.is_ok()
+                {
+                    return Ok(());
                 }
 
                 Err(format!("Failed to connect to Wazuh socket at {}", self.config.endpoint))
@@ -114,8 +114,8 @@ impl SiemClient {
                     .await
                     .map_err(|e| format!("Failed to open Wazuh log file {}: {}", self.config.endpoint, e))?;
 
-                file.write_all(json_line.as_bytes()).await.map_err(|e| format!("File write error: {}", e))?;
-                file.flush().await.map_err(|e| format!("File flush error: {}", e))?;
+                file.write_all(json_line.as_bytes()).await.map_err(|e| e.to_string())?;
+                file.flush().await.map_err(|e| e.to_string())?;
                 Ok(())
             }
         }
@@ -127,22 +127,13 @@ impl SiemClient {
         case_number: &str,
         progress_tx: Option<Sender<ProgressEvent>>,
     ) -> Result<SiemExportSummary, String> {
-        let start_time = Instant::now();
-        let host = sysinfo::System::host_name().unwrap_or_else(|| "openforensic-host".to_string());
-
         if let Some(ref tx) = progress_tx {
-            let _ = tx.send(ProgressEvent::Log(format!("[SIEM] Starting export of triage database {} to SIEM ({:?})...", db_path.display(), self.config.destination_type))).await;
+            let _ = tx.send(ProgressEvent::Log(format!("[SIEM] Starting export of triage database {} for case {}...", db_path.display(), case_number))).await;
         }
-
-        let db = rusqlite::Connection::open(db_path)
-            .map_err(|e| format!("Failed to open triage database: {}", e))?;
-
-        let mut events = Vec::new();
-
-        // 1. Summary event
-        events.push(SiemEvent {
+        let host = sysinfo::System::host_name().unwrap_or_else(|| "openforensic-host".to_string());
+        let summary_event = SiemEvent {
             timestamp: chrono::Utc::now().to_rfc3339(),
-            host: host.clone(),
+            host,
             source: "openforensic:triage".to_string(),
             sourcetype: self.config.index.clone(),
             event_type: "triage_summary".to_string(),
@@ -153,11 +144,55 @@ impl SiemClient {
                 "arch": std::env::consts::ARCH,
                 "status": "completed",
             }),
-        });
+        };
+        let _ = self.send_event(&summary_event).await;
+        self.export_from_triage_db(db_path, progress_tx).await
+    }
+
+    /// Read forensic records from a SQLite Triage database and export them sequentially to SIEM.
+    pub async fn export_from_triage_db(
+        &self,
+        db_path: &Path,
+        progress_tx: Option<Sender<ProgressEvent>>,
+    ) -> Result<SiemExportSummary, String> {
+        let start_time = Instant::now();
+        if !db_path.exists() {
+            return Err(format!("Triage database not found: {}", db_path.display()));
+        }
+
+        let db = rusqlite::Connection::open_with_flags(
+            db_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        ).map_err(|e| format!("Failed to open Triage DB {}: {}", db_path.display(), e))?;
+
+        let host = sysinfo::System::host_name().unwrap_or_else(|| "unknown-host".to_string());
+        let mut events: Vec<SiemEvent> = Vec::new();
+
+        // 1. System Info
+        if let Ok(mut stmt) = db.prepare("SELECT hostname, os_name, os_version, cpu_arch, total_ram, boot_time FROM system_info LIMIT 1")
+            && let Ok(mut rows) = stmt.query([])
+            && let Ok(Some(row)) = rows.next()
+        {
+            events.push(SiemEvent {
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                host: host.clone(),
+                source: "openforensic:triage".to_string(),
+                sourcetype: self.config.index.clone(),
+                event_type: "system_info".to_string(),
+                data: serde_json::json!({
+                    "hostname": row.get::<_, String>(0).unwrap_or_default(),
+                    "os_name": row.get::<_, String>(1).unwrap_or_default(),
+                    "os_version": row.get::<_, String>(2).unwrap_or_default(),
+                    "cpu_arch": row.get::<_, String>(3).unwrap_or_default(),
+                    "total_ram": row.get::<_, u64>(4).unwrap_or_default(),
+                    "boot_time": row.get::<_, i64>(5).unwrap_or_default(),
+                }),
+            });
+        }
 
         // 2. Processes
-        if let Ok(mut stmt) = db.prepare("SELECT pid, name, executable_path, command_line, memory_usage FROM processes") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = db.prepare("SELECT pid, name, executable_path, command_line, memory_usage FROM processes")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 Ok(serde_json::json!({
                     "pid": row.get::<_, u32>(0).unwrap_or_default(),
                     "name": row.get::<_, String>(1).unwrap_or_default(),
@@ -165,23 +200,23 @@ impl SiemClient {
                     "command_line": row.get::<_, String>(3).unwrap_or_default(),
                     "memory_usage": row.get::<_, i64>(4).unwrap_or_default(),
                 }))
-            }) {
-                for r in rows.flatten() {
-                    events.push(SiemEvent {
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        host: host.clone(),
-                        source: "openforensic:triage".to_string(),
-                        sourcetype: self.config.index.clone(),
-                        event_type: "process".to_string(),
-                        data: r,
-                    });
-                }
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "process".to_string(),
+                    data: r,
+                });
             }
         }
 
         // 3. Network Connections
-        if let Ok(mut stmt) = db.prepare("SELECT protocol, local_address, foreign_address, state, pid FROM network_connections") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = db.prepare("SELECT protocol, local_address, foreign_address, state, pid FROM network_connections")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 Ok(serde_json::json!({
                     "protocol": row.get::<_, String>(0).unwrap_or_default(),
                     "local_address": row.get::<_, String>(1).unwrap_or_default(),
@@ -189,23 +224,23 @@ impl SiemClient {
                     "state": row.get::<_, String>(3).unwrap_or_default(),
                     "pid": row.get::<_, u32>(4).unwrap_or_default(),
                 }))
-            }) {
-                for r in rows.flatten() {
-                    events.push(SiemEvent {
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        host: host.clone(),
-                        source: "openforensic:triage".to_string(),
-                        sourcetype: self.config.index.clone(),
-                        event_type: "network_connection".to_string(),
-                        data: r,
-                    });
-                }
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "network_connection".to_string(),
+                    data: r,
+                });
             }
         }
 
         // 4. Browser History
-        if let Ok(mut stmt) = db.prepare("SELECT browser_name, url, title, visit_time, visit_count FROM browser_history") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = db.prepare("SELECT browser_name, url, title, visit_time, visit_count FROM browser_history")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 Ok(serde_json::json!({
                     "browser_name": row.get::<_, String>(0).unwrap_or_default(),
                     "url": row.get::<_, String>(1).unwrap_or_default(),
@@ -213,23 +248,23 @@ impl SiemClient {
                     "visit_time": row.get::<_, String>(3).unwrap_or_default(),
                     "visit_count": row.get::<_, i32>(4).unwrap_or_default(),
                 }))
-            }) {
-                for r in rows.flatten() {
-                    events.push(SiemEvent {
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        host: host.clone(),
-                        source: "openforensic:triage".to_string(),
-                        sourcetype: self.config.index.clone(),
-                        event_type: "browser_history".to_string(),
-                        data: r,
-                    });
-                }
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "browser_history".to_string(),
+                    data: r,
+                });
             }
         }
 
         // 5. Event Logs
-        if let Ok(mut stmt) = db.prepare("SELECT log_name, event_id, source, time_created, message FROM event_logs") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = db.prepare("SELECT log_name, event_id, source, time_created, message FROM event_logs")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 Ok(serde_json::json!({
                     "log_name": row.get::<_, String>(0).unwrap_or_default(),
                     "event_id": row.get::<_, i64>(1).unwrap_or_default(),
@@ -237,17 +272,17 @@ impl SiemClient {
                     "time_created": row.get::<_, String>(3).unwrap_or_default(),
                     "message": row.get::<_, String>(4).unwrap_or_default(),
                 }))
-            }) {
-                for r in rows.flatten() {
-                    events.push(SiemEvent {
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        host: host.clone(),
-                        source: "openforensic:triage".to_string(),
-                        sourcetype: self.config.index.clone(),
-                        event_type: "event_log".to_string(),
-                        data: r,
-                    });
-                }
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "event_log".to_string(),
+                    data: r,
+                });
             }
         }
 
@@ -264,14 +299,18 @@ impl SiemClient {
                 Ok(_) => successful += 1,
                 Err(e) => {
                     failed += 1;
-                    if failed <= 3 && progress_tx.is_some() {
-                        let _ = progress_tx.as_ref().unwrap().send(ProgressEvent::Log(format!("[SIEM ERROR] Failed to send event #{}: {}", idx + 1, e))).await;
+                    if failed <= 3
+                        && let Some(ref tx) = progress_tx
+                    {
+                        let _ = tx.send(ProgressEvent::Log(format!("[SIEM ERROR] Failed to send event #{}: {}", idx + 1, e))).await;
                     }
                 }
             }
 
-            if (idx + 1) % 50 == 0 && progress_tx.is_some() {
-                let _ = progress_tx.as_ref().unwrap().send(ProgressEvent::Log(format!("[SIEM] Exported {} / {} records...", idx + 1, total_events))).await;
+            if (idx + 1) % 50 == 0
+                && let Some(ref tx) = progress_tx
+            {
+                let _ = tx.send(ProgressEvent::Log(format!("[SIEM] Exported {} / {} records...", idx + 1, total_events))).await;
             }
         }
 

@@ -40,7 +40,7 @@ impl Aff4Writer {
         let options = FileOptions::default()
             .compression_method(CompressionMethod::Stored)
             .large_file(false);
-        zip.start_file("information.turtle", options.clone())?;
+        zip.start_file("information.turtle", options)?;
         zip.write_all(turtle_content.as_bytes())?;
 
         // Start the image data stream

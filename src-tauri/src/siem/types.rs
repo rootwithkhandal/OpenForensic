@@ -11,7 +11,7 @@ pub enum SiemDestinationType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SiemConfig {
     pub destination_type: SiemDestinationType,
-    pub endpoint: String,      // e.g., "https://splunk.azure-soc.internal:8088" or "127.0.0.1:1514" or "/var/ossec/logs/openforensic.json"
+    pub endpoint: String,      // e.g., "https://splunk.example.com:8088" or "127.0.0.1:1514" or "/var/ossec/logs/openforensic.json"
     pub auth_token: String,    // Splunk HEC Token or Wazuh API/Socket Key
     pub index: String,         // Index / Source / Tag e.g. "openforensic_triage"
     pub enabled: bool,
@@ -21,7 +21,7 @@ impl Default for SiemConfig {
     fn default() -> Self {
         Self {
             destination_type: SiemDestinationType::SplunkHec,
-            endpoint: "https://splunk.azure-soc.internal:8088".to_string(),
+            endpoint: String::new(),
             auth_token: String::new(),
             index: "openforensic_triage".to_string(),
             enabled: false,

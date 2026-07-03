@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 mod acquisition;
 pub mod case_management;
@@ -130,7 +132,12 @@ fn browse_file(ext: String) -> Option<String> {
 }
 
 #[tauri::command]
-async fn generate_image_timeline(image_path: String, output_dir: String) -> Result<String, String> {
+async fn generate_image_timeline(
+    image_path: String,
+    output_dir: String,
+    state: State<'_, crate::state::AcquisitionModeState>,
+) -> Result<String, String> {
+    crate::state::require_analysis_mode(&state)?;
     let img_path = std::path::PathBuf::from(&image_path);
     let out_dir = std::path::PathBuf::from(&output_dir);
 
@@ -158,7 +165,7 @@ fn check_checkpoint(dest_path: String) -> bool {
 
 #[tauri::command]
 fn cancel_acquisition(state: State<'_, ActiveTaskState>) -> Result<(), String> {
-    let mut lock = state.lock().unwrap();
+    let mut lock = state.lock().map_err(|_| "ActiveTaskState mutex poisoned".to_string())?;
     if let Some(tx) = lock.take() {
         // Drop the sender to close the channel
         drop(tx);
@@ -168,8 +175,9 @@ fn cancel_acquisition(state: State<'_, ActiveTaskState>) -> Result<(), String> {
 
 fn clear_active_task(app_handle: &AppHandle) {
     let state_guard = app_handle.state::<ActiveTaskState>();
-    let mut lock = state_guard.lock().unwrap();
-    *lock = None;
+    if let Ok(mut lock) = state_guard.lock() {
+        *lock = None;
+    }
 }
 
 fn format_ext(mode: &str) -> &'static str {
@@ -192,7 +200,7 @@ async fn start_acquisition(
     state: State<'_, ActiveTaskState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    let mut lock = state.lock().unwrap();
+    let mut lock = state.lock().map_err(|_| "ActiveTaskState mutex poisoned".to_string())?;
     if lock.is_some() {
         return Err("An acquisition is already in progress.".to_string());
     }
@@ -400,20 +408,17 @@ async fn start_acquisition(
                     let report_path = dest_file_path.join("logical_report.txt");
                     let _ = crate::report::generate_txt_report(&report_path, &report_data);
                     log("[SYSTEM] Logical report generated successfully.".to_string()).await;
-                    if let Ok(app_dir) = app_handle.path().app_data_dir() {
-                        if let Ok((priv_pem, _, _)) =
+                    if let Ok(app_dir) = app_handle.path().app_data_dir()
+                        && let Ok((priv_pem, _, _)) =
                             crate::pgp::PgpKeyManager::load_or_generate_default(Some(&app_dir))
-                        {
-                            if let Ok(sig_path) =
-                                crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
-                            {
-                                log(format!(
-                                    "[PGP SIGN] Court-ready PGP integrity manifest signed: {}",
-                                    sig_path.display()
-                                ))
-                                .await;
-                            }
-                        }
+                        && let Ok(sig_path) =
+                            crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
+                    {
+                        log(format!(
+                            "[PGP SIGN] Court-ready PGP integrity manifest signed: {}",
+                            sig_path.display()
+                        ))
+                        .await;
                     }
 
                     let hash_log = format!(
@@ -485,12 +490,12 @@ async fn start_acquisition(
             let mut serial = "N/A".to_string();
             let mut size = 0u64;
 
-            if let Ok(devs) = ActiveBackend::enumerate_devices() {
-                if let Some(dev) = devs.iter().find(|d| d.path == source_path) {
-                    model = dev.model.clone();
-                    serial = dev.serial.clone();
-                    size = dev.size;
-                }
+            if let Ok(devs) = ActiveBackend::enumerate_devices()
+                && let Some(dev) = devs.iter().find(|d| d.path == source_path)
+            {
+                model = dev.model.clone();
+                serial = dev.serial.clone();
+                size = dev.size;
             }
 
             log(format!(
@@ -625,7 +630,7 @@ async fn start_acquisition(
                 Ok(result) => {
                     let mut post_hashes = None;
                     if config_input.hash_verification.contains("Post") {
-                        log(format!("[ACQUISITION] Computing post-acquisition hash for output container file...")).await;
+                        log("[ACQUISITION] Computing post-acquisition hash for output container file...".to_string()).await;
                         match crate::acquisition::compute_file_hash(
                             &dest_file_path,
                             &config.hash_algorithms,
@@ -692,41 +697,38 @@ async fn start_acquisition(
                             .to_string(),
                     )
                     .await;
-                    if let Ok(app_dir) = app_handle.path().app_data_dir() {
-                        if let Ok((priv_pem, _, _)) =
+                    if let Ok(app_dir) = app_handle.path().app_data_dir()
+                        && let Ok((priv_pem, _, _)) =
                             crate::pgp::PgpKeyManager::load_or_generate_default(Some(&app_dir))
-                        {
-                            if let Ok(sig_path) =
-                                crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
-                            {
-                                log(format!(
-                                    "[PGP SIGN] Court-ready PGP integrity manifest signed: {}",
-                                    sig_path.display()
-                                ))
-                                .await;
-                            }
-                        }
+                        && let Ok(sig_path) =
+                            crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
+                    {
+                        log(format!(
+                            "[PGP SIGN] Court-ready PGP integrity manifest signed: {}",
+                            sig_path.display()
+                        ))
+                        .await;
                     }
 
-                    if config_input.digital_signature {
-                        if let Ok(content) = std::fs::read_to_string(&report_path) {
-                            let sig = crate::hasher::generate_report_seal(
-                                &content,
-                                &report_data.case_number,
+                    if config_input.digital_signature
+                        && let Ok(content) = std::fs::read_to_string(&report_path)
+                    {
+                        let sig = crate::hasher::generate_report_seal(
+                            &content,
+                            &report_data.case_number,
+                        );
+                        let sig_path = dest_file_path.with_extension("signature");
+                        if let Ok(mut sig_file) = std::fs::File::create(sig_path) {
+                            use std::io::Write;
+                            let _ = writeln!(sig_file, "=== OPENFORENSIC FORENSIC SEAL ===");
+                            let _ = writeln!(sig_file, "Signature: {}", sig);
+                            let _ = writeln!(sig_file, "Workstation ID: WORKSTATION-STN-01");
+                            let _ = writeln!(
+                                sig_file,
+                                "Timestamp: {}",
+                                chrono::Utc::now().to_rfc2822()
                             );
-                            let sig_path = dest_file_path.with_extension("signature");
-                            if let Ok(mut sig_file) = std::fs::File::create(sig_path) {
-                                use std::io::Write;
-                                let _ = writeln!(sig_file, "=== OPENFORENSIC FORENSIC SEAL ===");
-                                let _ = writeln!(sig_file, "Signature: {}", sig);
-                                let _ = writeln!(sig_file, "Workstation ID: WORKSTATION-STN-01");
-                                let _ = writeln!(
-                                    sig_file,
-                                    "Timestamp: {}",
-                                    chrono::Utc::now().to_rfc2822()
-                                );
-                                log("[SYSTEM] Cryptographic digital signature generated successfully.".to_string()).await;
-                            }
+                            log("[SYSTEM] Cryptographic digital signature generated successfully.".to_string()).await;
                         }
                     }
 
@@ -805,6 +807,7 @@ async fn start_acquisition(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 async fn start_triage(
     dest_path: String,
     collect_registry: bool,
@@ -815,7 +818,7 @@ async fn start_triage(
     state: State<'_, ActiveTaskState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    let mut lock = state.lock().unwrap();
+    let mut lock = state.lock().map_err(|_| "ActiveTaskState mutex poisoned".to_string())?;
     if lock.is_some() {
         return Err("A forensic task is already in progress.".to_string());
     }
@@ -856,7 +859,12 @@ async fn start_triage(
 }
 
 #[tauri::command]
-async fn query_triage_db(db_path: String, table_name: String) -> Result<String, String> {
+async fn query_triage_db(
+    db_path: String,
+    table_name: String,
+    state: State<'_, crate::state::AcquisitionModeState>,
+) -> Result<String, String> {
+    crate::state::require_analysis_mode(&state)?;
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
 
     let valid_tables = [
@@ -882,8 +890,8 @@ async fn query_triage_db(db_path: String, table_name: String) -> Result<String, 
     let rows = stmt
         .query_map([], |row| {
             let mut map = serde_json::Map::new();
-            for i in 0..column_count {
-                let val = match row.get_ref(i).unwrap() {
+            for (i, col_name) in column_names.iter().enumerate().take(column_count) {
+                let val = match row.get_ref(i)? {
                     rusqlite::types::ValueRef::Null => serde_json::Value::Null,
                     rusqlite::types::ValueRef::Integer(i) => serde_json::json!(i),
                     rusqlite::types::ValueRef::Real(f) => serde_json::json!(f),
@@ -894,7 +902,7 @@ async fn query_triage_db(db_path: String, table_name: String) -> Result<String, 
                         serde_json::json!(format!("<blob {} bytes>", b.len()))
                     }
                 };
-                map.insert(column_names[i].clone(), val);
+                map.insert(col_name.clone(), val);
             }
             Ok(serde_json::Value::Object(map))
         })
@@ -1005,7 +1013,7 @@ async fn start_live_acquisition(
     state: State<'_, ActiveTaskState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    let mut lock = state.lock().unwrap();
+    let mut lock = state.lock().map_err(|_| "ActiveTaskState mutex poisoned".to_string())?;
     if lock.is_some() {
         return Err("A forensic task is already in progress.".to_string());
     }
@@ -1045,10 +1053,10 @@ async fn start_live_acquisition(
             .await;
 
         let mut source_size = 0u64;
-        if let Ok(vols) = list_volumes().await {
-            if let Some(vol) = vols.iter().find(|v| v.letter == config_input.volume) {
-                source_size = vol.total_size;
-            }
+        if let Ok(vols) = list_volumes().await
+            && let Some(vol) = vols.iter().find(|v| v.letter == config_input.volume)
+        {
+            source_size = vol.total_size;
         }
 
         // ── Step 1: Create VSS Snapshot ──
@@ -1380,21 +1388,18 @@ async fn start_live_acquisition(
             dest_dir.join("live_acquisition_report.csv"),
             &report_data,
         );
-        if let Ok(app_dir) = app_handle.path().app_data_dir() {
-            if let Ok((priv_pem, _, _)) =
+        if let Ok(app_dir) = app_handle.path().app_data_dir()
+            && let Ok((priv_pem, _, _)) =
                 crate::pgp::PgpKeyManager::load_or_generate_default(Some(&app_dir))
-            {
-                if let Ok(sig_path) =
-                    crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
-                {
-                    let _ = tx
-                        .send(ProgressEvent::Log(format!(
-                            "[PGP SIGN] Court-ready PGP integrity manifest signed: {}",
-                            sig_path.display()
-                        )))
-                        .await;
-                }
-            }
+            && let Ok(sig_path) =
+                crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
+        {
+            let _ = tx
+                .send(ProgressEvent::Log(format!(
+                    "[PGP SIGN] Court-ready PGP integrity manifest signed: {}",
+                    sig_path.display()
+                )))
+                .await;
         }
 
         let _ = tx
@@ -1421,7 +1426,11 @@ pub type PluginManagerState = Mutex<crate::plugins::PluginManager>;
 pub type SiemConfigState = Mutex<Option<crate::siem::SiemConfig>>;
 
 #[tauri::command]
-async fn test_siem_connection(config: crate::siem::SiemConfig) -> Result<String, String> {
+async fn test_siem_connection(
+    config: crate::siem::SiemConfig,
+    state: State<'_, crate::state::AcquisitionModeState>,
+) -> Result<String, String> {
+    crate::state::require_analysis_mode(&state)?;
     let client = crate::siem::SiemClient::new(config);
     client.test_connection().await
 }
@@ -1430,7 +1439,9 @@ async fn test_siem_connection(config: crate::siem::SiemConfig) -> Result<String,
 async fn save_siem_config(
     config: crate::siem::SiemConfig,
     state: State<'_, SiemConfigState>,
+    mode_state: State<'_, crate::state::AcquisitionModeState>,
 ) -> Result<(), String> {
+    crate::state::require_analysis_mode(&mode_state)?;
     let mut guard = state
         .lock()
         .map_err(|_| "SIEM config mutex poisoned".to_string())?;
@@ -1452,11 +1463,43 @@ async fn get_siem_config(
 async fn export_triage_to_siem(
     db_path: String,
     config: crate::siem::SiemConfig,
+    state: State<'_, crate::state::AcquisitionModeState>,
 ) -> Result<crate::siem::SiemExportSummary, String> {
+    crate::state::require_analysis_mode(&state)?;
     let client = crate::siem::SiemClient::new(config);
     client
         .send_triage_db(std::path::Path::new(&db_path), "MANUAL-EXPORT", None)
         .await
+}
+
+#[tauri::command]
+async fn set_acquisition_mode(
+    mode: crate::state::AcquisitionMode,
+    investigator: Option<String>,
+    case_id: Option<String>,
+    state: State<'_, crate::state::AcquisitionModeState>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    {
+        let mut guard = state
+            .lock()
+            .map_err(|_| "Acquisition mode mutex poisoned".to_string())?;
+        *guard = mode;
+    }
+    let mode_str = match mode {
+        crate::state::AcquisitionMode::Capture => "CAPTURE",
+        crate::state::AcquisitionMode::Analysis => "ANALYSIS",
+    };
+    let inv = investigator.unwrap_or_else(|| "Investigator".to_string());
+    let cid = case_id.unwrap_or_else(|| "N/A".to_string());
+    let _ = crate::case_management::log_audit_event(
+        &app_handle,
+        &inv,
+        &cid,
+        "MODE_TRANSITION",
+        &format!("Switched session acquisition mode to {}", mode_str),
+    );
+    Ok(())
 }
 
 #[tauri::command]
@@ -1563,7 +1606,9 @@ async fn inspect_volume_encryption(
 async fn extract_memory_keys(
     ram_dump_path: String,
     enc_type: Option<String>,
+    state: State<'_, crate::state::AcquisitionModeState>,
 ) -> Result<Vec<crate::encryption::ExtractedKey>, String> {
+    crate::state::require_analysis_mode(&state)?;
     let target = enc_type.and_then(|t| match t.as_str() {
         "BitLocker" => Some(crate::encryption::EncryptionType::BitLocker),
         "LUKS" => Some(crate::encryption::EncryptionType::Luks1),
@@ -1574,6 +1619,42 @@ async fn extract_memory_keys(
 }
 
 fn main() {
+    // Install forensic panic hook to ensure crash state and logs are preserved
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        let location = panic_info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        let payload = panic_info
+            .payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| panic_info.payload().downcast_ref::<String>().map(|s| s.as_str()))
+            .unwrap_or("unknown panic payload");
+
+        let crash_msg = format!(
+            "[{}] [FORENSIC PANIC HOOK] Unexpected fatal panic at {}: {}\n",
+            timestamp, location, payload
+        );
+        eprintln!("{}", crash_msg);
+
+        // Append to persistent forensic crash log
+        let log_path = std::env::temp_dir().join("openforensic_crash.log");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        {
+            use std::io::Write;
+            let _ = writeln!(file, "{}", crash_msg);
+        }
+
+        // Invoke default hook for stack traces and standard panic handling
+        default_hook(panic_info);
+    }));
+
     let args: Vec<String> = std::env::args().collect();
     let is_cli = args.iter().any(|arg| {
         arg == "--cli"
@@ -1609,11 +1690,13 @@ fn main() {
         }
     }
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(Mutex::new(None) as ActiveTaskState)
         .manage(Mutex::new(crate::plugins::PluginManager::new()) as PluginManagerState)
         .manage(Mutex::new(None) as SiemConfigState)
+        .manage(Mutex::new(crate::state::AcquisitionMode::Capture) as crate::state::AcquisitionModeState)
         .invoke_handler(tauri::generate_handler![
+            set_acquisition_mode,
             get_admin_status,
             scan_devices,
             browse_folder,
@@ -1648,7 +1731,10 @@ fn main() {
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());
             Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        });
+
+    if let Err(e) = builder.run(tauri::generate_context!()) {
+        eprintln!("[FATAL ERROR] Error while running tauri application: {}", e);
+        std::process::exit(1);
+    }
 }

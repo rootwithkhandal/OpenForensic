@@ -10,6 +10,10 @@ run = "cargo check"
 description = "Run all automated unit tests"
 run = "cargo test"
 
+[tasks.clean]
+description = "Clean build artifacts and reset Cargo target cache"
+run = "cargo clean"
+
 [tasks.build]
 description = "Build the forensic imager standalone binary in release mode"
 run = "cargo build --release"

@@ -40,12 +40,11 @@ impl VssSnapshot {
             .output();
 
         let mut shadow_id = None;
-
-        if let Ok(out) = wmic_output {
-            if out.status.success() {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                shadow_id = Self::parse_shadow_id_from_wmic(&stdout);
-            }
+        if let Ok(out) = wmic_output
+            && out.status.success()
+        {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            shadow_id = Self::parse_shadow_id_from_wmic(&stdout);
         }
 
         if shadow_id.is_none() {
@@ -89,16 +88,16 @@ impl VssSnapshot {
             let trimmed = line.trim();
             if trimmed.contains("ShadowID") {
                 // Extract the GUID between quotes
-                if let Some(start) = trimmed.find('"') {
-                    if let Some(end) = trimmed[start + 1..].find('"') {
-                        return Some(trimmed[start + 1..start + 1 + end].to_string());
-                    }
+                if let Some(start) = trimmed.find('"')
+                    && let Some(end) = trimmed[start + 1..].find('"')
+                {
+                    return Some(trimmed[start + 1..start + 1 + end].to_string());
                 }
                 // Try braces format
-                if let Some(start) = trimmed.find('{') {
-                    if let Some(end) = trimmed.find('}') {
-                        return Some(trimmed[start..=end].to_string());
-                    }
+                if let Some(start) = trimmed.find('{')
+                    && let Some(end) = trimmed.find('}')
+                {
+                    return Some(trimmed[start..=end].to_string());
                 }
             }
         }
@@ -110,38 +109,31 @@ impl VssSnapshot {
         let output = Command::new("vssadmin")
             .args(["list", "shadows"])
             .output()
-            .map_err(|e| OpenForensicError::VssError(format!("Failed to run vssadmin list shadows: {}", e)))?;
+            .map_err(|e| OpenForensicError::VssError(format!("Failed to execute vssadmin: {}", e)))?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        // Parse the output to find our shadow copy's device path.
-        // vssadmin output format:
-        //   Shadow Copy ID: {GUID}
-        //   ...
-        //   Shadow Copy Volume: \\?\Volume{...}\
-        //   ...
-        //   Original Volume: (C:)\
-        //
-        // We need to find the block matching our shadow_id and extract the device object path.
-        let mut found_our_shadow = false;
-        for line in stdout.lines() {
-            let trimmed = line.trim();
-
-            if trimmed.contains("Shadow Copy ID:") && trimmed.contains(shadow_id) {
-                found_our_shadow = true;
-                continue;
-            }
-
-            if found_our_shadow && trimmed.starts_with("Shadow Copy Volume:") {
-                // Extract the path after the colon
-                if let Some(path) = trimmed.strip_prefix("Shadow Copy Volume:") {
-                    return Ok(path.trim().to_string());
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut current_id = String::new();
+            for line in stdout.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("Shadow Copy ID:") || trimmed.starts_with("Shadow copy ID:") {
+                    current_id = trimmed
+                        .split(':')
+                        .nth(1)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                } else if (trimmed.starts_with("Shadow Copy Volume Name:") || trimmed.starts_with("Shadow copy volume name:"))
+                    && (current_id.eq_ignore_ascii_case(shadow_id) || current_id.contains(shadow_id))
+                {
+                    let vol_name = trimmed
+                        .split(':')
+                        .nth(1)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    return Ok(vol_name);
                 }
-            }
-
-            // Reset if we hit the next shadow block
-            if found_our_shadow && trimmed.contains("Shadow Copy ID:") && !trimmed.contains(shadow_id) {
-                break;
             }
         }
 
@@ -151,20 +143,20 @@ impl VssSnapshot {
             .args(["shadowcopy", "get", "DeviceObject,ID", "/format:list"])
             .output();
 
-        if let Ok(out) = wmic_out {
-            if out.status.success() {
-                let wmic_stdout = String::from_utf8_lossy(&out.stdout);
-                let mut current_device = String::new();
-                for line in wmic_stdout.lines() {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with("DeviceObject=") {
-                        current_device = trimmed.strip_prefix("DeviceObject=").unwrap_or("").to_string();
-                    }
-                    if trimmed.starts_with("ID=") {
-                        let id = trimmed.strip_prefix("ID=").unwrap_or("").trim();
-                        if id == shadow_id && !current_device.is_empty() {
-                            return Ok(current_device);
-                        }
+        if let Ok(out) = wmic_out
+            && out.status.success()
+        {
+            let wmic_stdout = String::from_utf8_lossy(&out.stdout);
+            let mut current_device = String::new();
+            for line in wmic_stdout.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("DeviceObject=") {
+                    current_device = trimmed.strip_prefix("DeviceObject=").unwrap_or("").to_string();
+                }
+                if trimmed.starts_with("ID=") {
+                    let id = trimmed.strip_prefix("ID=").unwrap_or("").trim();
+                    if id == shadow_id && !current_device.is_empty() {
+                        return Ok(current_device);
                     }
                 }
             }

@@ -39,13 +39,10 @@ impl DeviceBackend for WindowsBackend {
                 )
             };
 
-            if handle.is_err() {
-                continue;
-            }
-            let handle = handle.unwrap();
-            if handle.is_invalid() {
-                continue;
-            }
+            let handle = match handle {
+                Ok(h) if !h.is_invalid() => h,
+                _ => continue,
+            };
 
             // Get size
             let mut geom = DISK_GEOMETRY_EX::default();
@@ -162,14 +159,16 @@ impl DeviceBackend for WindowsBackend {
             )
         };
 
-        if handle.is_err() {
-            return Err(OpenForensicError::Backend(format!(
-                "Failed to open device {}: {}",
-                path,
-                std::io::Error::last_os_error()
-            )));
-        }
-        let handle = handle.unwrap();
+        let handle = match handle {
+            Ok(h) => h,
+            Err(_) => {
+                return Err(OpenForensicError::Backend(format!(
+                    "Failed to open device {}: {}",
+                    path,
+                    std::io::Error::last_os_error()
+                )));
+            }
+        };
 
         // Get size
         let mut geom = DISK_GEOMETRY_EX::default();
@@ -216,14 +215,16 @@ impl DeviceBackend for WindowsBackend {
             )
         };
 
-        if handle.is_err() {
-            return Err(OpenForensicError::Backend(format!(
-                "Failed to open device {} for write-blocking: {}",
-                device.path,
-                std::io::Error::last_os_error()
-            )));
-        }
-        let handle = handle.unwrap();
+        let handle = match handle {
+            Ok(h) => h,
+            Err(_) => {
+                return Err(OpenForensicError::Backend(format!(
+                    "Failed to open device {} for write-blocking: {}",
+                    device.path,
+                    std::io::Error::last_os_error()
+                )));
+            }
+        };
 
         const IOCTL_DISK_SET_DISK_ATTRIBUTES: u32 = 0x7C0F4;
         const DISK_ATTRIBUTE_READ_ONLY: u64 = 0x0000000000000002;

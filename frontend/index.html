@@ -208,6 +208,13 @@
           <span class="material-symbols-outlined text-[20px]">help_outline</span>
         </button>
         <div class="h-6 w-px bg-outline-variant mx-1"></div>
+        <button id="btn-mode-toggle"
+                class="px-3 py-1.5 text-body-sm font-bold bg-surface-container-high border border-outline-variant text-on-surface rounded
+                       hover:bg-amber-500/20 hover:border-amber-500 transition-all flex items-center gap-1.5"
+                title="Click to switch between Capture Mode and Analysis Mode">
+          <span class="material-symbols-outlined text-[16px]">lock</span>
+          <span id="mode-display-text">Mode: CAPTURE</span>
+        </button>
         <button id="btn-export-log"
                 class="px-3 py-1.5 text-body-sm font-semibold border border-outline-variant rounded
                        hover:bg-surface-container text-on-surface transition-colors flex items-center gap-1.5">
@@ -603,7 +610,7 @@
           <option value="wazuh_socket">Wazuh Socket</option>
           <option value="wazuh_local_log">Wazuh Local Log</option>
         </select>
-        <input type="text"     id="siem-endpoint" value="https://splunk.azure-soc.internal:8088">
+        <input type="text"     id="siem-endpoint" value="" placeholder="https://splunk.example.com:8088">
         <input type="password" id="siem-token">
         <input type="text"     id="siem-index"    value="openforensic_triage">
         <button id="btn-test-siem">Test</button>

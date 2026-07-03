@@ -8,6 +8,10 @@ pub struct CliArgs {
     #[arg(long, global = true)]
     pub cli: bool,
 
+    /// Operation mode: capture (default) or analysis
+    #[arg(long, global = true, default_value = "capture")]
+    pub mode: String,
+
     #[command(subcommand)]
     pub command: Option<CliSubcommand>,
 }
@@ -105,24 +109,24 @@ pub enum CliSubcommand {
         #[arg(long)]
         no_eventlogs: bool,
 
-        /// [DISABLED & HIDDEN] Enable real-time SIEM export to Splunk HEC or Wazuh socket
-        #[arg(long, hide = true)]
+        /// Enable real-time SIEM export to Splunk HEC or Wazuh socket (requires --mode analysis)
+        #[arg(long)]
         siem_export: bool,
 
-        /// [DISABLED & HIDDEN] SIEM endpoint URL / host:port / file path
-        #[arg(long, default_value = "https://splunk.azure-soc.internal:8088", hide = true)]
+        /// SIEM endpoint URL / host:port / file path
+        #[arg(long, default_value = "", required_if_eq("siem_export", "true"))]
         siem_endpoint: String,
 
-        /// [DISABLED & HIDDEN] SIEM destination type: splunk_hec, wazuh_socket, wazuh_local_log
-        #[arg(long, default_value = "splunk_hec", hide = true)]
+        /// SIEM destination type: splunk_hec, wazuh_socket, wazuh_local_log
+        #[arg(long, default_value = "splunk_hec")]
         siem_type: String,
 
-        /// [DISABLED & HIDDEN] Auth token / API key for SIEM
-        #[arg(long, default_value = "", hide = true)]
+        /// Auth token / API key for SIEM
+        #[arg(long, default_value = "")]
         siem_token: String,
 
-        /// [DISABLED & HIDDEN] SIEM index / sourcetype / tag
-        #[arg(long, default_value = "openforensic_triage", hide = true)]
+        /// SIEM index / sourcetype / tag
+        #[arg(long, default_value = "openforensic_triage")]
         siem_index: String,
     },
 
@@ -158,8 +162,8 @@ pub enum CliSubcommand {
         hashes: Vec<String>,
     },
 
-    /// [DISABLED & HIDDEN] Analyze RAM dump using Volatility 3 engine & Threat Intelligence (Moved to Analysis Suite)
-    #[command(name = "ram", alias = "volatility", hide = true)]
+    /// Analyze RAM dump using Volatility 3 engine & Threat Intelligence (requires --mode analysis)
+    #[command(name = "ram", alias = "volatility")]
     Ram {
         /// Path to acquired RAM dump (.raw, .dmp, .vmem)
         #[arg(short, long)]

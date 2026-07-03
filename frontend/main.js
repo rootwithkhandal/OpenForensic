@@ -287,6 +287,7 @@ const elements = {
   consoleLogs: document.getElementById('console-logs'),
   btnClearLog: document.getElementById('btn-clear-log'),
   btnExportLog: document.getElementById('btn-export-log'),
+  btnModeToggle: document.getElementById('btn-mode-toggle'),
 
   monitorIdle: document.getElementById('monitor-idle'),
   monitorActive: document.getElementById('monitor-active'),
@@ -560,6 +561,50 @@ function setupEventListeners() {
   document.getElementById('btn-tab-pgp').addEventListener('click', () => { switchTab('pgp'); loadPgpKeyInfo(); });
 
   document.getElementById('btn-refresh-cases').addEventListener('click', loadCases);
+
+  // Acquisition Mode Toggle
+  let currentMode = 'Capture';
+  if (elements.btnModeToggle) {
+    elements.btnModeToggle.addEventListener('click', async () => {
+      if (currentMode === 'Capture') {
+        const confirmSwitch = confirm("Switching to Analysis Mode disables further evidence-modifying safeguards for this session.\n\nDo you wish to proceed?");
+        if (confirmSwitch) {
+          try {
+            const investigator = elements.inputExaminer ? elements.inputExaminer.value : "Investigator";
+            const caseId = elements.inputCaseNumber ? elements.inputCaseNumber.value : "N/A";
+            await invoke('set_acquisition_mode', { mode: 'Analysis', investigator: investigator || "Investigator", caseId: caseId || "N/A" });
+            currentMode = 'Analysis';
+            const displaySpan = document.getElementById('mode-display-text');
+            if (displaySpan) displaySpan.textContent = "Mode: ANALYSIS";
+            elements.btnModeToggle.classList.remove('bg-surface-container-high', 'text-on-surface');
+            elements.btnModeToggle.classList.add('bg-amber-500', 'text-white');
+            logMessage('WARNING', 'Switched session acquisition mode to ANALYSIS. Evidence-modifying safeguards disabled.');
+          } catch (e) {
+            alert("Failed to switch mode: " + e);
+            logMessage('ERROR', 'Failed to set acquisition mode: ' + e);
+          }
+        }
+      } else {
+        const confirmSwitch = confirm("Switch back to Capture Mode? (Safeguards will be re-enabled)");
+        if (confirmSwitch) {
+          try {
+            const investigator = elements.inputExaminer ? elements.inputExaminer.value : "Investigator";
+            const caseId = elements.inputCaseNumber ? elements.inputCaseNumber.value : "N/A";
+            await invoke('set_acquisition_mode', { mode: 'Capture', investigator: investigator || "Investigator", caseId: caseId || "N/A" });
+            currentMode = 'Capture';
+            const displaySpan = document.getElementById('mode-display-text');
+            if (displaySpan) displaySpan.textContent = "Mode: CAPTURE";
+            elements.btnModeToggle.classList.remove('bg-amber-500', 'text-white');
+            elements.btnModeToggle.classList.add('bg-surface-container-high', 'text-on-surface');
+            logMessage('SYSTEM', 'Switched session acquisition mode to CAPTURE.');
+          } catch (e) {
+            alert("Failed to switch mode: " + e);
+            logMessage('ERROR', 'Failed to set acquisition mode: ' + e);
+          }
+        }
+      }
+    });
+  }
 
   // Triage Destination folder browse
   document.getElementById('btn-browse-triage-dest').addEventListener('click', async () => {

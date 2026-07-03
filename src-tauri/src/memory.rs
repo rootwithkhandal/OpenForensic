@@ -194,13 +194,14 @@ pub async fn acquire_memory(
 ) -> Result<MemoryDumpResult> {
     let start_time = Instant::now();
 
-    let tool = find_memory_tool(&config.tool_path);
-    if tool.is_none() {
-        return Err(OpenForensicError::Backend(
-            "No memory acquisition tool found. Please install WinPmem (Windows) or avml (Linux) and ensure it is accessible.".to_string()
-        ));
-    }
-    let tool_path = tool.unwrap();
+    let tool_path = match find_memory_tool(&config.tool_path) {
+        Some(path) => path,
+        None => {
+            return Err(OpenForensicError::Backend(
+                "No memory acquisition tool found. Please install WinPmem (Windows) or avml (Linux) and ensure it is accessible.".to_string()
+            ));
+        }
+    };
     let tool_name = tool_path
         .file_name()
         .unwrap_or_default()

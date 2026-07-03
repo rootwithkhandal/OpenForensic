@@ -181,13 +181,13 @@ pub async fn acquire(
         plugin_task = Some(tokio::task::spawn_blocking(move || {
             while let Some((offset, chunk)) = p_rx.blocking_recv() {
                 for plugin_arc in &plugins_worker {
-                    if let Ok(mut p) = plugin_arc.lock() {
-                        if let Err(e) = p.on_block(offset, &chunk) {
-                            let _ = plugin_progress_tx.blocking_send(ProgressEvent::PluginLog {
-                                plugin_name: p.name().to_string(),
-                                message: format!("[ON-BLOCK ERROR at offset {}] {}", offset, e),
-                            });
-                        }
+                    if let Ok(mut p) = plugin_arc.lock()
+                        && let Err(e) = p.on_block(offset, &chunk)
+                    {
+                        let _ = plugin_progress_tx.blocking_send(ProgressEvent::PluginLog {
+                            plugin_name: p.name().to_string(),
+                            message: format!("[ON-BLOCK ERROR at offset {}] {}", offset, e),
+                        });
                     }
                 }
             }
@@ -202,28 +202,26 @@ pub async fn acquire(
         while let Some(chunk) = write_rx.blocking_recv() {
             dest.write_all(&chunk)?;
 
-            if read_verification {
-                if compression == crate::output::CompressionFormat::None {
-                    dest.flush()?;
-                    let n = chunk.len() as u64;
-                    if dest.bytes_written_part() >= n {
-                        let current_path = dest.current_part_path();
-                        let offset = dest.bytes_written_part() - n;
+            if read_verification && compression == crate::output::CompressionFormat::None {
+                dest.flush()?;
+                let n = chunk.len() as u64;
+                if dest.bytes_written_part() >= n {
+                    let current_path = dest.current_part_path();
+                    let offset = dest.bytes_written_part() - n;
 
-                        let mut file = std::fs::File::open(&current_path)?;
-                        use std::io::{Read, Seek, SeekFrom};
-                        file.seek(SeekFrom::Start(offset))?;
-                        let mut read_buf = vec![0u8; chunk.len()];
-                        file.read_exact(&mut read_buf)?;
+                    let mut file = std::fs::File::open(&current_path)?;
+                    use std::io::{Read, Seek, SeekFrom};
+                    file.seek(SeekFrom::Start(offset))?;
+                    let mut read_buf = vec![0u8; chunk.len()];
+                    file.read_exact(&mut read_buf)?;
 
-                        if read_buf != chunk.as_slice() {
-                            let msg = format!("[ERROR] Read verification failed at offset {} of {}", offset, current_path.display());
-                            let _ = writer_progress_tx.blocking_send(ProgressEvent::Log(msg.clone()));
-                            return Err(crate::error::OpenForensicError::Io(std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                "Written data mismatch on verification read-back",
-                            )));
-                        }
+                    if read_buf != chunk.as_slice() {
+                        let msg = format!("[ERROR] Read verification failed at offset {} of {}", offset, current_path.display());
+                        let _ = writer_progress_tx.blocking_send(ProgressEvent::Log(msg.clone()));
+                        return Err(crate::error::OpenForensicError::Io(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Written data mismatch on verification read-back",
+                        )));
                     }
                 }
             }
@@ -347,27 +345,25 @@ pub async fn acquire(
             let chunk = std::sync::Arc::new(active_slice[..n].to_vec());
 
             // Keyword scanning (offloaded)
-            if !config.keywords.is_empty() {
-                if let Err(_) = kw_tx.send((bytes_read, chunk.clone())).await {
-                    return Err(crate::error::OpenForensicError::Backend("Keyword scanning task died unexpectedly".to_string()));
-                }
+            if !config.keywords.is_empty() && kw_tx.send((bytes_read, chunk.clone())).await.is_err() {
+                return Err(crate::error::OpenForensicError::Backend("Keyword scanning task died unexpectedly".to_string()));
             }
 
-            if let Some(ref y_tx) = yara_tx_opt {
-                if let Err(_) = y_tx.send((bytes_read, chunk.clone())).await {
-                    return Err(crate::error::OpenForensicError::Backend("YARA scanning task died unexpectedly".to_string()));
-                }
+            if let Some(ref y_tx) = yara_tx_opt
+                && y_tx.send((bytes_read, chunk.clone())).await.is_err()
+            {
+                return Err(crate::error::OpenForensicError::Backend("YARA scanning task died unexpectedly".to_string()));
             }
-            if let Some(ref p_tx) = plugin_tx_opt {
-                if let Err(_) = p_tx.send((bytes_read, chunk.clone())).await {
-                    return Err(crate::error::OpenForensicError::Backend("Plugin execution task died unexpectedly".to_string()));
-                }
+            if let Some(ref p_tx) = plugin_tx_opt
+                && p_tx.send((bytes_read, chunk.clone())).await.is_err()
+            {
+                return Err(crate::error::OpenForensicError::Backend("Plugin execution task died unexpectedly".to_string()));
             }
 
-            if let Err(_) = hash_tx.send(chunk.clone()).await {
+            if hash_tx.send(chunk.clone()).await.is_err() {
                 return Err(crate::error::OpenForensicError::Backend("Hashing task died unexpectedly".to_string()));
             }
-            if let Err(_) = write_tx.send(chunk).await {
+            if write_tx.send(chunk).await.is_err() {
                 return Err(crate::error::OpenForensicError::Backend("Writing task died unexpectedly".to_string()));
             }
 
@@ -616,10 +612,11 @@ pub async fn acquire_logical(
             std::fs::create_dir_all(parent)?;
         }
 
-        if let Ok(mut src_file) = File::open(&file_path) {
-            if let Ok(mut dst_file) = File::create(&target_path) {
-                let mut hashers = MultiHasher::new(&config.hash_algorithms);
-                let mut buf = vec![0u8; 64 * 1024];
+        if let Ok(mut src_file) = File::open(&file_path)
+            && let Ok(mut dst_file) = File::create(&target_path)
+        {
+            let mut hashers = MultiHasher::new(&config.hash_algorithms);
+            let mut buf = vec![0u8; 64 * 1024];
 
                 while let Ok(n) = src_file.read(&mut buf) {
                     if n == 0 { break; }
@@ -678,11 +675,10 @@ pub async fn acquire_logical(
                 if config.read_verification {
                     writeln!(manifest, "  Verification: {}", verification_status)?;
                 }
-                writeln!(manifest, "")?;
+                writeln!(manifest)?;
                 files_copied += 1;
             }
         }
-    }
 
     writeln!(manifest, "--------------------------------------------------")?;
     writeln!(manifest, "Total Files Copied: {}", files_copied)?;
@@ -691,10 +687,10 @@ pub async fn acquire_logical(
     manifest.flush()?;
     drop(manifest);
 
-    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None) {
-        if let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&manifest_path, &priv_pem) {
-            let _ = progress_tx.send(ProgressEvent::Log(format!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display()))).await;
-        }
+    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None)
+        && let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&manifest_path, &priv_pem)
+    {
+        let _ = progress_tx.send(ProgressEvent::Log(format!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display()))).await;
     }
 
     let global_hashes = global_hashers.finalize();
@@ -811,7 +807,7 @@ pub async fn acquire_triage(
         // Save Network Sockets
         let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting network connections...".to_string())).await;
         if let Some(ref db) = triage_db {
-            let cmd = if cfg!(target_os = "windows") { "netstat" } else { "netstat" };
+            let cmd = "netstat";
             let args = if cfg!(target_os = "windows") { &["-ano"] } else { &["-an"] };
             if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
                 let text = String::from_utf8_lossy(&output.stdout);
@@ -866,8 +862,9 @@ pub async fn acquire_triage(
             let files_to_copy = ["/etc/passwd", "/etc/hosts", "/etc/resolv.conf", "/etc/fstab"];
             for f in &files_to_copy {
                 let path = std::path::Path::new(f);
-                if path.exists() {
-                    let name = path.file_name().unwrap();
+                if path.exists()
+                    && let Some(name) = path.file_name()
+                {
                     let _ = fs::copy(path, reg_dir.join(name));
                 }
             }
@@ -921,24 +918,24 @@ pub async fn acquire_triage(
         let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Parsing browser history into SQLite...".to_string())).await;
         if let Some(ref db) = triage_db {
             for (db_file, browser) in copied_dbs {
-                if let Ok(hist_db) = rusqlite::Connection::open(&db_file) {
-                    if let Ok(mut stmt) = hist_db.prepare("SELECT url, title, visit_count, last_visit_time FROM urls") {
-                        let rows = stmt.query_map([], |row| {
-                            Ok((
-                                row.get::<_, String>(0)?,
-                                row.get::<_, String>(1)?,
-                                row.get::<_, i32>(2)?,
-                                row.get::<_, i64>(3)?,
-                            ))
-                        });
-                        if let Ok(iter) = rows {
-                            for row in iter.flatten() {
-                                let (url, title, count, time) = row;
-                                let _ = db.execute(
-                                    "INSERT INTO browser_history (browser_name, url, title, visit_time, visit_count) VALUES (?1, ?2, ?3, ?4, ?5)",
-                                    rusqlite::params![browser, url, title, time.to_string(), count],
-                                );
-                            }
+                if let Ok(hist_db) = rusqlite::Connection::open(&db_file)
+                    && let Ok(mut stmt) = hist_db.prepare("SELECT url, title, visit_count, last_visit_time FROM urls")
+                {
+                    let rows = stmt.query_map([], |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, i32>(2)?,
+                            row.get::<_, i64>(3)?,
+                        ))
+                    });
+                    if let Ok(iter) = rows {
+                        for row in iter.flatten() {
+                            let (url, title, count, time) = row;
+                            let _ = db.execute(
+                                "INSERT INTO browser_history (browser_name, url, title, visit_time, visit_count) VALUES (?1, ?2, ?3, ?4, ?5)",
+                                rusqlite::params![browser, url, title, time.to_string(), count],
+                            );
                         }
                     }
                 }
@@ -959,10 +956,11 @@ pub async fn acquire_triage(
             let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Parsing Event Logs into Triage Database...".to_string())).await;
             if let Some(ref db) = triage_db {
                 let script = "Get-WinEvent -LogName System -MaxEvents 500 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, ProviderName, Message | ConvertTo-Json -Compress";
-                if let Ok(output) = std::process::Command::new("powershell").args(&["-Command", script]).output() {
+                if let Ok(output) = std::process::Command::new("powershell").args(["-Command", script]).output() {
                     let json_str = String::from_utf8_lossy(&output.stdout);
-                    if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                        if let Some(arr) = json_arr.as_array() {
+                    if let Ok(json_arr) = serde_json::from_str::<serde_json::Value>(&json_str)
+                        && let Some(arr) = json_arr.as_array()
+                    {
                             for ev in arr {
                                 let id = ev.get("Id").and_then(|v| v.as_i64()).unwrap_or(0);
                                 let provider = ev.get("ProviderName").and_then(|v| v.as_str()).unwrap_or("");
@@ -977,7 +975,6 @@ pub async fn acquire_triage(
                         }
                     }
                 }
-            }
         } else {
             let log_sources = [
                 "/var/log/syslog",
@@ -988,8 +985,9 @@ pub async fn acquire_triage(
             ];
             for src in &log_sources {
                 let path = std::path::Path::new(src);
-                if path.exists() {
-                    let filename = path.file_name().unwrap();
+                if path.exists()
+                    && let Some(filename) = path.file_name()
+                {
                     let _ = fs::copy(src, logs_dir.join(filename));
                     let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Successfully copied log file: {}", src))).await;
                 }
@@ -1011,25 +1009,25 @@ pub async fn acquire_triage(
     }
 
     let summary_path = dest_dir.join("triage_summary.txt");
-    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None) {
-        if let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&summary_path, &priv_pem) {
-            let _ = progress_tx.send(ProgressEvent::Log(format!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display()))).await;
-        }
+    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None)
+        && let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&summary_path, &priv_pem)
+    {
+        let _ = progress_tx.send(ProgressEvent::Log(format!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display()))).await;
     }
 
     let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Rapid forensic triage completed successfully!".to_string())).await;
 
-    if let Some(ref cfg) = siem_config {
-        if cfg.enabled {
-            let _ = progress_tx.send(ProgressEvent::Log("[SIEM] Initiating SIEM export of triage database...".to_string())).await;
-            let client = crate::siem::SiemClient::new(cfg.clone());
-            match client.send_triage_db(&db_path, "TRIAGE-JOB", Some(progress_tx.clone())).await {
-                Ok(summary) => {
-                    let _ = progress_tx.send(ProgressEvent::Log(format!("[SIEM SUCCESS] {}", summary.message))).await;
-                }
-                Err(e) => {
-                    let _ = progress_tx.send(ProgressEvent::Log(format!("[SIEM ERROR] Export failed: {}", e))).await;
-                }
+    if let Some(ref cfg) = siem_config
+        && cfg.enabled
+    {
+        let _ = progress_tx.send(ProgressEvent::Log("[SIEM] Initiating SIEM export of triage database...".to_string())).await;
+        let client = crate::siem::SiemClient::new(cfg.clone());
+        match client.send_triage_db(&db_path, "TRIAGE-JOB", Some(progress_tx.clone())).await {
+            Ok(summary) => {
+                let _ = progress_tx.send(ProgressEvent::Log(format!("[SIEM SUCCESS] {}", summary.message))).await;
+            }
+            Err(e) => {
+                let _ = progress_tx.send(ProgressEvent::Log(format!("[SIEM ERROR] Export failed: {}", e))).await;
             }
         }
     }
@@ -1168,6 +1166,7 @@ pub async fn compute_logical_hash(
     Ok(hashers.finalize())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn acquire_live(
     volume: &str,
     dest_dir_str: &str,

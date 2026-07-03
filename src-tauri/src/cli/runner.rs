@@ -22,6 +22,7 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
         }
     };
 
+    let is_analysis_mode = args.mode.eq_ignore_ascii_case("analysis");
     let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to initialize async runtime: {}", e))?;
 
     match command {
@@ -195,11 +196,11 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
                     let end_time_utc = chrono::Utc::now();
                     let mut model = "Unknown".to_string();
                     let mut serial = "Unknown".to_string();
-                    if let Ok(devices) = crate::platform::ActiveBackend::enumerate_devices() {
-                        if let Some(d) = devices.into_iter().find(|d| d.path == source) {
-                            model = d.model;
-                            serial = d.serial;
-                        }
+                    if let Ok(devices) = crate::platform::ActiveBackend::enumerate_devices()
+                        && let Some(d) = devices.into_iter().find(|d| d.path == source)
+                    {
+                        model = d.model;
+                        serial = d.serial;
                     }
                     let report_data = crate::report::ReportData {
                         case_number: config.case_number.clone(),
@@ -232,10 +233,10 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
                     let report_path = dest_file_path.with_extension("report.txt");
                     let _ = crate::report::generate_txt_report(&report_path, &report_data);
                     println!("[SYSTEM] Headless imaging report generated: {}", report_path.display());
-                    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None) {
-                        if let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem) {
-                            println!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display());
-                        }
+                    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None)
+                        && let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&report_path, &priv_pem)
+                    {
+                        println!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display());
                     }
                     Ok(())
                 }
@@ -252,10 +253,10 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
             no_browsers,
             no_eventlogs,
             siem_export,
-            siem_endpoint: _,
-            siem_type: _,
-            siem_token: _,
-            siem_index: _,
+            siem_endpoint,
+            siem_type,
+            siem_token,
+            siem_index,
         } => rt.block_on(async {
             let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::acquisition::ProgressEvent>(100);
 
@@ -273,10 +274,25 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
                 }
             });
 
-            if siem_export {
-                println!("[DISABLED & HIDDEN] SIEM & SOC real-time streaming has been migrated to the post-acquisition Analysis Suite.");
-            }
-            let siem_config: Option<crate::siem::SiemConfig> = None;
+            let siem_config = if siem_export {
+                if !is_analysis_mode {
+                    return Err("SIEM & SOC real-time streaming is disabled in Capture Mode. Run with `--mode analysis` to enable.".to_string());
+                }
+                let dest_type = match siem_type.to_lowercase().as_str() {
+                    "wazuh_socket" => crate::siem::SiemDestinationType::WazuhSocket,
+                    "wazuh_local_log" => crate::siem::SiemDestinationType::WazuhLocalLog,
+                    _ => crate::siem::SiemDestinationType::SplunkHec,
+                };
+                Some(crate::siem::SiemConfig {
+                    destination_type: dest_type,
+                    endpoint: siem_endpoint,
+                    auth_token: siem_token,
+                    index: siem_index,
+                    enabled: true,
+                })
+            } else {
+                None
+            };
 
             println!("Starting headless system triage -> {}", dest);
             match crate::acquisition::acquire_triage(
@@ -350,13 +366,47 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
             }
         }),
         CliSubcommand::Ram {
-            dump: _,
-            profile: _,
-            ioc_enrich: _,
-        } => {
-            println!("[DISABLED & HIDDEN] Volatility 3 RAM analysis and threat intelligence enrichment have been migrated to the post-acquisition Analysis Suite.");
-            Ok(())
-        },
+            dump,
+            profile,
+            ioc_enrich,
+        } => rt.block_on(async {
+            if !is_analysis_mode {
+                return Err("Volatility 3 RAM analysis is disabled in Capture Mode. Run with `--mode analysis` to enable.".to_string());
+            }
+            println!("Starting Volatility 3 RAM analysis on dump {} with profile {} (ioc_enrich: {})", dump, profile, ioc_enrich);
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::acquisition::ProgressEvent>(100);
+            let progress_handle = tokio::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        crate::acquisition::ProgressEvent::Log(msg) => eprintln!("[VOLATILITY] {}", msg),
+                        crate::acquisition::ProgressEvent::Error(err) => eprintln!("[ERROR] {}", err),
+                        _ => {}
+                    }
+                }
+            });
+            let config = crate::ram_analysis::VolatilityConfig {
+                image_path: dump.clone(),
+                vol_path: "vol.py".to_string(),
+                profile: profile.clone(),
+                enrich_vt: ioc_enrich,
+                enrich_mb: ioc_enrich,
+                enrich_abuseip: ioc_enrich,
+                vt_key: "".to_string(),
+                mb_key: "".to_string(),
+                abuseip_key: "".to_string(),
+            };
+            match crate::ram_analysis::start_volatility_analysis_backend(&config, tx).await {
+                Ok(_) => {
+                    let _ = progress_handle.await;
+                    println!("RAM analysis completed successfully.");
+                    Ok(())
+                }
+                Err(e) => {
+                    let _ = progress_handle.await;
+                    Err(format!("RAM analysis failed: {}", e))
+                }
+            }
+        }),
         CliSubcommand::PgpKeygen { user } => {
             println!("Generating new court-ready PGP signing keypair for: {}", user);
             let (priv_path, pub_path) = crate::pgp::PgpKeyManager::get_default_keypair_paths(None);

@@ -29,22 +29,20 @@ impl VerificationHelper for ForensicVerifierHelper {
     fn check(&mut self, structure: MessageStructure) -> openpgp::Result<()> {
         for layer in structure {
             if let MessageLayer::SignatureGroup { results } = layer {
-                for sig_res in results {
-                    if let Ok(good_sig) = sig_res {
-                        self.verified_fingerprint = Some(good_sig.ka.cert().fingerprint().to_hex());
-                        
-                        let mut uid_str = String::new();
-                        for uid in good_sig.ka.cert().userids() {
-                            if let Ok(val) = std::str::from_utf8(uid.userid().value()) {
-                                uid_str = val.to_string();
-                                break;
-                            }
+                for good_sig in results.into_iter().flatten() {
+                    self.verified_fingerprint = Some(good_sig.ka.cert().fingerprint().to_hex());
+                    
+                    let mut uid_str = String::new();
+                    for uid in good_sig.ka.cert().userids() {
+                        if let Ok(val) = std::str::from_utf8(uid.userid().value()) {
+                            uid_str = val.to_string();
+                            break;
                         }
-                        if uid_str.is_empty() {
-                            uid_str = "OpenForensic Investigator".to_string();
-                        }
-                        self.verified_user_id = Some(uid_str);
                     }
+                    if uid_str.is_empty() {
+                        uid_str = "OpenForensic Investigator".to_string();
+                    }
+                    self.verified_user_id = Some(uid_str);
                 }
             }
         }

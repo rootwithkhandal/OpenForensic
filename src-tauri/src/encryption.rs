@@ -86,7 +86,7 @@ pub fn detect_encryption_from_bytes(header: &[u8]) -> EncryptionType {
         }
     }
     // Check for F2FS magic 0xF2F52010 and encryption flag
-    if header.windows(4).any(|w| w == &[0x10, 0x20, 0xf5, 0xf2]) {
+    if header.windows(4).any(|w| w == [0x10, 0x20, 0xf5, 0xf2]) {
         return EncryptionType::AndroidFbe;
     }
     // Check Android vold / fscrypt metadata header markers

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.2] - 2026-07-01
+## [2.0.2] - 2026-07-03
 
 ### Added
 - **Headless CLI & Automation Mode (`--cli`)**: Built a full scriptable command-line interface using `clap` to execute core forensic acquisition and triage engines without launching the Tauri GUI or requiring a display server (ideal for AWS EC2 Linux triage and remote SSH investigations).
@@ -33,6 +33,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pipeline & Report Integration**: Integrated asynchronous broadcast channels into disk imaging and live VSS acquisition workflows. Embedded plugin results into generated PDF, HTML, and text case reports.
 - **Tauri Management Commands**: Exposed front-end IPC commands (`load_plugin`, `list_plugins`, `unload_plugin`, `scan_plugins_directory`) to manage registered plugins.
 - **Automated Testing**: Added unit tests verifying plugin lifecycle ordering and manager operations.
+
+### Security & Reliability
+- **Tauri 2 Static Capability Allowlists (`capabilities/default.json` & `capabilities/analysis.json`)**: Established strict defense-in-depth IPC permission manifests segregating always-active read-only Capture Mode commands from opt-in Analysis Mode commands at the framework level.
+- **Zero-Panic Reliability Guarantee (`#![deny(clippy::unwrap_used)]`)**: Completed a full audit of all `.unwrap()` and `.expect()` calls across `src-tauri/src/`. Enforced compile-time prohibition in `lib.rs` and `main.rs`, converting potential runtime panics during evidence acquisition into fallible `OpenForensicError` propagation.
+- **Zero-Configuration Leakage Protection**: CLI SIEM endpoints now default cleanly to empty strings (`""`) with strict `required_if_eq("siem_export", "true")` clap validation, preventing lab-specific hostnames or URLs from shipping inside compiled binaries.
+- **Court-Ready PGP Manifest & Report Signing**: Integrated automatic PGP cryptographic signing (`.asc`) for headlessly generated triage summaries, evidence manifests, and case reports.
+
+### Changed
+- **SIEM Export Pipeline Consolidation**: Refactored `send_triage_db` in `SiemClient` to delegate directly to `export_from_triage_db`, eliminating duplicate SQL querying, mapping, and formatting code.
+- **Modernized Rust Syntax & Clippy Cleanups**: Resolved 37 compiler and clippy lint warnings across 11 core files (`acquisition.rs`, `output.rs`, `report.rs`, `vss.rs`, `runner.rs`, `keys.rs`, `verifier.rs`, `encryption.rs`, etc.). Adopted `&& let` chains for collapsed `if` blocks, static zero-fill arrays for memory efficiency, and explicit `OpenOptions::truncate(!resume)` handling for chunked staging archives.
 
 ## [2.0.1] - 2026-06-15
 

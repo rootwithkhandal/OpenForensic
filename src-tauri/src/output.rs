@@ -53,7 +53,7 @@ impl WriterKind {
             }
             _ => {
                 // For compressed or format writers, zero-fill.
-                const ZEROS: [u8; 65536] = [0u8; 65536];
+                static ZEROS: [u8; 65536] = [0u8; 65536];
                 let mut rem = n;
                 while rem > 0 {
                     let chunk = rem.min(ZEROS.len());
@@ -97,6 +97,7 @@ impl WriterKind {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn wrap_writer(
     file: File, 
     path: &Path,
@@ -131,6 +132,7 @@ pub struct OutputWriter {
 }
 
 impl OutputWriter {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         base_path: &Path,
         split_size: Option<u64>,
@@ -153,6 +155,7 @@ impl OutputWriter {
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(!resume)
             .open(&path)?;
 
         #[cfg(target_os = "windows")]

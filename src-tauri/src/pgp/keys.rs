@@ -23,7 +23,7 @@ impl PgpKeyManager {
         std::env::var_os("LOCALAPPDATA")
             .or_else(|| std::env::var_os("APPDATA"))
             .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::temp_dir())
+            .unwrap_or_else(std::env::temp_dir)
             .join("org.openforensic.app")
     }
 
@@ -146,12 +146,11 @@ impl PgpKeyManager {
     /// Loads active keypair from disk, or generates a default one if none exists
     pub fn load_or_generate_default(app_data_dir: Option<&Path>) -> Result<(String, String, PgpKeyInfo), String> {
         let (priv_path, pub_path) = Self::get_default_keypair_paths(app_data_dir);
-        if priv_path.exists() && pub_path.exists() {
-            if let (Ok(priv_pem), Ok(pub_pem)) = (fs::read_to_string(&priv_path), fs::read_to_string(&pub_path)) {
-                if let Ok(info) = Self::inspect_key(&priv_pem) {
-                    return Ok((priv_pem, pub_pem, info));
-                }
-            }
+        if priv_path.exists() && pub_path.exists()
+            && let (Ok(priv_pem), Ok(pub_pem)) = (fs::read_to_string(&priv_path), fs::read_to_string(&pub_path))
+            && let Ok(info) = Self::inspect_key(&priv_pem)
+        {
+            return Ok((priv_pem, pub_pem, info));
         }
 
         let default_user = "OpenForensic Workstation <investigator@openforensic.local>";

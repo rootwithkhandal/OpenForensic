@@ -86,10 +86,10 @@ impl WasmRuntime {
         }
 
         let mut output = PluginOutput::new();
-        if let Some(json_str) = self.read_string("get_results_json_ptr", "get_results_json_len") {
-            if let Ok(map) = serde_json::from_str::<std::collections::HashMap<String, String>>(&json_str) {
-                output.results = map;
-            }
+        if let Some(json_str) = self.read_string("get_results_json_ptr", "get_results_json_len")
+            && let Ok(map) = serde_json::from_str::<std::collections::HashMap<String, String>>(&json_str)
+        {
+            output.results = map;
         }
         Ok(output)
     }

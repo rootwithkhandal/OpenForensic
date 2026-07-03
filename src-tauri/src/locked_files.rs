@@ -218,10 +218,9 @@ pub async fn copy_locked_files(
         "[LOCKED FILES] Starting locked file acquisition...".to_string()
     )).await;
 
-    if config.vss_device_path.is_some() {
+    if let Some(ref vss_path) = config.vss_device_path {
         let _ = progress_tx.send(ProgressEvent::Log(
-            format!("[LOCKED FILES] Using VSS shadow copy path: {}",
-                config.vss_device_path.as_ref().unwrap())
+            format!("[LOCKED FILES] Using VSS shadow copy path: {}", vss_path)
         )).await;
     } else {
         let _ = progress_tx.send(ProgressEvent::Log(
@@ -249,8 +248,7 @@ pub async fn copy_locked_files(
         
         // Create a safe destination filename (replace backslashes/slashes with underscores)
         let safe_name = relative_path
-            .replace('\\', "_")
-            .replace('/', "_")
+            .replace(['\\', '/'], "_")
             .replace('$', "_DOLLAR_");
         let dst_path = locked_files_dir.join(&safe_name);
 
@@ -325,10 +323,10 @@ pub async fn copy_locked_files(
         let _ = writeln!(manifest, "=== END OF MANIFEST ===");
     }
 
-    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None) {
-        if let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&manifest_path, &priv_pem) {
-            let _ = progress_tx.send(ProgressEvent::Log(format!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display()))).await;
-        }
+    if let Ok((priv_pem, _, _)) = crate::pgp::PgpKeyManager::load_or_generate_default(None)
+        && let Ok(sig_path) = crate::pgp::PgpManifestSigner::sign_file(&manifest_path, &priv_pem)
+    {
+        let _ = progress_tx.send(ProgressEvent::Log(format!("[PGP SIGN] Court-ready PGP integrity manifest signed: {}", sig_path.display()))).await;
     }
 
     Ok(results)

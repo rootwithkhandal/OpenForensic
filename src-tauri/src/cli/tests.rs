@@ -1,3 +1,4 @@
+#![allow(clippy::module_inception)]
 #[cfg(test)]
 mod tests {
     use clap::Parser;
@@ -6,7 +7,7 @@ mod tests {
 
     #[test]
     fn test_parse_list_devices() {
-        let args = CliArgs::try_parse_from(&["openforensic", "--cli", "list-devices"]).unwrap();
+        let args = CliArgs::try_parse_from(["openforensic", "--cli", "list-devices"]).unwrap();
         assert!(args.cli);
         match args.command {
             Some(CliSubcommand::ListDevices) => {}
@@ -16,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_parse_acquire() {
-        let args = CliArgs::try_parse_from(&[
+        let args = CliArgs::try_parse_from([
             "openforensic",
             "--cli",
             "acquire",
@@ -52,7 +53,7 @@ mod tests {
 
     #[test]
     fn test_parse_triage() {
-        let args = CliArgs::try_parse_from(&[
+        let args = CliArgs::try_parse_from([
             "openforensic",
             "--cli",
             "triage",
@@ -91,5 +92,27 @@ mod tests {
         assert_eq!(algos[0], HashAlgorithm::MD5);
         assert_eq!(algos[1], HashAlgorithm::SHA256);
         assert_eq!(algos[2], HashAlgorithm::SHA512);
+    }
+
+    #[test]
+    fn test_parse_triage_default_siem_endpoint() {
+        let args = CliArgs::try_parse_from([
+            "openforensic",
+            "--cli",
+            "triage",
+            "--dest", "/mnt/triage_out",
+        ]).unwrap();
+
+        match args.command {
+            Some(CliSubcommand::Triage {
+                siem_endpoint,
+                siem_export,
+                ..
+            }) => {
+                assert!(!siem_export);
+                assert_eq!(siem_endpoint, "");
+            }
+            _ => panic!("Expected Triage subcommand"),
+        }
     }
 }

@@ -37,8 +37,11 @@ pub struct ReportData {
 }
 
 fn to_ist_rfc2822(dt: &chrono::DateTime<chrono::Utc>) -> String {
-    let ist_offset = chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).unwrap();
-    dt.with_timezone(&ist_offset).to_rfc2822()
+    if let Some(ist_offset) = chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60) {
+        dt.with_timezone(&ist_offset).to_rfc2822()
+    } else {
+        dt.to_rfc2822()
+    }
 }
 
 pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result<()> {
@@ -115,16 +118,15 @@ pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result
                 }
             }
 
-            if data.imaging_mode == "Logical" {
-                if let Some(post_hashes) = &data.post_hashes {
-                    if let Some(post_hash) = post_hashes.get(algo) {
-                        if post_hash == stream_hash {
-                            checks.push("Final-Hash: MATCHED");
-                        } else {
-                            checks.push("Final-Hash: MISMATCH");
-                            match_status = false;
-                        }
-                    }
+            if data.imaging_mode == "Logical"
+                && let Some(post_hashes) = &data.post_hashes
+                && let Some(post_hash) = post_hashes.get(algo)
+            {
+                if post_hash == stream_hash {
+                    checks.push("Final-Hash: MATCHED");
+                } else {
+                    checks.push("Final-Hash: MISMATCH");
+                    match_status = false;
                 }
             }
 
@@ -148,7 +150,7 @@ pub fn generate_txt_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Result
 
     // Live Acquisition sections (only printed when data is present)
     if data.vss_snapshot_id.is_some() || data.ram_dump_path.is_some() || !data.locked_files_copied.is_empty() {
-        writeln!(file, "")?;
+        writeln!(file)?;
         writeln!(file, "==================================================")?;
         writeln!(file, "          LIVE ACQUISITION DETAILS                ")?;
         writeln!(file, "==================================================")?;
@@ -239,14 +241,13 @@ pub fn generate_html_report<P: AsRef<Path>>(path: P, data: &ReportData) -> Resul
             }
         }
 
-        if data.imaging_mode == "Logical" {
-            if let Some(post_hashes) = &data.post_hashes {
-                if let Some(post_hash) = post_hashes.get(algo) {
-                    checks_performed += 1;
-                    if *post_hash != *stream_hash {
-                        matched = false;
-                    }
-                }
+        if data.imaging_mode == "Logical"
+            && let Some(post_hashes) = &data.post_hashes
+            && let Some(post_hash) = post_hashes.get(algo)
+        {
+            checks_performed += 1;
+            if *post_hash != *stream_hash {
+                matched = false;
             }
         }
         

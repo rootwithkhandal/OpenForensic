@@ -14,8 +14,9 @@ pub type ActiveTaskState = Mutex<Option<Sender<ProgressEvent>>>;
 #[allow(dead_code)]
 pub fn clear_active_task(app_handle: &AppHandle) {
     let state_guard = app_handle.state::<ActiveTaskState>();
-    let mut lock = state_guard.lock().unwrap();
-    *lock = None;
+    if let Ok(mut lock) = state_guard.lock() {
+        *lock = None;
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -42,3 +43,20 @@ impl CheckpointState {
         Ok(state)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AcquisitionMode {
+    Capture,
+    Analysis,
+}
+
+pub type AcquisitionModeState = Mutex<AcquisitionMode>;
+
+pub fn require_analysis_mode(state: &AcquisitionModeState) -> std::result::Result<(), String> {
+    let guard = state.lock().map_err(|_| "AcquisitionMode mutex poisoned".to_string())?;
+    match *guard {
+        AcquisitionMode::Analysis => Ok(()),
+        AcquisitionMode::Capture => Err("This feature is disabled in Capture Mode. Switch to Analysis Mode to continue.".into()),
+    }
+}
+

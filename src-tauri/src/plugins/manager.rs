@@ -4,8 +4,10 @@ use crate::plugins::native::NativePlugin;
 use crate::plugins::wasm::WasmPlugin;
 use crate::plugins::types::{OpenForensicPlugin, PluginInfo};
 
+pub type PluginHandle = (PluginInfo, Arc<Mutex<Box<dyn OpenForensicPlugin>>>);
+
 pub struct PluginManager {
-    plugins: Vec<(PluginInfo, Arc<Mutex<Box<dyn OpenForensicPlugin>>>)>,
+    plugins: Vec<PluginHandle>,
 }
 
 impl Default for PluginManager {
@@ -27,7 +29,7 @@ impl PluginManager {
     }
 
     /// Get references to all active plugins for execution in an acquisition session.
-    pub fn get_active_plugins(&self) -> Vec<(PluginInfo, Arc<Mutex<Box<dyn OpenForensicPlugin>>>)> {
+    pub fn get_active_plugins(&self) -> Vec<PluginHandle> {
         self.plugins.clone()
     }
 
@@ -93,14 +95,14 @@ impl PluginManager {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_file() {
-                    if let Some(ext) = path.extension() {
-                        let ext_str = ext.to_string_lossy().to_lowercase();
-                        if ["dll", "so", "dylib", "wasm"].contains(&ext_str.as_str()) {
-                            if self.load_plugin_from_file(&path).is_ok() {
-                                loaded_count += 1;
-                            }
-                        }
+                if path.is_file()
+                    && let Some(ext) = path.extension()
+                {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    if ["dll", "so", "dylib", "wasm"].contains(&ext_str.as_str())
+                        && self.load_plugin_from_file(&path).is_ok()
+                    {
+                        loaded_count += 1;
                     }
                 }
             }

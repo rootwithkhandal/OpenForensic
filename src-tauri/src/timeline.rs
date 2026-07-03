@@ -64,11 +64,11 @@ pub async fn generate_timeline(image_path: &Path, output_dir: &Path) -> Result<(
     }
     
     // Attempt GPT if MBR fails or is protective
-    if partition_offsets.is_empty() || partition_offsets.len() == 1 {
-        if let Ok(gpt) = GptConfig::new().open(image_path) {
-            for (_, p) in gpt.partitions() {
-                partition_offsets.push(p.first_lba * 512);
-            }
+    if (partition_offsets.is_empty() || partition_offsets.len() == 1)
+        && let Ok(gpt) = GptConfig::new().open(image_path)
+    {
+        for p in gpt.partitions().values() {
+            partition_offsets.push(p.first_lba * 512);
         }
     }
     
@@ -88,84 +88,75 @@ pub async fn generate_timeline(image_path: &Path, output_dir: &Path) -> Result<(
             let extracted_mft_path = output_dir.join(format!("extracted_mft_{}.bin", offset));
             
             // Extract $MFT
-            if let Ok(mft_file) = ntfs.file(&mut reader, 0) {
-                if let Some(Ok(item)) = mft_file.data(&mut reader, "") {
-                    if let Ok(attr) = item.to_attribute() {
-                        if let Ok(mut data_val) = attr.value(&mut reader) {
-                        if let Ok(mut out_file) = File::create(&extracted_mft_path) {
-                            let mut buf = vec![0; 4096];
-                            loop {
-                                let n = match data_val.read(&mut reader, &mut buf) {
-                                    Ok(n) => n,
-                                    Err(_) => break,
-                                };
-                                if n == 0 { break; }
-                                let _ = out_file.write_all(&buf[..n]);
-                            }
-                        }
-                        }
-                    }
+            if let Ok(mft_file) = ntfs.file(&mut reader, 0)
+                && let Some(Ok(item)) = mft_file.data(&mut reader, "")
+                && let Ok(attr) = item.to_attribute()
+                && let Ok(mut data_val) = attr.value(&mut reader)
+                && let Ok(mut out_file) = File::create(&extracted_mft_path)
+            {
+                let mut buf = vec![0; 4096];
+                while let Ok(n) = data_val.read(&mut reader, &mut buf) {
+                    if n == 0 { break; }
+                    let _ = out_file.write_all(&buf[..n]);
                 }
             }
 
             // Parse MFT if extracted
-            if extracted_mft_path.exists() {
-                if let Ok(mut parser) = MftParser::from_path(&extracted_mft_path) {
-                    for entry in parser.iter_entries() {
-                        if let Ok(e) = entry {
-                            let path = "".to_string(); // In a real implementation we'd reconstruct the full path
-                            
-                            // Get MACB timestamps from Standard Information
-                            for attr in e.iter_attributes().filter_map(|a| a.ok()) {
-                                if let mft::attribute::MftAttributeContent::AttrX10(ref si) = attr.data {
-                                    events.push(TimelineEvent {
-                                        timestamp: si.created.to_string(),
-                                        source: "MFT".to_string(),
-                                        event_type: "Creation".to_string(),
-                                        file_path: path.clone(),
-                                        details: "Standard Information".to_string()
-                                    });
-                                    events.push(TimelineEvent {
-                                        timestamp: si.modified.to_string(),
-                                        source: "MFT".to_string(),
-                                        event_type: "Modification".to_string(),
-                                        file_path: path.clone(),
-                                        details: "Standard Information".to_string()
-                                    });
-                                    events.push(TimelineEvent {
-                                        timestamp: si.accessed.to_string(),
-                                        source: "MFT".to_string(),
-                                        event_type: "Access".to_string(),
-                                        file_path: path.clone(),
-                                        details: "Standard Information".to_string()
-                                    });
-                                    events.push(TimelineEvent {
-                                        timestamp: si.mft_modified.to_string(),
-                                        source: "MFT".to_string(),
-                                        event_type: "MFT Modified".to_string(),
-                                        file_path: path.clone(),
-                                        details: "Standard Information".to_string()
-                                    });
-                                }
-                                
-                                if let mft::attribute::MftAttributeContent::AttrX30(ref fn_attr) = attr.data {
-                                    let filename = fn_attr.name.clone();
-                                    events.push(TimelineEvent {
-                                        timestamp: fn_attr.created.to_string(),
-                                        source: "MFT".to_string(),
-                                        event_type: "Creation (FileName)".to_string(),
-                                        file_path: filename.clone(),
-                                        details: "FileName Attribute".to_string()
-                                    });
-                                    events.push(TimelineEvent {
-                                        timestamp: fn_attr.modified.to_string(),
-                                        source: "MFT".to_string(),
-                                        event_type: "Modification (FileName)".to_string(),
-                                        file_path: filename.clone(),
-                                        details: "FileName Attribute".to_string()
-                                    });
-                                }
-                            }
+            if extracted_mft_path.exists()
+                && let Ok(mut parser) = MftParser::from_path(&extracted_mft_path)
+            {
+                for e in parser.iter_entries().flatten() {
+                    let path = "".to_string(); // In a real implementation we'd reconstruct the full path
+                    
+                    // Get MACB timestamps from Standard Information
+                    for attr in e.iter_attributes().filter_map(|a| a.ok()) {
+                        if let mft::attribute::MftAttributeContent::AttrX10(ref si) = attr.data {
+                            events.push(TimelineEvent {
+                                timestamp: si.created.to_string(),
+                                source: "MFT".to_string(),
+                                event_type: "Creation".to_string(),
+                                file_path: path.clone(),
+                                details: "Standard Information".to_string()
+                            });
+                            events.push(TimelineEvent {
+                                timestamp: si.modified.to_string(),
+                                source: "MFT".to_string(),
+                                event_type: "Modification".to_string(),
+                                file_path: path.clone(),
+                                details: "Standard Information".to_string()
+                            });
+                            events.push(TimelineEvent {
+                                timestamp: si.accessed.to_string(),
+                                source: "MFT".to_string(),
+                                event_type: "Access".to_string(),
+                                file_path: path.clone(),
+                                details: "Standard Information".to_string()
+                            });
+                            events.push(TimelineEvent {
+                                timestamp: si.mft_modified.to_string(),
+                                source: "MFT".to_string(),
+                                event_type: "MFT Modified".to_string(),
+                                file_path: path.clone(),
+                                details: "Standard Information".to_string()
+                            });
+                        }
+                        
+                        if let mft::attribute::MftAttributeContent::AttrX30(ref fn_attr) = attr.data {
+                            let filename = fn_attr.name.clone();
+                            events.push(TimelineEvent {
+                                timestamp: fn_attr.created.to_string(),
+                                source: "MFT".to_string(),
+                                event_type: "Creation (FileName)".to_string(),
+                                file_path: filename.clone(),
+                                details: "FileName Attribute".to_string()
+                            });
+                            events.push(TimelineEvent {
+                                timestamp: fn_attr.modified.to_string(),
+                                source: "MFT".to_string(),
+                                event_type: "Modification (FileName)".to_string(),
+                                file_path: filename.clone(),
+                                details: "FileName Attribute".to_string()
+                            });
                         }
                     }
                 }

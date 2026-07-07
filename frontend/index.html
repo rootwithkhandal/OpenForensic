@@ -166,6 +166,10 @@
           <span class="material-symbols-outlined text-[20px]">memory</span>
           <span>RAM Forensics</span>
         </button>
+        <button id="btn-tab-ram-viewer" class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left" data-tab="ram-viewer">
+          <span class="material-symbols-outlined text-[20px]">table_view</span>
+          <span>View RAM Results</span>
+        </button>
         <button id="btn-tab-yara"     class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left" data-tab="yara">
           <span class="material-symbols-outlined text-[20px]">biotech</span>
           <span>YARA Scanner</span>
@@ -1086,6 +1090,93 @@
     </div>
 
     <!-- ════════════════════════════════════ -->
+    <!-- TAB: RAM RESULTS VIEWER (.JSON)      -->
+    <!-- ════════════════════════════════════ -->
+    <div id="tab-ram-viewer-content" class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5">
+      <!-- Lock Screen Overlay -->
+      <div id="lock-ram-viewer" class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl">
+        <div class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50">
+          <span class="material-symbols-outlined text-amber-500 text-[36px]">lock</span>
+        </div>
+        <h3 class="text-headline font-bold text-on-surface mb-2">Analysis Mode Required</h3>
+        <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+          Viewing stored RAM forensic database results requires <span class="text-amber-500 font-bold">Analysis Mode</span>.
+        </p>
+        <button class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2">
+          <span class="material-symbols-outlined text-[20px]">lock_open</span>Unlock Analysis Mode
+        </button>
+      </div>
+
+      <div id="content-ram-viewer" class="analysis-feature-content hidden space-y-5">
+        <section class="bg-surface border border-outline-variant rounded p-5 max-w-6xl shadow-sm">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-outline-variant pb-4">
+            <div>
+              <h2 class="text-headline font-bold text-on-surface mb-1 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[24px]">table_view</span>RAM Forensic Database Viewer (.json)
+              </h2>
+              <p class="text-body-sm text-on-surface-variant">View, search, and filter structured forensic analysis results stored in your JSON database files.</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button id="btn-refresh-ram-db" class="px-3 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-body-sm rounded flex items-center gap-1.5 border border-outline-variant transition-all">
+                <span class="material-symbols-outlined text-[18px]">refresh</span>Refresh DB List
+              </button>
+              <button id="btn-browse-ram-db" class="px-4 py-2 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 flex items-center gap-1.5 shadow-sm transition-all">
+                <span class="material-symbols-outlined text-[18px]">folder_open</span>Open .json DB
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5 bg-surface-container-low p-3 rounded border border-outline-variant">
+            <div class="md:col-span-1">
+              <label class="block text-label-caps text-outline uppercase mb-1">Select Database File</label>
+              <select id="ram-db-select" class="input-field bg-surface font-mono text-xs">
+                <option value="">No database loaded…</option>
+              </select>
+            </div>
+            <div class="md:col-span-1">
+              <label class="block text-label-caps text-outline uppercase mb-1">Select Analysis Run / Profile</label>
+              <select id="ram-db-run-select" class="input-field bg-surface">
+                <option value="">All runs…</option>
+              </select>
+            </div>
+            <div class="md:col-span-1">
+              <label class="block text-label-caps text-outline uppercase mb-1">Search &amp; Filter Rows</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-[18px]">search</span>
+                <input type="text" id="ram-db-search" placeholder="Filter PID, Process, Address, IOC…" class="input-field pl-9 bg-surface">
+              </div>
+            </div>
+          </div>
+
+          <!-- Metadata Banner -->
+          <div id="ram-db-meta-banner" class="hidden mb-4 p-3 bg-primary/5 border border-primary/20 rounded flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface">
+            <div><span class="font-bold text-primary">Image:</span> <span id="meta-image-path" class="font-mono">N/A</span></div>
+            <div><span class="font-bold text-primary">Profile:</span> <span id="meta-profile" class="font-mono">N/A</span></div>
+            <div><span class="font-bold text-primary">Engine:</span> <span id="meta-engine">N/A</span></div>
+            <div><span class="font-bold text-primary">Timestamp:</span> <span id="meta-timestamp" class="font-mono">N/A</span></div>
+            <div><span class="font-bold text-primary">Total Rows:</span> <span id="meta-rows-count" class="font-bold">0</span></div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="overflow-x-auto border border-outline-variant rounded max-h-[550px] bg-surface-container-lowest shadow-inner">
+            <table id="ram-db-table" class="w-full text-left border-collapse font-mono text-xs">
+              <thead class="bg-surface-container sticky top-0 border-b border-outline-variant text-on-surface font-bold">
+                <tr id="ram-db-thead-tr">
+                  <th class="p-3">Select a JSON database to view results</th>
+                </tr>
+              </thead>
+              <tbody id="ram-db-tbody" class="divide-y divide-outline-variant/40">
+                <tr>
+                  <td class="p-6 text-center text-on-surface-variant italic">No data loaded. Use "Open .json DB" or select from dropdown.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════ -->
     <!-- TAB: YARA SCANNER                    -->
     <!-- ════════════════════════════════════ -->
     <div id="tab-yara-content" class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5">
@@ -1264,6 +1355,7 @@
     pgp:     'PGP Provenance',
     timeline:'Timeline',
     ram:     'RAM Analysis',
+    'ram-viewer': 'RAM Results Viewer',
   };
 
   const _orig_switchTab = window.switchTab;

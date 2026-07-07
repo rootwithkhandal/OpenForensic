@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -8,6 +9,130 @@ use crate::acquisition::ProgressEvent;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ForensicDatabaseRecord {
+    pub timestamp: String,
+    pub image_path: String,
+    pub profile: String,
+    pub engine: String,
+    pub total_lines: usize,
+    pub output_lines: Vec<String>,
+    pub parsed_rows: Vec<serde_json::Value>,
+}
+
+/// Helper function to parse fixed-width or tabular Volatility output lines into structured JSON objects.
+fn parse_table_lines(lines: &[String]) -> Vec<serde_json::Value> {
+    let mut parsed = Vec::new();
+    let mut clean_lines = Vec::new();
+    for line in lines {
+        let clean = line.strip_prefix("[VOLATILITY] ").unwrap_or_else(|| line.strip_prefix("[VOLATILITY]").unwrap_or(line)).trim_start();
+        clean_lines.push(clean.to_string());
+    }
+
+    let mut divider_idx = None;
+    for (i, line) in clean_lines.iter().enumerate() {
+        if line.len() >= 10 && line.contains('-') && line.chars().all(|c| c == '-' || c == ' ' || c == '─' || c == '=') {
+            divider_idx = Some(i);
+            break;
+        }
+    }
+
+    let div_idx = match divider_idx {
+        Some(idx) if idx > 0 => idx,
+        _ => return parsed,
+    };
+
+    let header_line = &clean_lines[div_idx - 1];
+    let mut col_starts = Vec::new();
+    let mut col_names = Vec::new();
+    let chars: Vec<char> = header_line.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] != ' ' {
+            let start = i;
+            while i < chars.len() {
+                if chars[i] == ' ' && (i + 1 >= chars.len() || chars[i + 1] == ' ') {
+                    break;
+                }
+                i += 1;
+            }
+            let name = chars[start..i].iter().collect::<String>().trim().to_string();
+            if !name.is_empty() {
+                col_starts.push(start);
+                col_names.push(name);
+            }
+        }
+        i += 1;
+    }
+
+    if col_names.is_empty() {
+        return parsed;
+    }
+
+    for line in clean_lines.iter().skip(div_idx + 1) {
+        if line.trim().is_empty() || line.starts_with("pslist complete") || line.starts_with("Analysis complete") || line.starts_with("════") || line.starts_with("---") {
+            continue;
+        }
+        let row_chars: Vec<char> = line.chars().collect();
+        let mut row_obj = serde_json::Map::new();
+        for (col_idx, &start) in col_starts.iter().enumerate() {
+            let end = if col_idx + 1 < col_starts.len() {
+                col_starts[col_idx + 1]
+            } else {
+                row_chars.len()
+            };
+            if start < row_chars.len() {
+                let actual_end = std::cmp::min(end, row_chars.len());
+                let val = row_chars[start..actual_end].iter().collect::<String>().trim().to_string();
+                row_obj.insert(col_names[col_idx].clone(), serde_json::Value::String(val));
+            } else {
+                row_obj.insert(col_names[col_idx].clone(), serde_json::Value::String(String::new()));
+            }
+        }
+        if !row_obj.is_empty() {
+            parsed.push(serde_json::Value::Object(row_obj));
+        }
+    }
+
+    parsed
+}
+
+/// Helper function to save forensic analysis results to JSON database files in the memory dump location.
+fn save_forensic_database(config: &VolatilityConfig, engine_name: &str, lines: &[String]) {
+    let parsed_rows = parse_table_lines(lines);
+    let now = chrono::Utc::now().to_rfc3339();
+    let record = ForensicDatabaseRecord {
+        timestamp: now,
+        image_path: config.image_path.clone(),
+        profile: config.profile.clone(),
+        engine: engine_name.to_string(),
+        total_lines: lines.len(),
+        output_lines: lines.to_vec(),
+        parsed_rows,
+    };
+
+    let parent = Path::new(&config.image_path).parent().unwrap_or_else(|| Path::new("."));
+    let file_stem = Path::new(&config.image_path).file_stem().and_then(|s| s.to_str()).unwrap_or("ram_dump");
+    
+    let specific_db_path = parent.join(format!("{}_forensic_results.json", file_stem));
+    let general_db_path = parent.join("ram_forensic_results.json");
+
+    for db_path in &[specific_db_path, general_db_path] {
+        let mut records = if db_path.exists() {
+            std::fs::read_to_string(db_path)
+                .ok()
+                .and_then(|s| serde_json::from_str::<Vec<ForensicDatabaseRecord>>(&s).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        records.push(record.clone());
+        if let Ok(json_str) = serde_json::to_string_pretty(&records) {
+            let _ = std::fs::write(db_path, json_str);
+        }
+    }
+}
 
 /// Sentinel values that indicate the built-in native Rust engine should be used.
 const BUILTIN_SENTINELS: &[&str] = &[
@@ -119,7 +244,9 @@ async fn run_builtin_engine(
 
     // Spawn enrichment consumer that reads from the native engine output channel
     let enrichment_task = tokio::spawn(async move {
+        let mut lines = Vec::new();
         while let Some(line) = vol_rx.recv().await {
+            lines.push(line.clone());
             let _ = tx_enrich.send(ProgressEvent::Log(line.clone())).await;
 
             // AbuseIPDB enrichment
@@ -161,6 +288,7 @@ async fn run_builtin_engine(
                 }
             }
         }
+        lines
     });
 
     // Run the native Rust volatility engine
@@ -169,8 +297,11 @@ async fn run_builtin_engine(
 
     let analysis_result = volatility::run_analysis(&image_path, &profile, vol_tx).await;
 
-    // Wait for enrichment pipeline to drain
-    let _ = enrichment_task.await;
+    // Wait for enrichment pipeline to drain and collect output lines
+    let collected_lines = enrichment_task.await.unwrap_or_default();
+    if analysis_result.is_ok() {
+        save_forensic_database(config, "Built-in Rust Engine", &collected_lines);
+    }
 
     // Send completion event
     let _ = tx.send(ProgressEvent::Finished {
@@ -237,7 +368,9 @@ async fn run_external_engine(
     let vt_cache = Arc::new(AsyncMutex::new(HashSet::new()));
 
     let stdout_task = tokio::spawn(async move {
+        let mut lines = Vec::new();
         while let Ok(Some(line)) = stdout_reader.next_line().await {
+            lines.push(line.clone());
             let _ = tx_out.send(ProgressEvent::Log(line.clone())).await;
 
             if enrich_abuseip && !abuseip_key.is_empty()
@@ -277,6 +410,7 @@ async fn run_external_engine(
                 }
             }
         }
+        lines
     });
 
     let tx_err = tx.clone();
@@ -286,8 +420,13 @@ async fn run_external_engine(
         }
     });
 
-    let _ = tokio::join!(stdout_task, stderr_task);
-    let _ = child.wait().await;
+    let (stdout_res, _) = tokio::join!(stdout_task, stderr_task);
+    let collected_lines = stdout_res.unwrap_or_default();
+    let status = child.wait().await;
+
+    if status.as_ref().map_or(false, |s| s.success()) {
+        save_forensic_database(config, "External Engine", &collected_lines);
+    }
 
     let _ = tx.send(ProgressEvent::Finished {
         bytes_read: 0,
@@ -295,7 +434,7 @@ async fn run_external_engine(
         hashes: HashMap::new(),
     }).await;
 
-    Ok(())
+    status.map(|_| ()).map_err(|e| format!("Failed to wait on Volatility: {}", e))
 }
 
 async fn check_abuseip(ip: &str, api_key: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
@@ -344,3 +483,40 @@ async fn check_virustotal(hash: &str, api_key: &str) -> Result<String, Box<dyn s
         Ok("No analysis stats available".to_string())
     }
 }
+
+#[tauri::command]
+pub async fn list_ram_databases(dir_path: Option<String>) -> Result<Vec<String>, String> {
+    let mut results = Vec::new();
+    let search_dir = if let Some(ref d) = dir_path {
+        if !d.is_empty() {
+            let p = Path::new(d);
+            if p.is_file() {
+                p.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+            } else {
+                p.to_path_buf()
+            }
+        } else {
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+        }
+    } else {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    };
+
+    if let Ok(entries) = std::fs::read_dir(&search_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                results.push(path.to_string_lossy().to_string());
+            }
+        }
+    }
+    results.sort();
+    results.dedup();
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn read_ram_database(file_path: String) -> Result<String, String> {
+    std::fs::read_to_string(&file_path).map_err(|e| format!("Failed to read JSON database file: {}", e))
+}
+

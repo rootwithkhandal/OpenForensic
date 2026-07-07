@@ -610,6 +610,7 @@ pub fn insert_app(db: &Connection, app: &MobileAppInfo) {
 
 // ── Instant Messaging (IM) Triage Helpers ─────────────────────────────
 
+#[allow(dead_code)]
 pub fn evaluate_app_risk(app: &MobileAppInfo) -> (&'static str, &'static str) {
     if !app.is_system && !app.installer.eq_ignore_ascii_case("com.android.vending") && !app.installer.is_empty() && app.installer != "null" {
         ("HIGH RISK", "Side-loaded APK (Non-Play Store Installer)")

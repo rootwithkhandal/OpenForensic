@@ -280,6 +280,19 @@ function updateAnalysisLockScreens() {
     }
   }
 
+  // RAM Viewer tab
+  const lockRamViewer = document.getElementById('lock-ram-viewer');
+  const contentRamViewer = document.getElementById('content-ram-viewer');
+  if (lockRamViewer && contentRamViewer) {
+    if (isCapture) {
+      lockRamViewer.classList.remove('hidden');
+      contentRamViewer.classList.add('hidden');
+    } else {
+      lockRamViewer.classList.add('hidden');
+      contentRamViewer.classList.remove('hidden');
+    }
+  }
+
   // YARA tab
   const lockYara = document.getElementById('lock-yara');
   const contentYara = document.getElementById('content-yara');
@@ -639,24 +652,47 @@ function setupEventListeners() {
 
   // Export RAM analysis results
   if (elements.btnExportRamResults) {
-    elements.btnExportRamResults.addEventListener('click', () => {
-      if (!elements.ramConsoleLogs) return;
-      const logs = Array.from(elements.ramConsoleLogs.children).map(c => c.textContent).join('\n');
-      if (!logs || elements.ramConsoleLogs.children[0]?.classList.contains('italic')) {
-        alert('The RAM analysis console log is empty.');
-        return;
+    elements.btnExportRamResults.addEventListener('click', async () => {
+      const imagePath = elements.ramImagePath?.value || '';
+      try {
+        let dbFiles = await invoke('list_ram_databases', { dirPath: imagePath || null });
+        if (!dbFiles || dbFiles.length === 0) {
+          if (!elements.ramConsoleLogs || elements.ramConsoleLogs.children[0]?.classList.contains('italic')) {
+            alert('No RAM analysis results or JSON database found to export.');
+            return;
+          }
+          const logs = Array.from(elements.ramConsoleLogs.children).map(c => c.textContent).join('\n');
+          const blob = new Blob([logs], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `OpenForensic_RAM_Analysis_Logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return;
+        }
+        let targetFile = dbFiles[dbFiles.length - 1];
+        if (imagePath) {
+          const match = dbFiles.find(f => f.replace(/\\/g, '/').toLowerCase().includes(imagePath.split(/[/\\]/).pop().split('.')[0].toLowerCase()));
+          if (match) targetFile = match;
+        }
+        const jsonContent = await invoke('read_ram_database', { filePath: targetFile });
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = targetFile.split(/[/\\]/).pop() || `ram_forensic_results_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        logMessage('SYSTEM', `RAM Forensic JSON database exported: ${a.download}`);
+        logRamMessage('SYSTEM', `RAM Forensic JSON database exported: ${a.download}`);
+      } catch (err) {
+        logMessage('ERROR', 'Failed to export RAM database: ' + err);
+        alert('Failed to export JSON database: ' + err);
       }
-      const blob = new Blob([logs], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `OpenForensic_RAM_Analysis_Results_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      logMessage('SYSTEM', 'RAM Analysis results exported successfully.');
-      logRamMessage('SYSTEM', 'RAM Analysis results exported successfully.');
     });
   }
 
@@ -689,6 +725,7 @@ function setupEventListeners() {
   document.getElementById('btn-tab-timeline').addEventListener('click', () => switchTab('timeline'));
   document.getElementById('btn-tab-cases').addEventListener('click', () => { switchTab('cases'); loadCases(); });
   document.getElementById('btn-tab-ram').addEventListener('click', () => switchTab('ram'));
+  document.getElementById('btn-tab-ram-viewer')?.addEventListener('click', () => { switchTab('ram-viewer'); refreshRamDbList(); });
   document.getElementById('btn-tab-yara')?.addEventListener('click', () => switchTab('yara'));
   document.getElementById('btn-tab-pgp').addEventListener('click', () => { switchTab('pgp'); loadPgpKeyInfo(); });
 
@@ -1529,6 +1566,11 @@ function switchTab(tabName) {
     document.getElementById('btn-tab-ram').classList.add('active');
     document.getElementById('tab-ram-content').classList.remove('hidden');
     document.getElementById('sidebar-panel').classList.add('hidden');
+  } else if (tabName === 'ram-viewer') {
+    document.getElementById('btn-tab-ram-viewer')?.classList.add('active');
+    document.getElementById('tab-ram-viewer-content')?.classList.remove('hidden');
+    document.getElementById('sidebar-panel').classList.add('hidden');
+    if (typeof refreshRamDbList === 'function') refreshRamDbList();
   } else if (tabName === 'yara') {
     document.getElementById('btn-tab-yara')?.classList.add('active');
     document.getElementById('tab-yara-content')?.classList.remove('hidden');
@@ -1992,3 +2034,196 @@ function renderPgpKeyInfo(info) {
     <div><strong style="color: var(--color-primary);">Private Key Available:</strong> <span style="color: ${info.has_private_key ? '#10b981' : '#ef4444'}; font-weight: bold;">${info.has_private_key ? 'YES (Active Signing Enabled)' : 'NO'}</span></div>
   `;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RAM RESULTS VIEWER (.JSON DATABASE)
+// ═══════════════════════════════════════════════════════════════════════════
+let currentRamDbRecords = [];
+let currentRamDbRunIndex = -1; // -1 for all runs
+
+async function refreshRamDbList() {
+  const dbSelect = document.getElementById('ram-db-select');
+  if (!dbSelect) return;
+  
+  const imagePath = document.getElementById('ram-image-path')?.value || '';
+  try {
+    const dbFiles = await invoke('list_ram_databases', { dirPath: imagePath || null });
+    const currentVal = dbSelect.value;
+    dbSelect.innerHTML = '<option value="">Select database file…</option>';
+    
+    if (dbFiles && dbFiles.length > 0) {
+      dbFiles.forEach(path => {
+        const name = path.split(/[/\\]/).pop();
+        const opt = document.createElement('option');
+        opt.value = path;
+        opt.textContent = name + ` (${path})`;
+        if (path === currentVal || (dbFiles.length === 1 && !currentVal)) {
+          opt.selected = true;
+        }
+        dbSelect.appendChild(opt);
+      });
+      if (dbSelect.value) {
+        loadRamDatabase(dbSelect.value);
+      }
+    } else {
+      dbSelect.innerHTML = '<option value="">No .json databases found in dump folder…</option>';
+    }
+  } catch (err) {
+    console.error('Failed to list RAM databases:', err);
+  }
+}
+
+async function loadRamDatabase(filePath) {
+  if (!filePath) return;
+  try {
+    const jsonStr = await invoke('read_ram_database', { filePath });
+    const records = JSON.parse(jsonStr);
+    currentRamDbRecords = Array.isArray(records) ? records : [records];
+    
+    // Populate Run / Profile selector
+    const runSelect = document.getElementById('ram-db-run-select');
+    if (runSelect) {
+      runSelect.innerHTML = '<option value="-1">All analysis runs (' + currentRamDbRecords.length + ' runs)</option>';
+      currentRamDbRecords.forEach((rec, idx) => {
+        const timeStr = new Date(rec.timestamp || Date.now()).toLocaleTimeString();
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `Run #${idx + 1}: ${rec.profile || 'Unknown'} (${timeStr})`;
+        runSelect.appendChild(opt);
+      });
+      runSelect.value = "-1";
+      currentRamDbRunIndex = -1;
+    }
+    
+    renderRamDbTable();
+    updateRamDbMetadataBanner();
+  } catch (err) {
+    alert('Failed to load JSON database: ' + err);
+    console.error(err);
+  }
+}
+
+function updateRamDbMetadataBanner() {
+  const banner = document.getElementById('ram-db-meta-banner');
+  if (!banner || currentRamDbRecords.length === 0) return;
+  
+  banner.classList.remove('hidden');
+  const targetRec = currentRamDbRunIndex >= 0 ? currentRamDbRecords[currentRamDbRunIndex] : currentRamDbRecords[currentRamDbRecords.length - 1];
+  
+  document.getElementById('meta-image-path').textContent = targetRec.image_path?.split(/[/\\]/).pop() || 'Unknown';
+  document.getElementById('meta-profile').textContent = currentRamDbRunIndex >= 0 ? targetRec.profile : `Multiple (${currentRamDbRecords.length} runs)`;
+  document.getElementById('meta-engine').textContent = targetRec.engine || 'Built-in Rust Engine';
+  document.getElementById('meta-timestamp').textContent = new Date(targetRec.timestamp || Date.now()).toLocaleString();
+  
+  let totalRows = 0;
+  if (currentRamDbRunIndex >= 0) {
+    totalRows = targetRec.parsed_rows?.length || 0;
+  } else {
+    currentRamDbRecords.forEach(r => { totalRows += (r.parsed_rows?.length || 0); });
+  }
+  document.getElementById('meta-rows-count').textContent = totalRows.toLocaleString();
+}
+
+function renderRamDbTable() {
+  const theadTr = document.getElementById('ram-db-thead-tr');
+  const tbody = document.getElementById('ram-db-tbody');
+  if (!theadTr || !tbody) return;
+  
+  if (!currentRamDbRecords || currentRamDbRecords.length === 0) {
+    theadTr.innerHTML = '<th class="p-3">Select a JSON database to view results</th>';
+    tbody.innerHTML = '<tr><td class="p-6 text-center text-on-surface-variant italic">No data loaded. Use "Open .json DB" or select from dropdown.</td></tr>';
+    return;
+  }
+  
+  let rows = [];
+  if (currentRamDbRunIndex >= 0 && currentRamDbRecords[currentRamDbRunIndex]) {
+    rows = currentRamDbRecords[currentRamDbRunIndex].parsed_rows || [];
+  } else {
+    currentRamDbRecords.forEach((rec, rIdx) => {
+      const recRows = (rec.parsed_rows || []).map(row => ({
+        '_Run': `#${rIdx + 1} (${rec.profile})`,
+        ...row
+      }));
+      rows.push(...recRows);
+    });
+  }
+  
+  const searchVal = (document.getElementById('ram-db-search')?.value || '').toLowerCase().trim();
+  if (searchVal) {
+    rows = rows.filter(r => {
+      return Object.values(r).some(val => String(val || '').toLowerCase().includes(searchVal));
+    });
+  }
+  
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td class="p-6 text-center text-on-surface-variant italic">No matching rows found for filter: "' + searchVal + '"</td></tr>';
+    return;
+  }
+  
+  const colSet = new Set();
+  rows.forEach(r => Object.keys(r).forEach(k => colSet.add(k)));
+  const cols = Array.from(colSet);
+  
+  theadTr.innerHTML = cols.map(c => `<th class="p-3 whitespace-nowrap bg-surface-container font-bold text-primary">${c}</th>`).join('');
+  
+  const displayRows = rows.slice(0, 1000);
+  tbody.innerHTML = displayRows.map(r => {
+    return `<tr class="hover:bg-primary/5 transition-colors">` + cols.map(c => {
+      const val = r[c] !== undefined && r[c] !== null ? String(r[c]) : '';
+      let formattedVal = val;
+      if (val.includes('⚠️ MALICIOUS')) {
+        formattedVal = `<span class="px-1.5 py-0.5 bg-red-500/20 text-red-400 border border-red-500/40 rounded font-bold">${val}</span>`;
+      } else if (val.includes('CLEAN')) {
+        formattedVal = `<span class="text-green-400 font-semibold">${val}</span>`;
+      } else if (val.includes('AbuseIPDB')) {
+        formattedVal = `<span class="text-amber-400 font-semibold">${val}</span>`;
+      }
+      return `<td class="p-3 whitespace-nowrap border-r border-outline-variant/20">${formattedVal}</td>`;
+    }).join('') + `</tr>`;
+  }).join('');
+  
+  if (rows.length > 1000) {
+    tbody.innerHTML += `<tr><td colspan="${cols.length}" class="p-3 text-center bg-amber-500/10 text-amber-500 font-bold">Showing first 1,000 rows of ${rows.length.toLocaleString()} matching rows. Refine your search query to see specific entries.</td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const dbSelect = document.getElementById('ram-db-select');
+  if (dbSelect) {
+    dbSelect.addEventListener('change', () => loadRamDatabase(dbSelect.value));
+  }
+  
+  const runSelect = document.getElementById('ram-db-run-select');
+  if (runSelect) {
+    runSelect.addEventListener('change', () => {
+      currentRamDbRunIndex = parseInt(runSelect.value, 10);
+      renderRamDbTable();
+      updateRamDbMetadataBanner();
+    });
+  }
+  
+  const searchInput = document.getElementById('ram-db-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => renderRamDbTable());
+  }
+  
+  const btnRefresh = document.getElementById('btn-refresh-ram-db');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', refreshRamDbList);
+  }
+  
+  const btnBrowseDb = document.getElementById('btn-browse-ram-db');
+  if (btnBrowseDb) {
+    btnBrowseDb.addEventListener('click', async () => {
+      try {
+        const file = await invoke('browse_file', { ext: 'json' });
+        if (file) {
+          loadRamDatabase(file);
+        }
+      } catch (err) {
+        console.error('Failed to open file dialog:', err);
+      }
+    });
+  }
+});
+

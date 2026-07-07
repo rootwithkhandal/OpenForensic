@@ -128,6 +128,9 @@ fn browse_file(ext: String) -> Option<String> {
         "db" | "sqlite" => dialog
             .add_filter("SQLite Database (*.db, *.sqlite)", &["db", "sqlite", "sqlite3"])
             .add_filter("All Files", &["*"]),
+        "json" => dialog
+            .add_filter("JSON Database (*.json)", &["json"])
+            .add_filter("All Files", &["*"]),
         "yar" | "yara" => dialog
             .add_filter("YARA Rules (*.yar, *.yara)", &["yar", "yara", "txt"])
             .add_filter("All Files", &["*"]),
@@ -1888,6 +1891,8 @@ fn main() {
             query_triage_db,
             generate_image_timeline,
             crate::ram_analysis::start_volatility_analysis,
+            crate::ram_analysis::list_ram_databases,
+            crate::ram_analysis::read_ram_database,
             load_plugin,
             list_plugins,
             unload_plugin,

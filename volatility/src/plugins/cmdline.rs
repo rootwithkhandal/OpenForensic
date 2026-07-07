@@ -40,7 +40,7 @@ pub async fn run(reader: &mut MemoryReader, tx: &Sender<String>) -> Result<()> {
                 (0x2E0, 0x438, 0x338, 0x400, 0x408),
             ];
 
-            for &(pid_off, name_off, peb_off, create_off, exit_off) in layout_sets {
+            for &(pid_off, name_off, peb_off, _create_off, _exit_off) in layout_sets {
                 if eproc_base + name_off + 16 > reader.size {
                     continue;
                 }

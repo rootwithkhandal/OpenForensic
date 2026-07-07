@@ -347,6 +347,24 @@ function getProcessRiskBadge(row) {
   }
 }
 
+function getExecutionRiskBadge(row) {
+  const exe = (row.executable_name || row.file_path || '').toLowerCase();
+  const count = row.run_count !== undefined ? Number(row.run_count) : -1;
+  const pub = (row.publisher || '').toLowerCase();
+
+  if (exe.includes('\\temp\\') || exe.includes('\\appdata\\') || exe.includes('\\programdata\\') || exe.includes('/tmp/')) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">HIGH RISK: Temp/User Execution</span>';
+  } else if (exe.includes('cmd.exe') || exe.includes('powershell') || exe.includes('certutil') || exe.includes('bitsadmin') || exe.includes('whoami') || exe.includes('mimikatz') || exe.includes('psexec') || exe.includes('net.exe')) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">ALERT: Suspicious Tool</span>';
+  } else if (count === 1) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">ANOMALY: Single Execution</span>';
+  } else if (pub === 'unknown' || pub === 'unverified') {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">UNVERIFIED: Unsigned Publisher</span>';
+  } else {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-400 border border-teal-500/30">NORMAL</span>';
+  }
+}
+
 // UI Elements Binding
 const elements = {
   adminBadge: document.getElementById('admin-badge'),
@@ -355,8 +373,18 @@ const elements = {
   btnRescan: document.getElementById('btn-rescan'),
   modePhysical: document.getElementById('mode-physical'),
   modeLogical: document.getElementById('mode-logical'),
+  modeImage: document.getElementById('mode-image'),
   physicalContainer: document.getElementById('physical-container'),
   logicalContainer: document.getElementById('logical-container'),
+  imageMountContainer: document.getElementById('image-mount-container'),
+  mountImagePath: document.getElementById('mount-image-path'),
+  btnBrowseMountImage: document.getElementById('btn-browse-mount-image'),
+  mountReadOnly: document.getElementById('mount-read-only'),
+  mountCustomPoint: document.getElementById('mount-custom-point'),
+  btnMountAction: document.getElementById('btn-mount-action'),
+  btnUnmountAction: document.getElementById('btn-unmount-action'),
+  btnRefreshMounts: document.getElementById('btn-refresh-mounts'),
+  mountedImagesBody: document.getElementById('mounted-images-body'),
   deviceList: document.getElementById('device-list'),
 
   logicalSourceInput: document.getElementById('logical-source-input'),
@@ -408,6 +436,11 @@ const elements = {
   txtBytesProgress: document.getElementById('txt-bytes-progress'),
 
   // Triage Workbench
+  triageModeLive: document.getElementById('triage-mode-live'),
+  triageModeMounted: document.getElementById('triage-mode-mounted'),
+  triageMountedContainer: document.getElementById('triage-mounted-container'),
+  triageSourceRoot: document.getElementById('triage-source-root'),
+  btnBrowseTriageSource: document.getElementById('btn-browse-triage-source'),
   triageDbPath: document.getElementById('triage-db-path'),
   btnBrowseTriageDb: document.getElementById('btn-browse-triage-db'),
   triageTableSelect: document.getElementById('triage-table-select'),
@@ -537,6 +570,63 @@ function setupEventListeners() {
   // Mode selection buttons
   elements.modePhysical.addEventListener('click', () => setImagingMode('Physical'));
   elements.modeLogical.addEventListener('click', () => setImagingMode('Logical'));
+  if (elements.modeImage) {
+    elements.modeImage.addEventListener('click', () => setImagingMode('Image'));
+  }
+  if (elements.btnBrowseMountImage) {
+    elements.btnBrowseMountImage.addEventListener('click', async () => {
+      try {
+        const file = await invoke('browse_file', { ext: '' });
+        if (file) {
+          elements.mountImagePath.value = file;
+          logMessage('SYSTEM', 'Selected disk image for mounting: ' + file);
+        }
+      } catch (e) {
+        console.error('Failed to browse disk image:', e);
+      }
+    });
+  }
+  if (elements.btnMountAction) {
+    elements.btnMountAction.addEventListener('click', mountDiskImage);
+  }
+  if (elements.btnUnmountAction) {
+    elements.btnUnmountAction.addEventListener('click', unmountDiskImage);
+  }
+  if (elements.btnRefreshMounts) {
+    elements.btnRefreshMounts.addEventListener('click', refreshMountedImages);
+  }
+
+  // Triage Source Mode toggle
+  if (elements.triageModeLive && elements.triageModeMounted) {
+    elements.triageModeLive.addEventListener('click', () => {
+      elements.triageModeLive.classList.add('bg-primary', 'text-on-primary', 'shadow-sm');
+      elements.triageModeLive.classList.remove('border', 'border-outline-variant', 'bg-surface', 'text-on-surface');
+      elements.triageModeMounted.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm');
+      elements.triageModeMounted.classList.add('border', 'border-outline-variant', 'bg-surface', 'text-on-surface');
+      elements.triageMountedContainer.classList.add('hidden');
+      if (elements.triageSourceRoot) elements.triageSourceRoot.value = '';
+    });
+    elements.triageModeMounted.addEventListener('click', () => {
+      elements.triageModeMounted.classList.add('bg-primary', 'text-on-primary', 'shadow-sm');
+      elements.triageModeMounted.classList.remove('border', 'border-outline-variant', 'bg-surface', 'text-on-surface');
+      elements.triageModeLive.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm');
+      elements.triageModeLive.classList.add('border', 'border-outline-variant', 'bg-surface', 'text-on-surface');
+      elements.triageMountedContainer.classList.remove('hidden');
+    });
+  }
+  if (elements.btnBrowseTriageSource) {
+    elements.btnBrowseTriageSource.addEventListener('click', async () => {
+      try {
+        const folder = await invoke('browse_folder');
+        if (folder && elements.triageSourceRoot) {
+          elements.triageSourceRoot.value = folder;
+          logMessage('SYSTEM', 'Selected triage target root: ' + folder);
+        }
+      } catch (e) {
+        console.error('Failed to browse triage target root:', e);
+      }
+    });
+  }
 
   // Rescan button
   elements.btnRescan.addEventListener('click', doRescan);
@@ -1046,6 +1136,7 @@ function setupEventListeners() {
       resetStats();
       logMessage('SYSTEM', 'Initiating rapid triage collection...');
 
+      const sourceRoot = elements.triageSourceRoot && !elements.triageMountedContainer?.classList.contains('hidden') ? (elements.triageSourceRoot.value.trim() || null) : null;
       await invoke('start_triage', {
         destPath,
         collectRegistry: collect_registry,
@@ -1053,7 +1144,8 @@ function setupEventListeners() {
         collectBrowsers: collect_browsers,
         collectEventlogs: collect_eventlogs,
         collectMobile: collect_mobile,
-        siemConfig: siemConfig.enabled ? siemConfig : null
+        siemConfig: siemConfig.enabled ? siemConfig : null,
+        sourceRoot: sourceRoot
       });
 
       // Auto-load DB path for analysis workbench if it succeeds
@@ -1089,9 +1181,10 @@ function setupEventListeners() {
     const keys = Object.keys(firstRow);
     const hasAppRisk = ('package_name' in firstRow);
     const hasProcRisk = ('pid' in firstRow || 'exe_path' in firstRow || 'command_line' in firstRow);
+    const hasExecRisk = ('prefetch_hash' in firstRow || 'source_type' in firstRow);
 
     let theadHtml = '';
-    if (hasAppRisk || hasProcRisk) {
+    if (hasAppRisk || hasProcRisk || hasExecRisk) {
       theadHtml += '<th style="padding: 12px; font-weight: bold; color: var(--color-primary);">Risk &amp; Anomaly</th>';
     }
     keys.forEach(key => {
@@ -1106,6 +1199,8 @@ function setupEventListeners() {
         tbodyHtml += `<td style="padding: 10px 12px;">${getAppRiskBadge(row)}</td>`;
       } else if (hasProcRisk) {
         tbodyHtml += `<td style="padding: 10px 12px;">${getProcessRiskBadge(row)}</td>`;
+      } else if (hasExecRisk) {
+        tbodyHtml += `<td style="padding: 10px 12px;">${getExecutionRiskBadge(row)}</td>`;
       }
       keys.forEach(key => {
         let val = row[key];
@@ -1589,17 +1684,128 @@ function setImagingMode(mode) {
 
   state.imagingMode = mode;
   if (mode === 'Physical') {
-    elements.modePhysical.classList.add('active');
-    elements.modeLogical.classList.remove('active');
-    elements.physicalContainer.classList.remove('hidden');
-    elements.logicalContainer.classList.add('hidden');
+    elements.modePhysical?.classList.add('active');
+    elements.modeLogical?.classList.remove('active');
+    elements.modeImage?.classList.remove('active');
+    elements.physicalContainer?.classList.remove('hidden');
+    elements.logicalContainer?.classList.add('hidden');
+    elements.imageMountContainer?.classList.add('hidden');
     logMessage('SYSTEM', 'Switched to Physical Sector-by-Sector imaging mode.');
-  } else {
-    elements.modePhysical.classList.remove('active');
-    elements.modeLogical.classList.add('active');
-    elements.physicalContainer.classList.add('hidden');
-    elements.logicalContainer.classList.remove('hidden');
+  } else if (mode === 'Logical') {
+    elements.modePhysical?.classList.remove('active');
+    elements.modeLogical?.classList.add('active');
+    elements.modeImage?.classList.remove('active');
+    elements.physicalContainer?.classList.add('hidden');
+    elements.logicalContainer?.classList.remove('hidden');
+    elements.imageMountContainer?.classList.add('hidden');
     logMessage('SYSTEM', 'Switched to Logical File/Directory imaging mode.');
+  } else if (mode === 'Image') {
+    elements.modePhysical?.classList.remove('active');
+    elements.modeLogical?.classList.remove('active');
+    elements.modeImage?.classList.add('active');
+    elements.physicalContainer?.classList.add('hidden');
+    elements.logicalContainer?.classList.add('hidden');
+    elements.imageMountContainer?.classList.remove('hidden');
+    refreshMountedImages();
+    logMessage('SYSTEM', 'Switched to Disk Image Mounting & Analysis mode.');
+  }
+}
+
+async function mountDiskImage() {
+  const imagePath = elements.mountImagePath?.value || '';
+  if (!imagePath) {
+    alert('Please select a forensic disk image file first.');
+    return;
+  }
+  const readOnly = elements.mountReadOnly ? elements.mountReadOnly.checked : true;
+  const customPoint = elements.mountCustomPoint?.value?.trim() || null;
+
+  logMessage('SYSTEM', `Attempting to mount disk image: ${imagePath} (ReadOnly: ${readOnly})...`);
+  try {
+    const info = await invoke('mount_disk_image', { imagePath, readOnly, customMountPoint: customPoint });
+    logMessage('SUCCESS', `Successfully mounted image to: ${info.mount_point} (${info.filesystem}, ${info.size_gb} GB)`);
+    refreshMountedImages();
+  } catch (err) {
+    logMessage('ERROR', `Failed to mount disk image: ${err}`);
+    alert(`Mount Error: ${err}`);
+  }
+}
+
+async function unmountDiskImage() {
+  const imagePath = elements.mountImagePath?.value || '';
+  if (!imagePath) {
+    alert('Please select or specify the image path to unmount.');
+    return;
+  }
+  logMessage('SYSTEM', `Unmounting disk image: ${imagePath}...`);
+  try {
+    const res = await invoke('unmount_disk_image', { imagePath });
+    logMessage('SUCCESS', res);
+    refreshMountedImages();
+  } catch (err) {
+    logMessage('ERROR', `Failed to unmount disk image: ${err}`);
+    alert(`Unmount Error: ${err}`);
+  }
+}
+
+async function refreshMountedImages() {
+  if (!elements.mountedImagesBody) return;
+  try {
+    const mounts = await invoke('list_mounted_images');
+    if (!mounts || mounts.length === 0) {
+      elements.mountedImagesBody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-outline italic">No forensic disk images mounted.</td></tr>';
+      return;
+    }
+    elements.mountedImagesBody.innerHTML = '';
+    mounts.forEach(m => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-surface-container-low transition-colors';
+      const name = m.image_path.split(/[/\\]/).pop();
+      tr.innerHTML = `
+        <td class="py-2.5 px-3 font-bold text-primary">${m.mount_point}</td>
+        <td class="py-2.5 px-3 truncate max-w-xs" title="${m.image_path}">${name}</td>
+        <td class="py-2.5 px-3">${m.filesystem}</td>
+        <td class="py-2.5 px-3">${m.size_gb}</td>
+        <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${m.is_read_only ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}">${m.is_read_only ? 'RO' : 'RW'}</span></td>
+        <td class="py-2.5 px-3 text-right space-x-2">
+          <button class="btn-triage-mounted px-2.5 py-1 bg-secondary text-on-secondary hover:bg-secondary/90 font-bold text-[11px] rounded transition-all shadow-sm" data-point="${m.mount_point}">
+            ⚡ Triage Disk
+          </button>
+          <button class="btn-unmount-row px-2.5 py-1 bg-error/10 text-error hover:bg-error/20 font-bold text-[11px] rounded transition-all" data-path="${m.image_path}">
+            Unmount
+          </button>
+        </td>
+      `;
+      elements.mountedImagesBody.appendChild(tr);
+    });
+
+    elements.mountedImagesBody.querySelectorAll('.btn-triage-mounted').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const point = btn.getAttribute('data-point');
+        if (point) {
+          switchTab('triage');
+          if (elements.triageModeMounted) elements.triageModeMounted.click();
+          if (elements.triageSourceRoot) elements.triageSourceRoot.value = point;
+          logMessage('SYSTEM', `Pre-selected mounted disk volume ${point} for Triage Analysis.`);
+        }
+      });
+    });
+
+    elements.mountedImagesBody.querySelectorAll('.btn-unmount-row').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const path = btn.getAttribute('data-path');
+        if (path) {
+          try {
+            await invoke('unmount_disk_image', { imagePath: path });
+            refreshMountedImages();
+          } catch (e) {
+            alert(`Failed to unmount: ${e}`);
+          }
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Failed to list mounted images:', err);
   }
 }
 

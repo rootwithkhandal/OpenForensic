@@ -337,6 +337,84 @@ impl SiemClient {
             }
         }
 
+        // 8. Prefetch Executions
+        if let Ok(mut stmt) = db.prepare("SELECT executable_name, file_path, run_count, last_run_time, prefetch_hash, loaded_files FROM prefetch_executions")
+            && let Ok(rows) = stmt.query_map([], |row| {
+                Ok(serde_json::json!({
+                    "executable_name": row.get::<_, String>(0).unwrap_or_default(),
+                    "file_path": row.get::<_, String>(1).unwrap_or_default(),
+                    "run_count": row.get::<_, u32>(2).unwrap_or_default(),
+                    "last_run_time": row.get::<_, String>(3).unwrap_or_default(),
+                    "prefetch_hash": row.get::<_, String>(4).unwrap_or_default(),
+                    "loaded_files": row.get::<_, String>(5).unwrap_or_default(),
+                }))
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "prefetch_execution".to_string(),
+                    data: r,
+                });
+            }
+        }
+
+        // 9. Amcache / Shimcache Entries
+        if let Ok(mut stmt) = db.prepare("SELECT source_type, file_path, sha1_hash, publisher, install_date, last_modified_time, execution_flag FROM amcache_entries")
+            && let Ok(rows) = stmt.query_map([], |row| {
+                Ok(serde_json::json!({
+                    "source_type": row.get::<_, String>(0).unwrap_or_default(),
+                    "file_path": row.get::<_, String>(1).unwrap_or_default(),
+                    "sha1_hash": row.get::<_, String>(2).unwrap_or_default(),
+                    "publisher": row.get::<_, String>(3).unwrap_or_default(),
+                    "install_date": row.get::<_, String>(4).unwrap_or_default(),
+                    "last_modified_time": row.get::<_, String>(5).unwrap_or_default(),
+                    "execution_flag": row.get::<_, String>(6).unwrap_or_default(),
+                }))
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "amcache_entry".to_string(),
+                    data: r,
+                });
+            }
+        }
+
+        // 10. SRUM Resource Usage
+        if let Ok(mut stmt) = db.prepare("SELECT app_id, user_id, bytes_sent, bytes_received, network_interface, timestamp, foreground_cycle_time, background_cycle_time FROM srum_resource_usage")
+            && let Ok(rows) = stmt.query_map([], |row| {
+                Ok(serde_json::json!({
+                    "app_id": row.get::<_, String>(0).unwrap_or_default(),
+                    "user_id": row.get::<_, String>(1).unwrap_or_default(),
+                    "bytes_sent": row.get::<_, i64>(2).unwrap_or_default(),
+                    "bytes_received": row.get::<_, i64>(3).unwrap_or_default(),
+                    "network_interface": row.get::<_, String>(4).unwrap_or_default(),
+                    "timestamp": row.get::<_, String>(5).unwrap_or_default(),
+                    "foreground_cycle_time": row.get::<_, i64>(6).unwrap_or_default(),
+                    "background_cycle_time": row.get::<_, i64>(7).unwrap_or_default(),
+                }))
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "srum_resource_usage".to_string(),
+                    data: r,
+                });
+            }
+        }
+
         let total_events = events.len();
         let mut successful = 0;
         let mut failed = 0;

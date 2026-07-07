@@ -25,6 +25,10 @@ pub mod timeline;
 mod triage_db;
 mod mobile_triage;
 mod yara_scanner;
+mod disk_mount;
+mod prefetch;
+mod amcache;
+mod srum;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
 use output::CompressionFormat;
@@ -859,6 +863,7 @@ async fn start_triage(
     collect_eventlogs: bool,
     collect_mobile: bool,
     siem_config: Option<crate::siem::SiemConfig>,
+    source_root: Option<String>,
     state: State<'_, ActiveTaskState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
@@ -886,6 +891,7 @@ async fn start_triage(
             collect_eventlogs,
             collect_mobile,
             siem_config,
+            source_root,
             tx.clone(),
         )
         .await
@@ -919,6 +925,9 @@ async fn query_triage_db(
         "event_logs",
         "mobile_devices",
         "mobile_apps",
+        "prefetch_executions",
+        "amcache_entries",
+        "srum_resource_usage",
     ];
     if !valid_tables.contains(&table_name.as_str()) {
         return Err("Invalid table name".to_string());
@@ -1907,7 +1916,10 @@ fn main() {
             inspect_volume_encryption,
             extract_memory_keys,
             query_triage_db_custom,
-            scan_image_yara
+            scan_image_yara,
+            crate::disk_mount::mount_disk_image,
+            crate::disk_mount::unmount_disk_image,
+            crate::disk_mount::list_mounted_images
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

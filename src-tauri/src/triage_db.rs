@@ -79,5 +79,47 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS prefetch_executions (
+            id INTEGER PRIMARY KEY,
+            executable_name TEXT,
+            file_path TEXT,
+            run_count INTEGER,
+            last_run_time TEXT,
+            prefetch_hash TEXT,
+            loaded_files TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS amcache_entries (
+            id INTEGER PRIMARY KEY,
+            source_type TEXT,
+            file_path TEXT,
+            sha1_hash TEXT,
+            publisher TEXT,
+            install_date TEXT,
+            last_modified_time TEXT,
+            execution_flag TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS srum_resource_usage (
+            id INTEGER PRIMARY KEY,
+            app_id TEXT,
+            user_id TEXT,
+            bytes_sent INTEGER,
+            bytes_received INTEGER,
+            network_interface TEXT,
+            timestamp TEXT,
+            foreground_cycle_time INTEGER,
+            background_cycle_time INTEGER
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }

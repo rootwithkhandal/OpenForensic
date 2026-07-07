@@ -24,5 +24,9 @@ pub mod siem;
 pub mod cli;
 pub mod pgp;
 pub mod encryption;
+pub mod prefetch;
+pub mod amcache;
+pub mod srum;
+pub mod disk_mount;
 
 pub use state::{ActiveTaskState, clear_active_task, AcquisitionMode, AcquisitionModeState, require_analysis_mode};

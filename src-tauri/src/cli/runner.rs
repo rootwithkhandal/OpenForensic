@@ -304,6 +304,7 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
                 !no_eventlogs,
                 !no_mobile,
                 siem_config,
+                None,
                 tx,
             ).await {
                 Ok(_) => {

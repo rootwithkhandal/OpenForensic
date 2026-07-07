@@ -764,6 +764,7 @@ pub async fn acquire_triage(
     collect_eventlogs: bool,
     collect_mobile: bool,
     siem_config: Option<crate::siem::SiemConfig>,
+    source_root: Option<String>,
     progress_tx: Sender<ProgressEvent>,
 ) -> Result<()> {
     use std::fs::{self, File};
@@ -782,80 +783,115 @@ pub async fn acquire_triage(
         }
     };
 
-    let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting live forensic triage collection...".to_string())).await;
+    let is_mounted_target = source_root.is_some() && !source_root.as_ref().unwrap().is_empty();
+    let root_path_str = source_root.clone().unwrap_or_default();
+    let root_path = PathBuf::from(&root_path_str);
+
+    if is_mounted_target {
+        let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Target is Mounted Disk / Custom Root Directory: {}", root_path_str))).await;
+    } else {
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting live forensic triage collection...".to_string())).await;
+    }
 
     // 1. Collect Volatile States (Processes, Connections, Modules)
     if collect_volatile {
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Gathering live volatile system state...".to_string())).await;
+        if is_mounted_target {
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Target is a mounted dead disk / custom root: skipping live volatile RAM and process state collection.".to_string())).await;
+        } else {
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Gathering live volatile system state...".to_string())).await;
 
-        // Save Processes
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting running processes...".to_string())).await;
-        let mut sys = sysinfo::System::new_all();
-        sys.refresh_all();
-        if let Some(ref db) = triage_db {
-            for (pid, process) in sys.processes() {
-                let name = process.name();
-                let exec_path = process.exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
-                let cmd = process.cmd().join(" ");
-                let mem = process.memory();
-                let _ = db.execute(
-                    "INSERT INTO processes (pid, name, executable_path, command_line, memory_usage) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    rusqlite::params![pid.as_u32(), name, exec_path, cmd, mem as i64],
-                );
+            // Save Processes
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting running processes...".to_string())).await;
+            let mut sys = sysinfo::System::new_all();
+            sys.refresh_all();
+            if let Some(ref db) = triage_db {
+                for (pid, process) in sys.processes() {
+                    let name = process.name();
+                    let exec_path = process.exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+                    let cmd = process.cmd().join(" ");
+                    let mem = process.memory();
+                    let _ = db.execute(
+                        "INSERT INTO processes (pid, name, executable_path, command_line, memory_usage) VALUES (?1, ?2, ?3, ?4, ?5)",
+                        rusqlite::params![pid.as_u32(), name, exec_path, cmd, mem as i64],
+                    );
+                }
             }
-        }
 
-        // Save Network Sockets
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting network connections...".to_string())).await;
-        if let Some(ref db) = triage_db {
-            let cmd = "netstat";
-            let args = if cfg!(target_os = "windows") { &["-ano"] } else { &["-an"] };
-            if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
-                let text = String::from_utf8_lossy(&output.stdout);
-                for line in text.lines().skip(4) {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 4 {
-                        let proto = parts[0];
-                        let local = parts[1];
-                        let foreign = parts[2];
-                        let state = if parts.len() > 4 { parts[3] } else { "" };
-                        let pid_str = if parts.len() > 4 { parts[4] } else { parts[3] };
-                        let pid: u32 = pid_str.parse().unwrap_or(0);
-                        let _ = db.execute(
-                            "INSERT INTO network_connections (protocol, local_address, foreign_address, state, pid) VALUES (?1, ?2, ?3, ?4, ?5)",
-                            rusqlite::params![proto, local, foreign, state, pid],
-                        );
+            // Save Network Sockets
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting network connections...".to_string())).await;
+            if let Some(ref db) = triage_db {
+                let cmd = "netstat";
+                let args = if cfg!(target_os = "windows") { &["-ano"] } else { &["-an"] };
+                if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
+                    let text = String::from_utf8_lossy(&output.stdout);
+                    for line in text.lines().skip(4) {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        if parts.len() >= 4 {
+                            let proto = parts[0];
+                            let local = parts[1];
+                            let foreign = parts[2];
+                            let state = if parts.len() > 4 { parts[3] } else { "" };
+                            let pid_str = if parts.len() > 4 { parts[4] } else { parts[3] };
+                            let pid: u32 = pid_str.parse().unwrap_or(0);
+                            let _ = db.execute(
+                                "INSERT INTO network_connections (protocol, local_address, foreign_address, state, pid) VALUES (?1, ?2, ?3, ?4, ?5)",
+                                rusqlite::params![proto, local, foreign, state, pid],
+                            );
+                        }
                     }
                 }
             }
-        }
 
-        // Save Loaded Modules
-        let modules_file = dest_dir.join("loaded_modules.txt");
-        if cfg!(target_os = "windows") {
-            let _ = run_command_to_file("driverquery", &[], &modules_file, &progress_tx).await;
-        } else if cfg!(target_os = "macos") {
-            let _ = run_command_to_file("kextstat", &[], &modules_file, &progress_tx).await;
-        } else {
-            let _ = run_command_to_file("lsmod", &[], &modules_file, &progress_tx).await;
-        }
+            // Save Loaded Modules
+            let modules_file = dest_dir.join("loaded_modules.txt");
+            if cfg!(target_os = "windows") {
+                let _ = run_command_to_file("driverquery", &[], &modules_file, &progress_tx).await;
+            } else if cfg!(target_os = "macos") {
+                let _ = run_command_to_file("kextstat", &[], &modules_file, &progress_tx).await;
+            } else {
+                let _ = run_command_to_file("lsmod", &[], &modules_file, &progress_tx).await;
+            }
 
-        // Save System Info
-        let sys_info_file = dest_dir.join("system_info.txt");
-        if cfg!(target_os = "windows") {
-            let _ = run_command_to_file("systeminfo", &[], &sys_info_file, &progress_tx).await;
-        } else {
-            let _ = run_command_to_file("uname", &["-a"], &sys_info_file, &progress_tx).await;
+            // Save System Info
+            let sys_info_file = dest_dir.join("system_info.txt");
+            if cfg!(target_os = "windows") {
+                let _ = run_command_to_file("systeminfo", &[], &sys_info_file, &progress_tx).await;
+            } else {
+                let _ = run_command_to_file("uname", &["-a"], &sys_info_file, &progress_tx).await;
+            }
         }
     }
 
     // 2. Collect Registry Hives (Windows) / Configs (Unix)
     if collect_registry {
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Copying system configuration files...".to_string())).await;
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Copying system configuration / registry files...".to_string())).await;
         let reg_dir = dest_dir.join("registry");
         fs::create_dir_all(&reg_dir)?;
 
-        if cfg!(target_os = "windows") {
+        if is_mounted_target {
+            if cfg!(target_os = "windows") || root_path.join("Windows").exists() {
+                let config_dir = root_path.join("Windows").join("System32").join("config");
+                let hives = ["SYSTEM", "SAM", "SOFTWARE", "SECURITY", "DEFAULT"];
+                for hive in &hives {
+                    let src_file = config_dir.join(hive);
+                    if src_file.exists() {
+                        let _ = fs::copy(&src_file, reg_dir.join(hive));
+                        let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Copied mounted registry hive: {}", hive))).await;
+                    }
+                }
+            } else {
+                let files_to_copy = ["etc/passwd", "etc/hosts", "etc/resolv.conf", "etc/fstab"];
+                for f in &files_to_copy {
+                    let src_file = root_path.join(f);
+                    if src_file.exists()
+                        && let Some(name) = src_file.file_name()
+                    {
+                        let _ = fs::copy(&src_file, reg_dir.join(name));
+                        let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Copied mounted config file: {}", f))).await;
+                    }
+                }
+            }
+        } else if cfg!(target_os = "windows") {
             let _ = run_command_to_file("reg", &["export", "HKLM\\SYSTEM", &reg_dir.join("system_hive.reg").to_string_lossy(), "/y"], &reg_dir.join("system_export_log.txt"), &progress_tx).await;
             let _ = run_command_to_file("reg", &["export", "HKLM\\SAM", &reg_dir.join("sam_hive.reg").to_string_lossy(), "/y"], &reg_dir.join("sam_export_log.txt"), &progress_tx).await;
             let _ = run_command_to_file("reg", &["export", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", &reg_dir.join("run_keys.reg").to_string_lossy(), "/y"], &reg_dir.join("run_keys_export_log.txt"), &progress_tx).await;
@@ -874,7 +910,7 @@ pub async fn acquire_triage(
 
     // 3. Collect Browser History Logs
     if collect_browsers {
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Copying live browser history databases...".to_string())).await;
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Copying browser history databases...".to_string())).await;
         let browser_dir = dest_dir.join("browsers");
         fs::create_dir_all(&browser_dir)?;
 
@@ -889,7 +925,29 @@ pub async fn acquire_triage(
 
         let mut copied_dbs = Vec::new();
 
-        if cfg!(target_os = "windows") {
+        if is_mounted_target {
+            let users_dir = root_path.join("Users");
+            if let Ok(entries) = fs::read_dir(&users_dir) {
+                for entry in entries.flatten() {
+                    let user_path = entry.path();
+                    if user_path.is_dir() {
+                        let user_name = user_path.file_name().unwrap_or_default().to_string_lossy();
+                        let chrome_src = user_path.join("AppData/Local/Google/Chrome/User Data/Default/History");
+                        let chrome_dst = browser_dir.join(format!("chrome_history_{}", user_name));
+                        if let Some(msg) = copy_if_exists(chrome_src, chrome_dst.clone(), &format!("Chrome ({})", user_name)) {
+                            let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
+                            copied_dbs.push((chrome_dst, format!("Chrome ({})", user_name)));
+                        }
+                        let edge_src = user_path.join("AppData/Local/Microsoft/Edge/User Data/Default/History");
+                        let edge_dst = browser_dir.join(format!("edge_history_{}", user_name));
+                        if let Some(msg) = copy_if_exists(edge_src, edge_dst.clone(), &format!("Edge ({})", user_name)) {
+                            let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
+                            copied_dbs.push((edge_dst, format!("Edge ({})", user_name)));
+                        }
+                    }
+                }
+            }
+        } else if cfg!(target_os = "windows") {
             let base = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
             let entries = [
                 (base.join("Google/Chrome/User Data/Default/History"), browser_dir.join("chrome_history"), "Chrome"),
@@ -946,11 +1004,21 @@ pub async fn acquire_triage(
 
     // 4. Collect Event Logs
     if collect_eventlogs {
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting active system event logs...".to_string())).await;
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Extracting system event logs...".to_string())).await;
         let logs_dir = dest_dir.join("event_logs");
         fs::create_dir_all(&logs_dir)?;
 
-        if cfg!(target_os = "windows") {
+        if is_mounted_target {
+            let winevt_dir = root_path.join("Windows").join("System32").join("Winevt").join("Logs");
+            let logs = ["System.evtx", "Security.evtx", "Application.evtx"];
+            for log in &logs {
+                let src_log = winevt_dir.join(log);
+                if src_log.exists() {
+                    let _ = fs::copy(&src_log, logs_dir.join(log));
+                    let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Copied mounted event log: {}", log))).await;
+                }
+            }
+        } else if cfg!(target_os = "windows") {
             let _ = run_command_to_file("wevtutil", &["epl", "System", &logs_dir.join("System.evtx").to_string_lossy()], &logs_dir.join("system_logs_export_log.txt"), &progress_tx).await;
             let _ = run_command_to_file("wevtutil", &["epl", "Security", &logs_dir.join("Security.evtx").to_string_lossy()], &logs_dir.join("security_logs_export_log.txt"), &progress_tx).await;
 
@@ -998,27 +1066,99 @@ pub async fn acquire_triage(
 
     // 5. Collect Mobile Device Triage (Android via ADB)
     if collect_mobile {
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting mobile device triage (Android ADB)...".to_string())).await;
+        if is_mounted_target {
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Target is mounted dead disk: skipping live ADB mobile triage.".to_string())).await;
+        } else {
+            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting mobile device triage (Android ADB)...".to_string())).await;
 
-        let mobile_config = crate::mobile_triage::MobileTriageConfig {
-            dest_dir: dest_dir.clone(),
-            adb_path: None,
-            pull_apks: false,
-        };
+            let mobile_config = crate::mobile_triage::MobileTriageConfig {
+                dest_dir: dest_dir.clone(),
+                adb_path: None,
+                pull_apks: false,
+            };
 
-        match crate::mobile_triage::run_mobile_triage(
-            &mobile_config,
-            progress_tx.clone(),
-        ).await {
-            Ok((devices, apps)) => {
-                if let Some(ref db) = triage_db {
-                    crate::mobile_triage::save_mobile_triage_to_db(db, &devices, &apps);
+            match crate::mobile_triage::run_mobile_triage(
+                &mobile_config,
+                progress_tx.clone(),
+            ).await {
+                Ok((devices, apps)) => {
+                    if let Some(ref db) = triage_db {
+                        crate::mobile_triage::save_mobile_triage_to_db(db, &devices, &apps);
+                    }
+                }
+                Err(e) => {
+                    let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] WARNING: Mobile triage failed: {}. Continuing.", e))).await;
                 }
             }
-            Err(e) => {
-                let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] WARNING: Mobile triage failed: {}. Continuing.", e))).await;
+        }
+    }
+
+    // 6. Collect Execution & Resource Forensics (Prefetch, Amcache/Shimcache, SRUM)
+    let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Collecting execution & resource usage evidence (Prefetch, Amcache/Shimcache, SRUM)...".to_string())).await;
+    let prefetch_dir = dest_dir.join("prefetch");
+    let amcache_dir = dest_dir.join("amcache");
+    let srum_dir = dest_dir.join("srum");
+    let _ = fs::create_dir_all(&prefetch_dir);
+    let _ = fs::create_dir_all(&amcache_dir);
+    let _ = fs::create_dir_all(&srum_dir);
+
+    let win_root = if is_mounted_target {
+        root_path.join("Windows")
+    } else {
+        std::path::PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string()))
+    };
+
+    if win_root.exists() {
+        let src_prefetch = win_root.join("Prefetch");
+        if let Ok(entries) = fs::read_dir(&src_prefetch) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() && p.extension().and_then(|ext| ext.to_str()).map(|s| s.eq_ignore_ascii_case("pf")).unwrap_or(false) {
+                    if let Some(name) = p.file_name() {
+                        let _ = fs::copy(&p, prefetch_dir.join(name));
+                    }
+                }
             }
         }
+
+        let src_amcache = win_root.join("AppCompat").join("Programs");
+        if let Ok(entries) = fs::read_dir(&src_amcache) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() && p.file_name().and_then(|n| n.to_str()).map(|n| n.to_lowercase().contains("amcache")).unwrap_or(false) {
+                    if let Some(name) = p.file_name() {
+                        let _ = fs::copy(&p, amcache_dir.join(name));
+                    }
+                }
+            }
+        }
+
+        let src_srum = win_root.join("System32").join("SRU");
+        if let Ok(entries) = fs::read_dir(&src_srum) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() && p.file_name().and_then(|n| n.to_str()).map(|n| n.to_lowercase().contains("srudb")).unwrap_or(false) {
+                    if let Some(name) = p.file_name() {
+                        let _ = fs::copy(&p, srum_dir.join(name));
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(ref db) = triage_db {
+        let _ = crate::prefetch::parse_prefetch_folder(&prefetch_dir, db, progress_tx.clone());
+        
+        let _ = crate::amcache::parse_execution_hives(&amcache_dir, db, progress_tx.clone());
+        let reg_dir = dest_dir.join("registry");
+        let _ = crate::amcache::parse_execution_hives(&reg_dir, db, progress_tx.clone());
+
+        let srum_target = if srum_dir.join("SRUDB.dat").exists() || srum_dir.join("srudb.dat").exists() {
+            srum_dir
+        } else {
+            win_root.join("System32").join("SRU")
+        };
+        let _ = crate::srum::parse_srum_database(&srum_target, db, progress_tx.clone());
     }
 
     // Generate Triage Report Summary

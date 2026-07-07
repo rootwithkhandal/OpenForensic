@@ -164,6 +164,11 @@ pub async fn generate_timeline(image_path: &Path, output_dir: &Path) -> Result<(
         }
     }
 
+    let triage_db_path = output_dir.join("triage.db");
+    if let Ok(conn) = rusqlite::Connection::open_with_flags(&triage_db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY) {
+        add_triage_execution_events(&conn, &mut events);
+    }
+
     // Sort events by timestamp
     events.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
@@ -181,4 +186,67 @@ pub async fn generate_timeline(image_path: &Path, output_dir: &Path) -> Result<(
     serde_json::to_writer_pretty(json_file, &events)?;
 
     Ok(())
+}
+
+pub fn add_triage_execution_events(db: &rusqlite::Connection, events: &mut Vec<TimelineEvent>) {
+    if let Ok(mut stmt) = db.prepare("SELECT executable_name, file_path, last_run_time, run_count FROM prefetch_executions") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, u32>(3)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (name, path, ts_str, count) = r;
+                for ts in ts_str.split(", ") {
+                    let trim_ts = ts.trim();
+                    if !trim_ts.is_empty() && trim_ts != "Unknown" {
+                        events.push(TimelineEvent {
+                            timestamp: trim_ts.to_string(),
+                            source: "Prefetch".to_string(),
+                            event_type: "Execution".to_string(),
+                            file_path: if path.is_empty() { name.clone() } else { path.clone() },
+                            details: format!("Run Count: {}", count),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(mut stmt) = db.prepare("SELECT source_type, file_path, last_modified_time, install_date, publisher FROM amcache_entries") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (source, path, mod_time, install_time, pub_name) = r;
+                if !mod_time.is_empty() && mod_time != "N/A" && mod_time != "Unknown" {
+                    events.push(TimelineEvent {
+                        timestamp: mod_time.clone(),
+                        source: source.clone(),
+                        event_type: "Last Modified / Execution Cached".to_string(),
+                        file_path: path.clone(),
+                        details: format!("Publisher: {}", pub_name),
+                    });
+                }
+                if !install_time.is_empty() && install_time != "N/A" && install_time != "Unknown" {
+                    events.push(TimelineEvent {
+                        timestamp: install_time.clone(),
+                        source: source.clone(),
+                        event_type: "Install / Link Date".to_string(),
+                        file_path: path.clone(),
+                        details: format!("Publisher: {}", pub_name),
+                    });
+                }
+            }
+        }
+    }
 }

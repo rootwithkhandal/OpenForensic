@@ -166,15 +166,15 @@ pub enum CliSubcommand {
         hashes: Vec<String>,
     },
 
-    /// Analyze RAM dump using Volatility 3 engine & Threat Intelligence (requires --mode analysis)
+    /// Analyze RAM dump using Native Rust Volatility Engine & Threat Intelligence (requires --mode analysis)
     #[command(name = "ram", alias = "volatility")]
     Ram {
         /// Path to acquired RAM dump (.raw, .dmp, .vmem)
         #[arg(short, long)]
         dump: String,
 
-        /// Volatility 3 plugin profile: pslist, netstat, cmdline, filescan, malfind, printkey
-        #[arg(short, long, default_value = "pslist")]
+        /// Volatility plugin profile: windows.pslist.PsList, windows.netstat.NetStat, windows.cmdline.CmdLine, windows.filescan.FileScan, windows.malfind.Malfind
+        #[arg(short, long, default_value = "windows.pslist.PsList")]
         profile: String,
 
         /// Enable automated IOC reputation enrichment via AbuseIPDB and VirusTotal

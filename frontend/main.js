@@ -1374,7 +1374,7 @@ function setupEventListeners() {
         const file = await invoke('browse_file', { ext: 'vol' });
         if (file) {
           elements.ramVolPath.value = file;
-          logMessage('SYSTEM', 'Selected Volatility 3 executable: ' + file);
+          logMessage('SYSTEM', 'Selected Volatility engine executable: ' + file);
         }
       } catch (e) {
         logMessage('ERROR', 'Failed to browse Volatility executable: ' + e);

@@ -91,15 +91,20 @@ THE USE OR OTHER DEALINGS IN THE SOFTWARE, INCLUDING WITHOUT LIMITATION
 ANY LOSS OF DATA, LOSS OF EVIDENTIARY INTEGRITY, OR LEGAL LIABILITY
 ARISING FROM UNAUTHORIZED USE.
 
-7. THIRD-PARTY COMPONENTS
+7. THIRD-PARTY COMPONENTS & NATIVE ENGINES
 
 This Software bundles or depends upon third-party open-source components
-(including but not limited to Tauri, Tokio, YARA-X, sequoia-openpgp,
-wasmtime, winpmem, avml, and LiME), each of which remains governed by
-its own respective license. Nothing in this License restricts your
-rights under those third-party licenses with respect to those
-components themselves. See each component's upstream repository for its
-specific license terms.
+(including but not limited to Tauri, Tokio, YARA-X, winpmem, avml, and LiME),
+each of which remains governed by its own respective license. Nothing in
+this License restricts your rights under those third-party licenses with
+respect to those components themselves. See each component's upstream
+repository for its specific license terms.
+
+Note on Volatility Integration: This project includes a custom, standalone
+native Rust memory forensics engine (located in the `volatility/` workspace
+directory) developed from scratch by the copyright holder. It is an independent,
+in-process implementation inspired by memory analysis concepts and does not use,
+incorporate, or depend upon the Volatility Foundation's Python codebase or GPL licenses.
 
 8. TERMINATION
 

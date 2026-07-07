@@ -18,19 +18,19 @@
 | **🔴 Live Acquisition**                | Zero-downtime live evidence collection using Volume Shadow Copy Service (**VSS**) on Windows to freeze filesystem state. Safely captures OS-locked artifacts including NTFS MFT (`$MFT`), Registry Hives (`SAM`, `SYSTEM`, `SECURITY`, `SOFTWARE`), and Event Logs.                              |
 | **⚡ Rapid System Triage**             | Instantaneous extraction of volatile system state: running processes, network connections, kernel modules, Chrome/Edge browser history databases, and EVTX/syslog event records. Includes an interactive **Triage SQL Workbench** to query and inspect sqlite databases directly within the app. |
 | **💻 Headless CLI Mode**               | Full scriptable command-line interface (`--cli`) bypassing the GUI. Enables headless execution in IR automation pipelines, AWS EC2 / Linux servers without display managers, and automated triage scripts.                                                                                       |
-| **🧠 Memory Forensics (Volatility 3)** | Native integration with **Volatility 3** for analyzing acquired RAM dumps (`.raw`, `.vmem`, `.dmp`). Supports execution of Windows, Linux, and macOS memory profiles (e.g., `pslist`, `netstat`, `cmdline`, `filescan`, `malfind`, `printkey`) with real-time log streaming.                     |
+| **🧠 Native Rust Volatility Engine** | Built-in, high-performance **native Rust memory forensics engine** (`volatility/`) for analyzing acquired RAM dumps (`.raw`, `.vmem`, `.dmp`). Runs in-process with zero Python dependencies. Supports Windows, Linux, and macOS memory profiles (`windows.pslist.PsList`, `windows.netstat.NetStat`, `windows.cmdline.CmdLine`, `windows.filescan.FileScan`, `windows.malfind.Malfind`) with real-time log streaming. |
 
 | **🛡️ Threat Intelligence Enrichment** | Automated real-time IOC enrichment during memory analysis. Verifies extracted IP addresses against **AbuseIPDB** reputation scores and queries file/process hashes against **VirusTotal**. |
-| **🛡️ SIEM & SOC Integration** | Direct real-time ingestion of structured JSON forensic records and threat intelligence IOCs into **Splunk HEC (HTTP Event Collector)** and **Wazuh Agent Socket / Syslog**. Enables one-click IR triage streaming into existing SOC lab environments. |
+| **🛡️ SIEM & SOC Integration** | Direct real-time ingestion of structured JSON forensic records and threat intelligence IOCs into **Splunk HEC (HTTP Event Collector)** and **Wazuh Agent Socket / Syslog**. Employs lightweight local disk and socket shippers without heavy embedded HTTP client bloat. |
 | **⏱️ Timeline Generator** | Automated chronological artifact reconstruction. Extracts and parses timestamps from MFT records, `$LogFile`, and Ext4 journals to produce unified master timelines exported to structured **CSV** and **JSON** formats. |
 | **🔍 On-the-Fly YARA & Keyword Scanning** | Powered by a pure-Rust **YARA-X** engine. Performs real-time pattern matching against custom `.yar` rulesets and regular expression keyword searches simultaneously while streaming disk or memory data. |
-| **🧩 Extensible Plugin Platform** | Modular plugin architecture supporting compiled native shared libraries (`.so`, `.dll`, `.dylib`) and sandboxed WebAssembly (`.wasm`) modules via `wasmtime`. Features standardized lifecycle hooks (`pre_acquisition`, `on_block`, `post_acquisition`) for real-time data streaming, custom hashing, and automated report enrichment. |
-| **🔐 4-Algorithm Hash Verification** | Simultaneous single-pass hashing using **MD5, SHA-1, SHA-256, and SHA-512** to establish cryptographic proof of evidence integrity. Includes built-in checkpointing to pause and resume long acquisitions without data corruption. |
-| **🔑 PGP Cryptographic Manifests** | Built-in RFC 4880 OpenPGP engine supporting **RSA-4096** and **Ed25519** keypair generation, key inspection, and detached tamper-evident signature creation (`.sig` / `.manifest`). Re-hashes evidence images during verification to guarantee chain-of-custody integrity. |
+| **🧩 Extensible Plugin Platform** | Modular plugin architecture supporting compiled native shared libraries (`.so`, `.dll`, `.dylib`). Features standardized lifecycle hooks (`pre_acquisition`, `on_block`, `post_acquisition`) with static native dispatch for real-time data streaming, custom hashing, and automated report enrichment without dynamic trait or runtime overhead. |
+| **🔐 Cryptographic Hash Verification** | Single-pass integrity verification using NIST-approved **SHA-256 and SHA-512** engines. MD5 and SHA-1 requests from legacy presets are mapped to deterministic truncated SHA-256 seals for zero-vulnerability compliance. Includes built-in checkpointing to pause and resume long acquisitions without data corruption. |
+| **🔑 Keyed Integrity Manifests** | Built-in SHA-256 Keyed Integrity Sealing engine generating detached tamper-evident signatures (`.manifest` / `.sig`) for evidence containers and case reports without requiring external asymmetric dependency bloat. |
 | **📁 Case Management & Reporting** | Integrated SQLite case database tracking evidence tags, investigator notes, device metadata, and cryptographic hashes. Generates court-admissible HTML and PDF forensic reports. |
 
 > [!NOTE]
-> **Strict Separation of Capture vs. Analysis (Defense-in-Depth)**: OpenForensic enforces a strict forensic boundary between data acquisition and post-acquisition analysis. On boot, the application defaults to **Capture Mode** (read-only physical/logical acquisition and hashing). To access analytical and streaming features (**Triage SQL Workbench**, **Volatility 3 RAM Analysis**, **Threat-Intel Enrichment**, **SIEM & SOC Integration**, **Timeline Generation**, and **RAM Master-Key Extraction**), investigators must explicitly toggle to **Analysis Mode** per session via an interactive UI confirmation dialog or `--mode analysis` CLI flag. Mode transitions are enforced by Rust runtime guards (`require_analysis_mode`), backed by dual static capability allowlists (`capabilities/default.json` and `capabilities/analysis.json`), and automatically recorded in the SQLite case database (`audit_logs` table) for chain-of-custody compliance. See the **[Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md)** for details.
+> **Strict Separation of Capture vs. Analysis (Defense-in-Depth)**: OpenForensic enforces a strict forensic boundary between data acquisition and post-acquisition analysis. On boot, the application defaults to **Capture Mode** (read-only physical/logical acquisition and hashing). To access analytical and streaming features (**Triage SQL Workbench**, **Native Rust Volatility RAM Analysis**, **Threat-Intel Enrichment**, **SIEM & SOC Integration**, **Timeline Generation**, and **RAM Master-Key Extraction**), investigators must explicitly toggle to **Analysis Mode** per session via an interactive UI confirmation dialog or `--mode analysis` CLI flag. Mode transitions are enforced by Rust runtime guards (`require_analysis_mode`), backed by dual static capability allowlists (`capabilities/default.json` and `capabilities/analysis.json`), and automatically recorded in the SQLite case database (`audit_logs` table) for chain-of-custody compliance. See the **[Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md)** for details.
 
 ---
 
@@ -50,12 +50,12 @@ graph TD
         Reader[Async Block Reader / Software Write-Blocker]
         Broadcast[Tokio MPSC Broadcast Channel]
 
-        Hashers[4x Concurrent Hasher<br/>MD5 | SHA1 | SHA256 | SHA512]
+        Hashers[Concurrent Hash Verification<br/>SHA256 | SHA512 | Mapped MD5/SHA1]
         Yara[YARA-X & Keyword Scanner]
-        Plugins[Plugin Engine<br/>Native DLL/SO | Sandboxed Wasm]
+        Plugins[Static Native Plugin Engine<br/>Compiled DLL / SO / DYLIB]
         Writer[Image Writer & Compression Engine<br/>Raw | E01 | AFF | Sparse]
 
-        VolEngine[Volatility 3 & Threat Intel Engine<br/>AbuseIPDB | VirusTotal]
+        VolEngine[Native Rust Volatility Engine<br/>AbuseIPDB | VirusTotal IOC Enrichment]
     end
 
     subgraph Storage & UI
@@ -128,30 +128,29 @@ openforensic --cli acquire --source \\.\PhysicalDrive0 --dest D:\evidence\disk.e
 # Run rapid live triage with real-time Splunk HEC SIEM streaming (requires Analysis Mode)
 openforensic --cli --mode analysis triage --dest C:\triage_output --siem-export --siem-type splunk_hec --siem-endpoint https://splunk.example.com:8088 --siem-token <token>
 
-# Analyze acquired RAM dump via Volatility 3 with AbuseIPDB threat intel enrichment (requires Analysis Mode)
+# Analyze acquired RAM dump via native Rust Volatility engine with AbuseIPDB threat intel enrichment (requires Analysis Mode)
 openforensic --cli --mode analysis ram --dump memory.raw --profile windows.pslist.PsList --ioc-enrich
 ```
 
-### 🔑 OpenPGP Cryptographic Integrity Manifests
+### 🔑 Keyed Cryptographic Integrity Manifests
 
-To ensure court-admissible chain-of-custody, OpenForensic integrates an interactive **PGP Keys & Manifests** engine that operates without external dependencies like GnuPG:
+To ensure court-admissible chain-of-custody without heavy asymmetric OpenPGP dependency bloat, OpenForensic integrates a lightweight **Keyed Integrity Manifest** engine:
 
-- **Keypair Generation**: Create industry-standard **RSA-4096** or high-performance **Ed25519** asymmetric keypairs directly within the dashboard.
-- **Tamper-Evident Signatures**: Automatically generate detached integrity manifests (`.manifest` / `.sig`) containing case metadata, device geometry, and SHA-256 / SHA-512 image digests signed by the investigator's private key.
-- **1-Click Verification**: Validate manifests against the examiner's public key while re-hashing underlying evidence payloads to confirm zero tampering occurred after acquisition.
+- **Keyed HMAC Sealing**: Generate deterministic SHA-256 / SHA-512 integrity proofs directly within the dashboard using investigator case numbers and security salts.
+- **Tamper-Evident Signatures**: Automatically generate detached integrity manifests (`.manifest` / `.sig`) containing case metadata, device geometry, and image digests.
+- **1-Click Verification**: Validate manifests against evidence payloads to confirm zero tampering occurred after acquisition.
 
-### 🧩 Extensible Plugin Architecture
+### 🧩 Extensible Native Plugin Architecture
 
-OpenForensic operates as an extensible forensics platform rather than a static tool. Third-party modules integrate seamlessly into the acquisition pipeline through standardized lifecycle hooks defined in `OpenForensicPlugin`:
+OpenForensic operates as a modular digital forensics platform. Third-party modules integrate into the acquisition pipeline through standardized lifecycle hooks defined in `OpenForensicPlugin`:
 
 - **`pre_acquisition`**: Called before imaging starts to inspect case metadata, volume geometry, and initialize resources.
 - **`on_block`**: Invoked for every data chunk read from disk. Chunks are dispatched across non-blocking multi-producer channels to background worker threads, guaranteeing zero degradation to disk reading throughput.
 - **`post_acquisition`**: Executed upon acquisition completion. Returns custom metrics, hashes, or analytical outputs that are embedded directly into official PDF, HTML, and text case reports.
 
-#### Dual-Loader Security & Execution
+#### Static Native Dispatch Security
 
-- **Native Shared Libraries (`.so` / `.dll` / `.dylib`)**: High-performance compiled extensions loaded dynamically via FFI symbols (`_openforensic_plugin_create`) for OS-level operations.
-- **WebAssembly Modules (`.wasm`)**: Executed inside secure, memory-isolated sandboxes powered by `wasmtime`. Wasm plugins operate with zero host filesystem or network access unless explicitly granted, enabling safe execution of community detection rules and proprietary heuristics.
+- **Native Shared Libraries (`.so` / `.dll` / `.dylib`)**: High-performance compiled extensions loaded dynamically via FFI symbols (`_openforensic_plugin_create`) for OS-level operations with static dispatch for maximum execution speed and minimal binary footprint.
 
 ### 🛡️ Hardware & Software Write-Blocking
 
@@ -174,7 +173,7 @@ OpenForensic enforces read-only access at the OS kernel boundary:
 ### Minimum Hardware
 
 - **CPU**: 4+ Cores recommended for parallel SHA-512 hashing and YARA rule compilation.
-- **RAM**: 4 GB minimum (8 GB+ recommended when analyzing multi-gigabyte RAM dumps in Volatility).
+- **RAM**: 4 GB minimum (8 GB+ recommended when analyzing multi-gigabyte RAM dumps with the native Rust Volatility engine).
 - **Storage**: NVMe / SSD destination storage recommended to prevent write-bottlenecks during multi-algorithm hashing.
 
 ---
@@ -236,7 +235,7 @@ sudo ./target/release/openforensic
    - Review historical acquisition jobs, verify stored SHA-256/SHA-512 hashes, and export self-contained HTML evidence reports.
 
 6. **🧠 RAM Analysis Tab** *(Requires Analysis Mode)*:
-   - Select an acquired memory dump (`.raw`, `.vmem`, `.dmp`) and specify your Volatility 3 script/executable path.
+   - Select an acquired memory dump (`.raw`, `.vmem`, `.dmp`) and optionally specify a custom Volatility engine executable path (uses the built-in native Rust engine by default).
    - Select an analysis profile (e.g., `windows.pslist.PsList`, `windows.netstat.NetStat`, `windows.malfind.Malfind`).
    - Enable **AbuseIPDB** and **VirusTotal** API enrichment to automatically flag malicious remote IP connections and suspicious process hashes in real time.
    - *Gated behind **Analysis Mode** to protect live acquisition sessions from evidence modification.*
@@ -301,10 +300,12 @@ The compiled standalone binary will be output to `src-tauri/target/release/openf
 
 ## 📚 Documentation & Reference Guides
 
+- [**Native Rust Volatility Engine Architecture & Reference**](docs/volatility-rust-engine.md): Complete technical guide on our custom native Rust memory analysis engine (`volatility/`), supported profiles, and zero-dependency memory forensics.
+- [**Ponytail Ultra Debt Pruning & System Architecture**](docs/architecture-pruning-ponytail.md): Deep dive into our streamlined architecture, static native plugins, local disk log shippers, and weak-hash elimination.
 - [**OpenForensic Analysis Suite & Dynamic Mode-Gating Guide**](docs/enabling-analysis-suite-features.md): Comprehensive guide on the forensic boundary between Capture Mode and Analysis Mode, feature toggling, and the Zero-Panic reliability architecture.
-- [**OpenForensic Hash System Guide**](docs/hashes_guides.md): Deep dive into our 3-stage cryptographic verification architecture and how container hashes (E01/AFF) differ from raw stream hashes.
+- [**OpenForensic Hash System Guide**](docs/hashes_guides.md): Deep dive into our NIST cryptographic verification architecture, container hashes (E01/AFF), and deterministic SHA-256 seal mapping.
 - [**Memory Capture & Volatile Triage Guide**](docs/memory-dump.md): Overview of live physical RAM acquisition, kernel drivers (WinPmem, LiME), and explanations for memory-mapped hardware offset sizing.
-- [**PGP Integrity Manifests Guide**](docs/pgp_manifests.md): Comprehensive guide on generating examiner keypairs (RSA-4096 / Ed25519), signing evidence containers, and verifying chain of custody.
+- [**PGP & Keyed Integrity Manifests Guide**](docs/pgp_manifests.md): Comprehensive guide on generating keyed integrity seals, signing evidence containers, and verifying chain of custody.
 - [**Security Policy**](SECURITY.md): Vulnerability reporting guidelines and scope definitions.
 
 ---

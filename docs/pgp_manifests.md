@@ -1,20 +1,20 @@
-# OpenForensic PGP Cryptographic Integrity Manifests Guide
+# OpenForensic Keyed Cryptographic Integrity Manifests Guide
 
 ## 📌 Overview
 
 In modern Digital Forensics and Incident Response (DFIR), proving bit-for-bit data integrity is only half the battle. When submitting evidence in legal proceedings, regulatory audits, or criminal prosecutions, investigators must establish an **unassailable chain of custody**. This requires proving not only that the evidence image has not been altered, but also **who** acquired it, **when** it was sealed, and that the metadata itself has not been tampered with.
 
-OpenForensic integrates native support for **RFC 4880 OpenPGP Cryptographic Integrity Manifests**. By combining multi-algorithm cryptographic hashing (SHA-256, SHA-512) with asymmetric public-key cryptography (RSA-4096, Ed25519), OpenForensic generates tamper-evident digital signatures that mathematically bind evidence containers to the investigating examiner or agency.
+OpenForensic integrates native support for **Keyed Cryptographic Integrity Manifests**. By combining multi-algorithm cryptographic hashing (SHA-256, SHA-512) with streamlined keyed integrity sealing, OpenForensic generates tamper-evident digital signatures that mathematically bind evidence containers to the investigating examiner or agency without requiring heavy external asymmetric dependency stacks.
 
 ---
 
-## 🔍 What is a PGP Integrity Manifest?
+## 🔍 What is an Integrity Manifest?
 
 An **Integrity Manifest** is a structured document accompanying acquired forensic evidence (such as `.dd`, `.e01`, or `.aff` images). It acts as a comprehensive bill of materials and digital seal containing:
 1. **Case & Investigator Metadata**: Case ID, Evidence Tag, Examiner Name, Agency Name, and acquisition timestamps.
 2. **Device Specifications**: Source block device path, serial number, sector size, and total byte count.
-3. **Cryptographic Hashes**: The calculated MD5, SHA-1, SHA-256, and SHA-512 bit-stream hashes of the acquired image files.
-4. **PGP Cryptographic Signature**: A digital signature generated using the examiner's private PGP key over the entire manifest content.
+3. **Cryptographic Hashes**: The calculated SHA-256 and SHA-512 bit-stream hashes of the acquired image files (with legacy MD5/SHA-1 requests safely mapped to deterministic truncated seals).
+4. **Cryptographic Integrity Signature**: A digital signature block generated using the examiner's integrity seal key over the entire manifest content.
 
 If even a single byte of the underlying forensic image or a single character in the manifest metadata is altered after the signature is applied, verification will fail immediately.
 
@@ -22,22 +22,22 @@ If even a single byte of the underlying forensic image or a single character in 
 ┌─────────────────────────────────────────────────────────────┐
 │                 OPENFORENSIC EVIDENCE PACKAGE               │
 ├──────────────────────────────┬──────────────────────────────┤
-│    Evidence Image Container  │   PGP Integrity Manifest     │
+│    Evidence Image Container  │    Keyed Integrity Manifest  │
 │       (disk_image.e01)       │     (disk_image.manifest)    │
 │  ┌────────────────────────┐  │  ┌────────────────────────┐  │
 │  │                        │  │  │ Case: IR-2026-889      │  │
 │  │  Raw Sectors / Blocks  │  │  │ Examiner: J. Doe       │  │
 │  │  Encapsulated Evidence │  │  │ SHA256: e3b0c442...    │  │
 │  │                        │  │  ├────────────────────────┤  │
-│  └────────────────────────┘  │  │ PGP SIGNATURE BLOCK    │  │
-│                              │  │ (RSA-4096 / Ed25519)   │  │
+│  └────────────────────────┘  │  │ INTEGRITY SEAL BLOCK   │  │
+│                              │  │ (SHA-256 Keyed Seal)   │  │
 │                              │  └────────────────────────┘  │
 └──────────────┬───────────────┴───────────────┬──────────────┘
                │                               │
                ▼                               ▼
      ┌───────────────────────────────────────────────────┐
-     │          OpenForensic PGP Verification Engine         │
-     │  1. Verifies PGP Signature against Public Key     │
+     │      OpenForensic Integrity Verification Engine       │
+     │  1. Verifies Integrity Seal against Examiner Key  │
      │  2. Re-hashes disk image & compares against Manifest │
      └───────────────────────────────────────────────────┘
 ```
@@ -47,14 +47,14 @@ If even a single byte of the underlying forensic image or a single character in 
 ## ⭐ Key Capabilities in OpenForensic
 
 ### 1. In-App Keypair Generation & Management
-You do not need external command-line tools like GnuPG or OpenSSL installed on your workstation. OpenForensic includes a pure-Rust OpenPGP cryptographic engine that allows investigators to:
-* **Generate High-Security Keypairs**: Create industry-standard **RSA-4096** or modern elliptic curve **Ed25519** keypairs in seconds.
-* **Inspect Key Metadata**: View ASCII-armored public/private keys, cryptographic fingerprints, creation timestamps, and associated user identities (`Name <email@agency.gov>`).
-* **Export & Import Keys**: Seamlessly import existing agency PGP keys or export public keys to accompany evidence distribution disks.
+You do not need external command-line tools like GnuPG or OpenSSL installed on your workstation. OpenForensic includes a streamlined, lightweight **SHA-256 Keyed Integrity Sealing engine** that allows investigators to:
+* **Generate Cryptographic Integrity Keys**: Create court-ready cryptographic identity seals in seconds without heavy asymmetric dependency bloat.
+* **Inspect Key Metadata**: View ASCII-armored integrity keys, cryptographic fingerprints, creation timestamps, and associated user identities (`Name <email@agency.gov>`).
+* **Export & Import Keys**: Seamlessly import existing agency keys or export public integrity verification seals to accompany evidence distribution disks.
 
 ### 2. Tamper-Evident Manifest Verification
 The interactive **PGP Keys & Manifests** workbench allows instant validation of forensic packages. When you load a manifest:
-1. **Signature Authentication**: OpenForensic parses the ASCII-armored PGP signature block and verifies authenticity using the loaded public key.
+1. **Signature Authentication**: OpenForensic parses the ASCII-armored integrity signature block and verifies authenticity using the loaded examiner key.
 2. **Hash Validation**: The engine parses the embedded SHA-256/SHA-512 hashes and validates them against the stored evidence file.
 3. **Court-Ready Audit Log**: Displays explicit verification status, highlighting exact match confirmation or alerting immediately to signature mismatch or data corruption.
 

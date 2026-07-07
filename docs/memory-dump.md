@@ -44,7 +44,7 @@ Because these devices are mapped into the physical address space (Memory-Mapped 
 
 When a forensic tool (like WinPmem) captures a "raw" memory dump, its goal is to ensure that a byte located at physical address `0x100000000` in the computer is located at file offset `0x100000000` in the resulting file.
 
-To maintain these accurate offsets for analysis tools like Volatility:
+To maintain these accurate offsets for memory analysis engines like OpenForensic's built-in native Rust Volatility engine:
 
 - The tool starts reading from address `0x0` up to the **highest physical address** used by the OS.
 - When it encounters a "hole" (a range reserved for hardware MMIO that cannot or should not be read), it pads the file with zeros for that specific range.

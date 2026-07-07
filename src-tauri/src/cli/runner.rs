@@ -374,9 +374,9 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
             ioc_enrich,
         } => rt.block_on(async {
             if !is_analysis_mode {
-                return Err("Volatility 3 RAM analysis is disabled in Capture Mode. Run with `--mode analysis` to enable.".to_string());
+                return Err("Native Rust Volatility Engine RAM analysis is disabled in Capture Mode. Run with `--mode analysis` to enable.".to_string());
             }
-            println!("Starting Volatility 3 RAM analysis on dump {} with profile {} (ioc_enrich: {})", dump, profile, ioc_enrich);
+            println!("Starting Native Rust Volatility Engine RAM analysis on dump {} with profile {} (ioc_enrich: {})", dump, profile, ioc_enrich);
             let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::acquisition::ProgressEvent>(100);
             let progress_handle = tokio::spawn(async move {
                 while let Some(event) = rx.recv().await {

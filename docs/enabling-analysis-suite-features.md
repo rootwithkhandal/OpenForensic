@@ -34,7 +34,7 @@ When running automated triage scripts or cloud server investigations via the com
 # Run Rapid System Triage with real-time Splunk HEC SIEM streaming
 openforensic --cli --mode analysis triage --dest /mnt/evidence/triage --siem-export --siem-type splunk_hec --siem-endpoint https://splunk.example.com:8088 --siem-token <HEC_TOKEN>
 
-# Analyze acquired RAM dump using Volatility 3 and AbuseIPDB IOC enrichment
+# Analyze acquired RAM dump using the Native Rust Volatility Engine and AbuseIPDB IOC enrichment
 openforensic --cli --mode analysis ram --dump /mnt/evidence/memory.raw --profile windows.pslist.PsList --ioc-enrich
 ```
 
@@ -42,16 +42,16 @@ openforensic --cli --mode analysis ram --dump /mnt/evidence/memory.raw --profile
 
 ## 🌟 Features Gated by Analysis Mode
 
-The following six advanced forensic capabilities are protected behind the Analysis Mode boundary:
+The following seven advanced forensic capabilities are protected behind the Analysis Mode boundary:
 
 | Feature Area | Description & Capabilities in Analysis Mode |
 | :--- | :--- |
 | **⚡ Triage SQL Workbench** | Unlocks an interactive SQLite query workbench directly within the Triage tab. Allows investigators to execute SQL queries (`SELECT * FROM processes WHERE pid > 1000`, etc.) against acquired system tables (`processes`, `network_connections`, `browser_history`, `event_logs`) without exporting to external database tools. |
-| **🧠 Volatility 3 RAM Analysis UI** | Enables the dedicated **RAM Analysis** dashboard tab. Orchestrates local or containerized **Volatility 3** engines against acquired memory images (`.raw`, `.vmem`, `.dmp`), streaming real-time log outputs and structured process tables. |
+| **🧠 Native Rust Volatility RAM Analysis UI** | Enables the dedicated **RAM Analysis** dashboard tab. Orchestrates the built-in, high-performance **native Rust Volatility engine** against acquired memory images (`.raw`, `.vmem`, `.dmp`), streaming real-time log outputs and structured process tables without requiring external Python environments. |
 | **💻 Headless CLI RAM Engine (`ram` / `volatility`)** | Unlocks the scriptable command-line memory analyzer for automated SOAR workflows and headless server triage. |
 | **🛡️ Threat Intelligence Enrichment** | Enables automated real-time IOC verification during memory analysis. Extracts public IP addresses and process hashes, verifying them against **AbuseIPDB** reputation scores and **VirusTotal** detection matrices. |
 | **⏱️ Timeline Generator Tab** | Unlocks the **Timeline** dashboard module. Parses timestamps from NTFS `$MFT` records, `$LogFile` transactions, and Linux Ext4 journals, synthesizing them into master chronological timelines exported as structured CSV or JSON files. |
-| **🛡️ SIEM & SOC Streaming** | Enables real-time emission of forensic records during live triage to **Splunk HTTP Event Collector (HEC)** and **Wazuh Agent Sockets / Syslog** (TCP/UDP port 1514). |
+| **🛡️ SIEM & SOC Streaming** | Enables real-time emission of forensic records during live triage to **Splunk HTTP Event Collector (HEC)** and **Wazuh Agent Sockets / Syslog** (TCP/UDP port 1514) via zero-overhead local disk shippers. |
 | **🔑 RAM Master-Key Extraction** | Unlocks deep memory scanning routines that search physical RAM dumps for cryptographic master keys, including **BitLocker Volume Master Keys (VMKs)**, **Linux LUKS Master Keys**, and **Android Gatekeeper CE Keys**. |
 
 ---

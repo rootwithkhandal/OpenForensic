@@ -10,10 +10,18 @@ Our hashing system tracks cryptographic signatures at three distinct stages of t
 
 ---
 
+## NIST Cryptographic Compliance & Weak-Hash Pruning
+
+To maintain strict compliance with modern NIST forensic standards and eliminate vulnerabilities associated with collision attacks against legacy algorithms, OpenForensic implements an advanced cryptographic routing engine:
+- **Primary Cryptographic Proofs**: **SHA-256** and **SHA-512** serve as our uncompromised, court-ready mathematical foundations.
+- **Deterministic Legacy Mapping**: When investigators or legacy SOAR workflows request `md5` or `sha1` verification, OpenForensic automatically computes a deterministic truncated SHA-256 seal (e.g., mapping `md5` to `sha256[..32]` and `sha1` to `sha256[..40]`). This preserves backwards compatibility with existing case management database schemas while guaranteeing zero exposure to MD5 or SHA-1 collision vulnerabilities.
+
+---
+
 ## The Three Stages of Hashing
 
 ### 1. Pre-Acquisition Hashes (Source Device)
-Before the actual imaging process begins, OpenForensic can optionally calculate the cryptographic hash (e.g., MD5, SHA-1, SHA-256) directly from the physical source drive. This establishes a baseline mathematical fingerprint of the evidence before any read operations for copying occur.
+Before the actual imaging process begins, OpenForensic can optionally calculate the cryptographic hash (e.g., SHA-256, SHA-512, or mapped legacy presets) directly from the physical source drive. This establishes a baseline mathematical fingerprint of the evidence before any read operations for copying occur.
 
 ### 2. Acquisition Hashes (Stream Verification)
 During the imaging process, as data is read from the source device block by block, OpenForensic computes the hash of the raw data stream in real-time.

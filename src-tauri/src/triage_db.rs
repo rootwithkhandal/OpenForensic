@@ -52,5 +52,32 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mobile_devices (
+            id INTEGER PRIMARY KEY,
+            device_id TEXT,
+            model TEXT,
+            os_version TEXT,
+            connection_type TEXT,
+            serial_number TEXT,
+            state TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mobile_apps (
+            id INTEGER PRIMARY KEY,
+            package_name TEXT,
+            app_name TEXT,
+            version TEXT,
+            apk_path TEXT,
+            installer TEXT,
+            is_system INTEGER,
+            pulled_local_path TEXT
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }

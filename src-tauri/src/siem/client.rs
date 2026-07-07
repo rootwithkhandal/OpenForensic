@@ -286,6 +286,57 @@ impl SiemClient {
             }
         }
 
+        // 6. Mobile Devices
+        if let Ok(mut stmt) = db.prepare("SELECT device_id, model, os_version, connection_type, serial_number, state FROM mobile_devices")
+            && let Ok(rows) = stmt.query_map([], |row| {
+                Ok(serde_json::json!({
+                    "device_id": row.get::<_, String>(0).unwrap_or_default(),
+                    "model": row.get::<_, String>(1).unwrap_or_default(),
+                    "os_version": row.get::<_, String>(2).unwrap_or_default(),
+                    "connection_type": row.get::<_, String>(3).unwrap_or_default(),
+                    "serial_number": row.get::<_, String>(4).unwrap_or_default(),
+                    "state": row.get::<_, String>(5).unwrap_or_default(),
+                }))
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "mobile_device".to_string(),
+                    data: r,
+                });
+            }
+        }
+
+        // 7. Mobile Apps
+        if let Ok(mut stmt) = db.prepare("SELECT package_name, app_name, version, apk_path, installer, is_system, pulled_local_path FROM mobile_apps")
+            && let Ok(rows) = stmt.query_map([], |row| {
+                Ok(serde_json::json!({
+                    "package_name": row.get::<_, String>(0).unwrap_or_default(),
+                    "app_name": row.get::<_, String>(1).unwrap_or_default(),
+                    "version": row.get::<_, String>(2).unwrap_or_default(),
+                    "apk_path": row.get::<_, String>(3).unwrap_or_default(),
+                    "installer": row.get::<_, String>(4).unwrap_or_default(),
+                    "is_system": row.get::<_, i32>(5).unwrap_or_default(),
+                    "pulled_local_path": row.get::<_, String>(6).unwrap_or_default(),
+                }))
+            })
+        {
+            for r in rows.flatten() {
+                events.push(SiemEvent {
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    host: host.clone(),
+                    source: "openforensic:triage".to_string(),
+                    sourcetype: self.config.index.clone(),
+                    event_type: "mobile_app".to_string(),
+                    data: r,
+                });
+            }
+        }
+
         let total_events = events.len();
         let mut successful = 0;
         let mut failed = 0;

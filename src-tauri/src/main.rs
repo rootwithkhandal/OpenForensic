@@ -23,6 +23,7 @@ pub mod siem;
 mod state;
 pub mod timeline;
 mod triage_db;
+mod mobile_triage;
 mod yara_scanner;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
@@ -112,10 +113,49 @@ fn browse_yara_folder() -> Option<String> {
 
 #[tauri::command]
 fn browse_file(ext: String) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new();
+    dialog = match ext.as_str() {
+        "exe" | "vol" | "py" => dialog
+            .add_filter("Volatility Script / Binary (*.py, *.exe)", &["py", "exe", "bat", "cmd"])
+            .add_filter("Python Script (*.py)", &["py"])
+            .add_filter("Executable (*.exe)", &["exe"])
+            .add_filter("All Files", &["*"]),
+        "dd" | "raw" | "e01" | "ex01" | "aff" | "vmem" | "dmp" | "bin" => dialog
+            .add_filter("Forensic Image / Memory Dump", &["dd", "raw", "e01", "ex01", "aff", "vmem", "dmp", "bin", "img", "001"])
+            .add_filter("Raw Dump (*.dd, *.raw, *.bin, *.dmp)", &["dd", "raw", "bin", "dmp", "vmem", "001"])
+            .add_filter("E01 / AFF Image (*.e01, *.aff)", &["e01", "ex01", "aff"])
+            .add_filter("All Files", &["*"]),
+        "db" | "sqlite" => dialog
+            .add_filter("SQLite Database (*.db, *.sqlite)", &["db", "sqlite", "sqlite3"])
+            .add_filter("All Files", &["*"]),
+        "yar" | "yara" => dialog
+            .add_filter("YARA Rules (*.yar, *.yara)", &["yar", "yara", "txt"])
+            .add_filter("All Files", &["*"]),
+        "txt" => dialog
+            .add_filter("Text / Manifest File (*.txt)", &["txt", "log", "md"])
+            .add_filter("All Files", &["*"]),
+        "asc" | "sig" | "pgp" | "gpg" => dialog
+            .add_filter("PGP Signature / Key (*.asc, *.sig, *.pgp, *.gpg)", &["asc", "sig", "pgp", "gpg", "key"])
+            .add_filter("All Files", &["*"]),
+        _ => dialog
+            .add_filter(&format!("File (*.{})", ext), &[&ext])
+            .add_filter("All Files", &["*"]),
+    };
+
+    dialog
+        .pick_file()
+        .map(|path| path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn save_file_dialog(ext: String) -> Option<String> {
     let filter_name = match ext.as_str() {
-        "e01" => "E01 Evidence Image (.e01)",
-        "aff" => "Advanced Forensic Format (.aff)",
-        _ => "Raw Image (.dd)",
+        "e01" => "E01 Evidence Image (*.e01)",
+        "ex01" => "EX01 Evidence Image (*.ex01)",
+        "aff" => "Advanced Forensic Format (*.aff)",
+        "smart" => "SMART Image (*.smart)",
+        "html" => "HTML Case Report (*.html)",
+        _ => "Raw Image (*.dd)",
     };
 
     rfd::FileDialog::new()
@@ -814,6 +854,7 @@ async fn start_triage(
     collect_volatile: bool,
     collect_browsers: bool,
     collect_eventlogs: bool,
+    collect_mobile: bool,
     siem_config: Option<crate::siem::SiemConfig>,
     state: State<'_, ActiveTaskState>,
     app_handle: AppHandle,
@@ -840,6 +881,7 @@ async fn start_triage(
             collect_volatile,
             collect_browsers,
             collect_eventlogs,
+            collect_mobile,
             siem_config,
             tx.clone(),
         )
@@ -872,6 +914,8 @@ async fn query_triage_db(
         "network_connections",
         "browser_history",
         "event_logs",
+        "mobile_devices",
+        "mobile_apps",
     ];
     if !valid_tables.contains(&table_name.as_str()) {
         return Err("Invalid table name".to_string());
@@ -914,6 +958,135 @@ async fn query_triage_db(
     }
 
     Ok(serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string()))
+}
+
+#[tauri::command]
+async fn query_triage_db_custom(
+    db_path: String,
+    query: String,
+    state: State<'_, crate::state::AcquisitionModeState>,
+) -> Result<String, String> {
+    crate::state::require_analysis_mode(&state)?;
+    
+    let q_trimmed = query.trim().to_uppercase();
+    if !q_trimmed.starts_with("SELECT") && !q_trimmed.starts_with("EXPLAIN") && !q_trimmed.starts_with("WITH") && !q_trimmed.starts_with("PRAGMA TABLE_INFO") {
+        return Err("Security Violation: Only read-only SELECT, EXPLAIN, WITH, or PRAGMA table_info queries are permitted in Analysis Mode.".to_string());
+    }
+    
+    let forbidden = ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "ATTACH", "DETACH", "CREATE", "REPLACE", "VACUUM", "WRITABLE_SCHEMA"];
+    for word in forbidden {
+        if q_trimmed.split(|c: char| !c.is_alphanumeric() && c != '_').any(|w| w == word) {
+            return Err(format!("Security Violation: Forbidden keyword '{}' detected. Database is protected against modification.", word));
+        }
+    }
+
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
+    let column_count = stmt.column_count();
+    let column_names: Vec<String> = stmt
+        .column_names()
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
+
+    let rows = stmt
+        .query_map([], |row| {
+            let mut map = serde_json::Map::new();
+            for (i, col_name) in column_names.iter().enumerate().take(column_count) {
+                let val = match row.get_ref(i)? {
+                    rusqlite::types::ValueRef::Null => serde_json::Value::Null,
+                    rusqlite::types::ValueRef::Integer(i) => serde_json::json!(i),
+                    rusqlite::types::ValueRef::Real(f) => serde_json::json!(f),
+                    rusqlite::types::ValueRef::Text(t) => {
+                        serde_json::json!(String::from_utf8_lossy(t))
+                    }
+                    rusqlite::types::ValueRef::Blob(b) => {
+                        serde_json::json!(format!("<blob {} bytes>", b.len()))
+                    }
+                };
+                map.insert(col_name.clone(), val);
+            }
+            Ok(serde_json::Value::Object(map))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut results = Vec::new();
+    for result in rows {
+        results.push(result.map_err(|e| e.to_string())?);
+    }
+
+    Ok(serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string()))
+}
+
+#[tauri::command]
+async fn scan_image_yara(
+    image_path: String,
+    rules_path: String,
+    state: State<'_, crate::state::AcquisitionModeState>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    crate::state::require_analysis_mode(&state)?;
+    
+    let path = std::path::Path::new(&rules_path);
+    let rules = crate::yara_scanner::load_rules(path)?;
+    let rules_arc = std::sync::Arc::new(rules);
+    
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::acquisition::ProgressEvent>(100);
+    let app_handle_clone = app_handle.clone();
+    tokio::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            let _ = app_handle_clone.emit("acquisition-event", event);
+        }
+    });
+
+    tokio::spawn(async move {
+        let _ = tx.send(crate::acquisition::ProgressEvent::Log(format!("[YARA SCAN] Starting on-demand scan of {} using rules at {}...", image_path, rules_path))).await;
+        
+        let mut file = match tokio::fs::File::open(&image_path).await {
+            Ok(f) => f,
+            Err(e) => {
+                let _ = tx.send(crate::acquisition::ProgressEvent::Error(format!("Failed to open image file: {}", e))).await;
+                return;
+            }
+        };
+        
+        use tokio::io::AsyncReadExt;
+        let mut buffer = vec![0u8; 4 * 1024 * 1024]; // 4MB chunks
+        let mut offset = 0u64;
+        let mut total_hits = 0;
+        
+        loop {
+            match file.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    let chunk = &buffer[..n];
+                    let hits = crate::yara_scanner::scan_chunk(&rules_arc, chunk, offset);
+                    for hit in hits {
+                        total_hits += 1;
+                        let _ = tx.send(crate::acquisition::ProgressEvent::YaraHit {
+                            rule_name: hit.rule_name,
+                            offset: hit.offset,
+                            tags: hit.tags,
+                        }).await;
+                    }
+                    offset += n as u64;
+                }
+                Err(e) => {
+                    let _ = tx.send(crate::acquisition::ProgressEvent::Error(format!("Error reading image chunk: {}", e))).await;
+                    break;
+                }
+            }
+        }
+        
+        let _ = tx.send(crate::acquisition::ProgressEvent::Log(format!("[YARA SCAN] Scan finished. Total rules matched: {}", total_hits))).await;
+        let _ = tx.send(crate::acquisition::ProgressEvent::Finished {
+            bytes_read: offset,
+            bad_sectors: 0,
+            hashes: std::collections::HashMap::new(),
+        }).await;
+    });
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -1701,6 +1874,7 @@ fn main() {
             scan_devices,
             browse_folder,
             browse_file,
+            save_file_dialog,
             check_checkpoint,
             start_acquisition,
             cancel_acquisition,
@@ -1726,7 +1900,9 @@ fn main() {
             pgp_generate_new_key,
             pgp_verify_manifest,
             inspect_volume_encryption,
-            extract_memory_keys
+            extract_memory_keys,
+            query_triage_db_custom,
+            scan_image_yara
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

@@ -62,3 +62,18 @@ pub fn scan_chunk(rules: &Rules, data: &[u8], offset: u64) -> Vec<YaraMatch> {
 
     matches
 }
+
+pub fn load_rules(path: &Path) -> Result<Rules, String> {
+    if path.is_dir() {
+        load_rules_from_dir(path)
+    } else if path.is_file() {
+        let mut compiler = Compiler::new();
+        let src = std::fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+        compiler.add_source(src.as_str())
+            .map_err(|e| format!("YARA compilation error in {}: {}", path.display(), e))?;
+        Ok(compiler.build())
+    } else {
+        Err(format!("Path does not exist: {}", path.display()))
+    }
+}

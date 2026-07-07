@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/schema.json",
   "identifier": "analysis-suite",
-  "description": "Static allowlist for Analysis Mode commands: query_triage_db, generate_image_timeline, start_volatility_analysis, test_siem_connection, save_siem_config, export_triage_to_siem, extract_memory_keys. In Tauri 2.0.0, static capabilities are merged at build time; runtime enforcement is handled by the Rust-side AcquisitionMode guard.",
+  "description": "Static allowlist for Analysis Mode commands: query_triage_db, query_triage_db_custom, generate_image_timeline, start_volatility_analysis, test_siem_connection, save_siem_config, export_triage_to_siem, extract_memory_keys, scan_image_yara. In Tauri 2.0.0, static capabilities are merged at build time; runtime enforcement is handled by the Rust-side AcquisitionMode guard.",
   "windows": ["*"],
   "permissions": [
     "core:default"

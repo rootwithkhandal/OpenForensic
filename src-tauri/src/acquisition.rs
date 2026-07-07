@@ -762,6 +762,7 @@ pub async fn acquire_triage(
     collect_volatile: bool,
     collect_browsers: bool,
     collect_eventlogs: bool,
+    collect_mobile: bool,
     siem_config: Option<crate::siem::SiemConfig>,
     progress_tx: Sender<ProgressEvent>,
 ) -> Result<()> {
@@ -991,6 +992,31 @@ pub async fn acquire_triage(
                     let _ = fs::copy(src, logs_dir.join(filename));
                     let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] Successfully copied log file: {}", src))).await;
                 }
+            }
+        }
+    }
+
+    // 5. Collect Mobile Device Triage (Android via ADB)
+    if collect_mobile {
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting mobile device triage (Android ADB)...".to_string())).await;
+
+        let mobile_config = crate::mobile_triage::MobileTriageConfig {
+            dest_dir: dest_dir.clone(),
+            adb_path: None,
+            pull_apks: false,
+        };
+
+        match crate::mobile_triage::run_mobile_triage(
+            &mobile_config,
+            progress_tx.clone(),
+        ).await {
+            Ok((devices, apps)) => {
+                if let Some(ref db) = triage_db {
+                    crate::mobile_triage::save_mobile_triage_to_db(db, &devices, &apps);
+                }
+            }
+            Err(e) => {
+                let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] WARNING: Mobile triage failed: {}. Continuing.", e))).await;
             }
         }
     }

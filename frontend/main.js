@@ -108,6 +108,10 @@ if (typeof window !== 'undefined' && (window.__TAURI__ || window.__TAURI_INTERNA
     }
 
     if (cmd === 'browse_file') {
+      return args.ext === 'exe' || args.ext === 'vol' || args.ext === 'py' ? 'C:\\Forensics\\Tools\\custom_volatility.exe' : `C:\\Forensics\\Evidence\\sample.${args.ext || 'dd'}`;
+    }
+
+    if (cmd === 'save_file_dialog') {
       return `C:\\Forensics\\Acquisitions\\case_evidence.${args.ext || 'dd'}`;
     }
 
@@ -238,11 +242,97 @@ if (typeof window !== 'undefined' && (window.__TAURI__ || window.__TAURI_INTERNA
 // State management
 let state = {
   imagingMode: 'Physical', // 'Physical' or 'Logical'
+  acquisitionMode: 'Capture', // 'Capture' or 'Analysis'
   devices: [],
   selectedDeviceIndex: null,
   activeJob: false,
   logCount: 0
 };
+
+let currentTriageData = [];
+
+function updateAnalysisLockScreens() {
+  const isCapture = (state.acquisitionMode === 'Capture');
+  
+  // Timeline tab
+  const lockTimeline = document.getElementById('lock-timeline');
+  const contentTimeline = document.getElementById('content-timeline');
+  if (lockTimeline && contentTimeline) {
+    if (isCapture) {
+      lockTimeline.classList.remove('hidden');
+      contentTimeline.classList.add('hidden');
+    } else {
+      lockTimeline.classList.add('hidden');
+      contentTimeline.classList.remove('hidden');
+    }
+  }
+
+  // RAM tab
+  const lockRam = document.getElementById('lock-ram');
+  const contentRam = document.getElementById('content-ram');
+  if (lockRam && contentRam) {
+    if (isCapture) {
+      lockRam.classList.remove('hidden');
+      contentRam.classList.add('hidden');
+    } else {
+      lockRam.classList.add('hidden');
+      contentRam.classList.remove('hidden');
+    }
+  }
+
+  // YARA tab
+  const lockYara = document.getElementById('lock-yara');
+  const contentYara = document.getElementById('content-yara');
+  if (lockYara && contentYara) {
+    if (isCapture) {
+      lockYara.classList.remove('hidden');
+      contentYara.classList.add('hidden');
+    } else {
+      lockYara.classList.add('hidden');
+      contentYara.classList.remove('hidden');
+    }
+  }
+
+  // Triage Workbench view
+  const lockTriage = document.getElementById('lock-triage');
+  const contentTriage = document.getElementById('content-triage');
+  if (lockTriage && contentTriage) {
+    if (isCapture) {
+      lockTriage.classList.remove('hidden');
+      contentTriage.classList.add('hidden');
+    } else {
+      lockTriage.classList.add('hidden');
+      contentTriage.classList.remove('hidden');
+    }
+  }
+}
+
+function getAppRiskBadge(row) {
+  const isSystem = row.is_system;
+  const installer = (row.installer || '').toLowerCase();
+  const pkg = (row.package_name || '').toLowerCase();
+  
+  if (!isSystem && installer && installer !== 'null' && installer !== 'com.android.vending' && installer !== 'com.google.android.feedback') {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">HIGH RISK: Side-loaded APK</span>';
+  } else if (pkg.includes('whatsapp') || pkg.includes('telegram') || pkg.includes('signal') || pkg.includes('viber') || pkg.includes('wechat') || pkg.includes('messenger') || pkg.includes('tor') || pkg.includes('vpn')) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">MEDIUM: High-Interest App</span>';
+  } else if (isSystem && (row.apk_path || '').startsWith('/data/')) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">HIGH RISK: System Anomaly</span>';
+  } else {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-400 border border-teal-500/30">LOW RISK: Verified</span>';
+  }
+}
+
+function getProcessRiskBadge(row) {
+  const path = (row.exe_path || row.path || row.command_line || '').toLowerCase();
+  if (path.includes('\\temp\\') || path.includes('/tmp/') || path.includes('\\appdata\\') || path.includes('\\programdata\\') || path.includes('/var/tmp/')) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">ANOMALY: Suspicious Path</span>';
+  } else if (path.includes('powershell') || path.includes('cmd.exe') || path.includes('wscript') || path.includes('cscript') || path.includes('bash') || path.includes('sh')) {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">MONITOR: Shell / Engine</span>';
+  } else {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-400 border border-teal-500/30">NORMAL</span>';
+  }
+}
 
 // UI Elements Binding
 const elements = {
@@ -329,7 +419,18 @@ const elements = {
   ramEnrichVt: document.getElementById('ram-enrich-vt'),
   ramKeyAbuseIp: document.getElementById('ram-key-abuseip'),
   ramKeyVt: document.getElementById('ram-key-vt'),
-  btnStartRamAnalysis: document.getElementById('btn-start-ram-analysis')
+  btnStartRamAnalysis: document.getElementById('btn-start-ram-analysis'),
+  ramConsoleLogs: document.getElementById('ram-console-logs'),
+  btnClearRamLog: document.getElementById('btn-clear-ram-log'),
+  btnExportRamResults: document.getElementById('btn-export-ram-results'),
+
+  // YARA Scanner
+  yaraScanImagePath: document.getElementById('yara-scan-image-path'),
+  btnBrowseYaraImage: document.getElementById('btn-browse-yara-image'),
+  yaraScanRulesPath: document.getElementById('yara-scan-rules-path'),
+  btnBrowseYaraRulesFile: document.getElementById('btn-browse-yara-rules-file'),
+  btnBrowseYaraRulesDir: document.getElementById('btn-browse-yara-rules-dir'),
+  btnStartYaraScan: document.getElementById('btn-start-yara-scan')
 };
 
 // Initialize Application
@@ -450,7 +551,7 @@ function setupEventListeners() {
       else if (format.includes('AFF')) ext = 'aff';
       else if (format.includes('SMART')) ext = 'smart';
 
-      const file = await invoke('browse_file', { ext });
+      const file = await invoke('save_file_dialog', { ext });
       if (file) {
         elements.inputDestPath.value = file;
         logMessage('SYSTEM', 'Set destination file path: ' + file);
@@ -529,6 +630,36 @@ function setupEventListeners() {
     logMessage('SYSTEM', 'Console log exported successfully.');
   });
 
+  // Clear RAM log console
+  if (elements.btnClearRamLog) {
+    elements.btnClearRamLog.addEventListener('click', () => {
+      if (elements.ramConsoleLogs) elements.ramConsoleLogs.innerHTML = '';
+    });
+  }
+
+  // Export RAM analysis results
+  if (elements.btnExportRamResults) {
+    elements.btnExportRamResults.addEventListener('click', () => {
+      if (!elements.ramConsoleLogs) return;
+      const logs = Array.from(elements.ramConsoleLogs.children).map(c => c.textContent).join('\n');
+      if (!logs || elements.ramConsoleLogs.children[0]?.classList.contains('italic')) {
+        alert('The RAM analysis console log is empty.');
+        return;
+      }
+      const blob = new Blob([logs], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OpenForensic_RAM_Analysis_Results_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      logMessage('SYSTEM', 'RAM Analysis results exported successfully.');
+      logRamMessage('SYSTEM', 'RAM Analysis results exported successfully.');
+    });
+  }
+
   // Start Acquisition
   elements.btnStartAcquisition.addEventListener('click', (e) => {
     e.preventDefault();
@@ -558,26 +689,59 @@ function setupEventListeners() {
   document.getElementById('btn-tab-timeline').addEventListener('click', () => switchTab('timeline'));
   document.getElementById('btn-tab-cases').addEventListener('click', () => { switchTab('cases'); loadCases(); });
   document.getElementById('btn-tab-ram').addEventListener('click', () => switchTab('ram'));
+  document.getElementById('btn-tab-yara')?.addEventListener('click', () => switchTab('yara'));
   document.getElementById('btn-tab-pgp').addEventListener('click', () => { switchTab('pgp'); loadPgpKeyInfo(); });
 
   document.getElementById('btn-refresh-cases').addEventListener('click', loadCases);
 
+  // Triage Sub-Tabs & Unlock Buttons
+  const btnSubTriageColl = document.getElementById('btn-subtab-triage-collection');
+  const btnSubTriageWork = document.getElementById('btn-subtab-triage-workbench');
+  const viewTriageColl = document.getElementById('triage-collection-view');
+  const viewTriageWork = document.getElementById('triage-workbench-view');
+
+  if (btnSubTriageColl && btnSubTriageWork && viewTriageColl && viewTriageWork) {
+    btnSubTriageColl.addEventListener('click', () => {
+      btnSubTriageColl.classList.add('active', 'bg-primary', 'text-on-primary', 'shadow-sm');
+      btnSubTriageColl.classList.remove('bg-surface', 'border', 'border-outline-variant', 'text-on-surface');
+      btnSubTriageWork.classList.remove('active', 'bg-primary', 'text-on-primary', 'shadow-sm');
+      btnSubTriageWork.classList.add('bg-surface', 'border', 'border-outline-variant', 'text-on-surface');
+      viewTriageColl.classList.remove('hidden');
+      viewTriageWork.classList.add('hidden');
+    });
+    btnSubTriageWork.addEventListener('click', () => {
+      btnSubTriageWork.classList.add('active', 'bg-primary', 'text-on-primary', 'shadow-sm');
+      btnSubTriageWork.classList.remove('bg-surface', 'border', 'border-outline-variant', 'text-on-surface');
+      btnSubTriageColl.classList.remove('active', 'bg-primary', 'text-on-primary', 'shadow-sm');
+      btnSubTriageColl.classList.add('bg-surface', 'border', 'border-outline-variant', 'text-on-surface');
+      viewTriageWork.classList.remove('hidden');
+      viewTriageColl.classList.add('hidden');
+      updateAnalysisLockScreens();
+    });
+  }
+
+  document.querySelectorAll('.btn-unlock-analysis').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (elements.btnModeToggle) elements.btnModeToggle.click();
+    });
+  });
+
   // Acquisition Mode Toggle
-  let currentMode = 'Capture';
   if (elements.btnModeToggle) {
     elements.btnModeToggle.addEventListener('click', async () => {
-      if (currentMode === 'Capture') {
+      if (state.acquisitionMode === 'Capture') {
         const confirmSwitch = confirm("Switching to Analysis Mode disables further evidence-modifying safeguards for this session.\n\nDo you wish to proceed?");
         if (confirmSwitch) {
           try {
             const investigator = elements.inputExaminer ? elements.inputExaminer.value : "Investigator";
             const caseId = elements.inputCaseNumber ? elements.inputCaseNumber.value : "N/A";
             await invoke('set_acquisition_mode', { mode: 'Analysis', investigator: investigator || "Investigator", caseId: caseId || "N/A" });
-            currentMode = 'Analysis';
+            state.acquisitionMode = 'Analysis';
             const displaySpan = document.getElementById('mode-display-text');
             if (displaySpan) displaySpan.textContent = "Mode: ANALYSIS";
             elements.btnModeToggle.classList.remove('bg-surface-container-high', 'text-on-surface');
             elements.btnModeToggle.classList.add('bg-amber-500', 'text-white');
+            updateAnalysisLockScreens();
             logMessage('WARNING', 'Switched session acquisition mode to ANALYSIS. Evidence-modifying safeguards disabled.');
           } catch (e) {
             alert("Failed to switch mode: " + e);
@@ -591,11 +755,12 @@ function setupEventListeners() {
             const investigator = elements.inputExaminer ? elements.inputExaminer.value : "Investigator";
             const caseId = elements.inputCaseNumber ? elements.inputCaseNumber.value : "N/A";
             await invoke('set_acquisition_mode', { mode: 'Capture', investigator: investigator || "Investigator", caseId: caseId || "N/A" });
-            currentMode = 'Capture';
+            state.acquisitionMode = 'Capture';
             const displaySpan = document.getElementById('mode-display-text');
             if (displaySpan) displaySpan.textContent = "Mode: CAPTURE";
             elements.btnModeToggle.classList.remove('bg-amber-500', 'text-white');
             elements.btnModeToggle.classList.add('bg-surface-container-high', 'text-on-surface');
+            updateAnalysisLockScreens();
             logMessage('SYSTEM', 'Switched session acquisition mode to CAPTURE.');
           } catch (e) {
             alert("Failed to switch mode: " + e);
@@ -653,6 +818,99 @@ function setupEventListeners() {
         elements.triageTableBody.innerHTML = `<tr><td style="padding: 12px; color: #ff5555;">Error: ${e}</td></tr>`;
         logMessage('ERROR', 'Triage query failed: ' + e);
       }
+    });
+  }
+
+  const btnCustomSql = document.getElementById('btn-execute-custom-sql');
+  if (btnCustomSql) {
+    btnCustomSql.addEventListener('click', async () => {
+      const dbPath = elements.triageDbPath.value;
+      if (!dbPath) {
+        alert("Please select a triage database file first.");
+        return;
+      }
+      const query = document.getElementById('triage-custom-sql')?.value || '';
+      if (!query.trim()) {
+        alert("Please enter a SQL query.");
+        return;
+      }
+      elements.triageTableBody.innerHTML = '<tr><td class="p-8 text-center text-outline font-sans">Executing custom query...</td></tr>';
+      try {
+        const resultJson = await invoke('query_triage_db_custom', { dbPath, query });
+        const data = JSON.parse(resultJson);
+        renderTriageTable(data);
+        logMessage('SYSTEM', `Executed custom SQL query: ${data.length} records returned.`);
+      } catch (e) {
+        elements.triageTableBody.innerHTML = `<tr><td class="p-8 text-center text-red-400 font-sans">Query Error: ${e}</td></tr>`;
+        logMessage('ERROR', 'Custom SQL query failed: ' + e);
+      }
+    });
+  }
+
+  const filterInput = document.getElementById('triage-table-filter');
+  if (filterInput) {
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.toLowerCase().trim();
+      if (!q) {
+        renderFilteredTable(currentTriageData);
+        return;
+      }
+      const filtered = currentTriageData.filter(row => {
+        return Object.values(row).some(val => {
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(q);
+        });
+      });
+      renderFilteredTable(filtered);
+    });
+  }
+
+  const btnExportCsv = document.getElementById('btn-export-triage-csv');
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', () => {
+      if (!currentTriageData || currentTriageData.length === 0) {
+        alert("No data to export.");
+        return;
+      }
+      const keys = Object.keys(currentTriageData[0]);
+      let csv = keys.join(',') + '\n';
+      currentTriageData.forEach(row => {
+        const values = keys.map(k => {
+          let v = row[k] === null || row[k] === undefined ? '' : String(row[k]);
+          v = v.replace(/"/g, '""');
+          if (v.includes(',') || v.includes('\n') || v.includes('"')) {
+            v = `"${v}"`;
+          }
+          return v;
+        });
+        csv += values.join(',') + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `triage_export_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      logMessage('SYSTEM', 'Exported triage data to CSV.');
+    });
+  }
+
+  const btnExportJson = document.getElementById('btn-export-triage-json');
+  if (btnExportJson) {
+    btnExportJson.addEventListener('click', () => {
+      if (!currentTriageData || currentTriageData.length === 0) {
+        alert("No data to export.");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(currentTriageData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `triage_export_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      logMessage('SYSTEM', 'Exported triage data to JSON.');
     });
   }
 
@@ -742,6 +1000,7 @@ function setupEventListeners() {
     const collect_volatile = document.getElementById('triage-volatile').checked;
     const collect_browsers = document.getElementById('triage-browsers').checked;
     const collect_eventlogs = document.getElementById('triage-eventlogs').checked;
+    const collect_mobile = document.getElementById('triage-mobile').checked;
     const siemConfig = getSiemConfigFromUI();
 
     try {
@@ -756,6 +1015,7 @@ function setupEventListeners() {
         collectVolatile: collect_volatile,
         collectBrowsers: collect_browsers,
         collectEventlogs: collect_eventlogs,
+        collectMobile: collect_mobile,
         siemConfig: siemConfig.enabled ? siemConfig : null
       });
 
@@ -774,28 +1034,45 @@ function setupEventListeners() {
 
   // Triage Workbench Renderer
   function renderTriageTable(data) {
+    currentTriageData = data || [];
+    renderFilteredTable(currentTriageData);
+  }
+
+  function renderFilteredTable(data) {
+    const countEl = document.getElementById('triage-row-count');
+    if (countEl) countEl.textContent = `${(data || []).length} rows loaded`;
+
     if (!data || data.length === 0) {
-      elements.triageTableHead.innerHTML = '<th>No Data</th>';
-      elements.triageTableBody.innerHTML = '<tr><td style="padding: 12px; color: var(--text-muted);">No records found in this table.</td></tr>';
+      elements.triageTableHead.innerHTML = '<th class="p-3">No Data</th>';
+      elements.triageTableBody.innerHTML = '<tr><td class="p-8 text-center text-outline font-sans">No records found matching query or filter.</td></tr>';
       return;
     }
 
-    // Build Headers from first row keys
-    const keys = Object.keys(data[0]);
+    const firstRow = data[0];
+    const keys = Object.keys(firstRow);
+    const hasAppRisk = ('package_name' in firstRow);
+    const hasProcRisk = ('pid' in firstRow || 'exe_path' in firstRow || 'command_line' in firstRow);
+
     let theadHtml = '';
+    if (hasAppRisk || hasProcRisk) {
+      theadHtml += '<th style="padding: 12px; font-weight: bold; color: var(--color-primary);">Risk &amp; Anomaly</th>';
+    }
     keys.forEach(key => {
       theadHtml += `<th style="padding: 12px; font-weight: 600; text-transform: capitalize;">${key.replace(/_/g, ' ')}</th>`;
     });
     elements.triageTableHead.innerHTML = theadHtml;
 
-    // Build Rows
     let tbodyHtml = '';
     data.forEach(row => {
       tbodyHtml += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">';
+      if (hasAppRisk) {
+        tbodyHtml += `<td style="padding: 10px 12px;">${getAppRiskBadge(row)}</td>`;
+      } else if (hasProcRisk) {
+        tbodyHtml += `<td style="padding: 10px 12px;">${getProcessRiskBadge(row)}</td>`;
+      }
       keys.forEach(key => {
         let val = row[key];
         if (val === null || val === undefined) val = '';
-        // Truncate very long texts
         if (typeof val === 'string' && val.length > 200) val = val.substring(0, 200) + '...';
         tbodyHtml += `<td style="padding: 10px 12px; word-break: break-word;">${val}</td>`;
       });
@@ -832,7 +1109,7 @@ function setupEventListeners() {
 
   document.getElementById('btn-browse-ram-tool').addEventListener('click', async () => {
     try {
-      const file = await invoke('browse_file', { ext: 'exe' });
+      const file = await invoke('browse_file', { ext: 'vol' });
       if (file) {
         document.getElementById('live-ram-tool').value = file;
         logMessage('SYSTEM', 'Set custom RAM acquisition tool: ' + file);
@@ -962,7 +1239,7 @@ function setupEventListeners() {
   if (elements.btnBrowseRamVol) {
     elements.btnBrowseRamVol.addEventListener('click', async () => {
       try {
-        const file = await invoke('browse_file', { ext: 'exe' });
+        const file = await invoke('browse_file', { ext: 'vol' });
         if (file) {
           elements.ramVolPath.value = file;
           logMessage('SYSTEM', 'Selected Volatility 3 executable: ' + file);
@@ -979,8 +1256,8 @@ function setupEventListeners() {
       const imagePath = elements.ramImagePath.value;
       const volPath = elements.ramVolPath.value;
 
-      if (!imagePath || !volPath) {
-        alert('Please select both a memory dump file and the Volatility 3 executable/script path.');
+      if (!imagePath) {
+        alert('Please select a memory dump file to analyze.');
         return;
       }
 
@@ -997,16 +1274,90 @@ function setupEventListeners() {
       };
 
       try {
-        logMessage('VOLATILITY', `Starting Volatility 3 analysis [Profile: ${config.profile}]...`);
+        const engineLabel = volPath.includes('Built-in') ? 'Built-in Rust Engine' : volPath;
+        logMessage('VOLATILITY', `Starting memory analysis [Engine: ${engineLabel}] [Profile: ${config.profile}]...`);
+        logRamMessage('VOLATILITY', `Starting memory analysis [Engine: ${engineLabel}] [Profile: ${config.profile}]...`);
         elements.btnStartRamAnalysis.disabled = true;
         elements.btnStartRamAnalysis.textContent = 'Running Analysis...';
 
         await invoke('start_volatility_analysis', { config });
       } catch (err) {
         logMessage('ERROR', 'Failed to start Volatility analysis: ' + err);
+        logRamMessage('ERROR', 'Failed to start Volatility analysis: ' + err);
         alert('Failed to start Volatility analysis: ' + err);
         elements.btnStartRamAnalysis.disabled = false;
         elements.btnStartRamAnalysis.textContent = '▶ Start Volatility Analysis';
+      }
+    });
+  }
+
+  // YARA Scanner Handlers
+  if (elements.btnBrowseYaraImage) {
+    elements.btnBrowseYaraImage.addEventListener('click', async () => {
+      try {
+        const file = await invoke('browse_file', { ext: 'dd' });
+        if (file) {
+          elements.yaraScanImagePath.value = file;
+          logMessage('SYSTEM', 'Selected target image for YARA scan: ' + file);
+        }
+      } catch (e) {
+        logMessage('ERROR', 'Failed to browse image: ' + e);
+      }
+    });
+  }
+
+  if (elements.btnBrowseYaraRulesFile) {
+    elements.btnBrowseYaraRulesFile.addEventListener('click', async () => {
+      try {
+        const file = await invoke('browse_file', { ext: 'yar' });
+        if (file) {
+          elements.yaraScanRulesPath.value = file;
+          logMessage('SYSTEM', 'Selected YARA rules file: ' + file);
+        }
+      } catch (e) {
+        logMessage('ERROR', 'Failed to browse rules file: ' + e);
+      }
+    });
+  }
+
+  if (elements.btnBrowseYaraRulesDir) {
+    elements.btnBrowseYaraRulesDir.addEventListener('click', async () => {
+      try {
+        const folder = await invoke('browse_folder');
+        if (folder) {
+          elements.yaraScanRulesPath.value = folder;
+          logMessage('SYSTEM', 'Selected YARA rules directory: ' + folder);
+        }
+      } catch (e) {
+        logMessage('ERROR', 'Failed to browse rules directory: ' + e);
+      }
+    });
+  }
+
+  if (elements.btnStartYaraScan) {
+    elements.btnStartYaraScan.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const imagePath = elements.yaraScanImagePath?.value;
+      const rulesPath = elements.yaraScanRulesPath?.value;
+
+      if (!imagePath || !rulesPath) {
+        alert('Please select both a target image/dump file and a YARA ruleset path.');
+        return;
+      }
+
+      try {
+        logMessage('YARA', `Starting On-Demand YARA scan against ${imagePath}...`);
+        elements.btnStartYaraScan.disabled = true;
+        elements.btnStartYaraScan.textContent = 'Scanning...';
+
+        await invoke('scan_image_yara', { imagePath, rulesPath });
+        logMessage('SUCCESS', 'YARA scan background job initiated. Results will stream below.');
+      } catch (err) {
+        logMessage('ERROR', 'Failed to start YARA scan: ' + err);
+        alert('Failed to start YARA scan: ' + err);
+      } finally {
+        elements.btnStartYaraScan.disabled = false;
+        elements.btnStartYaraScan.innerHTML = '<span class="material-symbols-outlined text-[20px]">play_arrow</span>Start YARA Scan';
       }
     });
   }
@@ -1121,9 +1472,12 @@ function setupEventListeners() {
   listen('volatility-event', (event) => {
     const { type, data } = event.payload;
     if (type === 'Log') {
-      logMessage('VOLATILITY', data);
+      const cleanData = data.startsWith('[VOLATILITY] ') ? data.slice(13) : (data.startsWith('[VOLATILITY]') ? data.slice(12).trimStart() : data);
+      logMessage('VOLATILITY', cleanData);
+      logRamMessage('VOLATILITY', cleanData);
     } else if (type === 'Error') {
       logMessage('ERROR', '[VOLATILITY ERROR] ' + data);
+      logRamMessage('ERROR', '[VOLATILITY ERROR] ' + data);
       alert('Volatility Analysis Error:\n' + data);
       if (elements.btnStartRamAnalysis) {
         elements.btnStartRamAnalysis.disabled = false;
@@ -1131,6 +1485,7 @@ function setupEventListeners() {
       }
     } else if (type === 'Finished') {
       logMessage('SYSTEM', '=== VOLATILITY ANALYSIS COMPLETED ===');
+      logRamMessage('SYSTEM', '=== VOLATILITY ANALYSIS COMPLETED ===');
       alert('Volatility Analysis Completed!');
       if (elements.btnStartRamAnalysis) {
         elements.btnStartRamAnalysis.disabled = false;
@@ -1174,11 +1529,17 @@ function switchTab(tabName) {
     document.getElementById('btn-tab-ram').classList.add('active');
     document.getElementById('tab-ram-content').classList.remove('hidden');
     document.getElementById('sidebar-panel').classList.add('hidden');
+  } else if (tabName === 'yara') {
+    document.getElementById('btn-tab-yara')?.classList.add('active');
+    document.getElementById('tab-yara-content')?.classList.remove('hidden');
+    document.getElementById('sidebar-panel').classList.add('hidden');
   } else if (tabName === 'pgp') {
     document.getElementById('btn-tab-pgp').classList.add('active');
     document.getElementById('tab-pgp-content').classList.remove('hidden');
     document.getElementById('sidebar-panel').classList.add('hidden');
   }
+
+  updateAnalysisLockScreens();
 }
 
 function setImagingMode(mode) {
@@ -1518,6 +1879,24 @@ function logMessage(level, text) {
   elements.consoleLogs.scrollTop = elements.consoleLogs.scrollHeight;
 }
 
+function logRamMessage(level, text) {
+  if (!elements.ramConsoleLogs) return;
+
+  // Clear initial placeholder if present
+  if (elements.ramConsoleLogs.children.length === 1 && elements.ramConsoleLogs.children[0].classList.contains('italic')) {
+    elements.ramConsoleLogs.innerHTML = '';
+  }
+
+  const entry = document.createElement('div');
+  entry.className = `log-entry log-${level.toLowerCase()} py-0.5 border-b border-outline-variant/20`;
+
+  const timestamp = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
+  entry.textContent = `[${timestamp} IST] [${level}] ${text}`;
+
+  elements.ramConsoleLogs.appendChild(entry);
+  elements.ramConsoleLogs.scrollTop = elements.ramConsoleLogs.scrollHeight;
+}
+
 // Helper formatting utilities
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
@@ -1580,7 +1959,7 @@ async function loadCases() {
 
 async function exportCaseReport(caseId, caseNumber) {
   try {
-    const file = await invoke('browse_file', { ext: 'html' });
+    const file = await invoke('save_file_dialog', { ext: 'html' });
     if (file) {
       logMessage('SYSTEM', `Exporting report for case ${caseNumber} to ${file}...`);
       await invoke('export_case_report', { caseId: caseId, exportPath: file });

@@ -252,6 +252,7 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
             no_registry,
             no_browsers,
             no_eventlogs,
+            no_mobile,
             siem_export,
             siem_endpoint,
             siem_type,
@@ -301,6 +302,7 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
                 !no_volatile,
                 !no_browsers,
                 !no_eventlogs,
+                !no_mobile,
                 siem_config,
                 tx,
             ).await {
@@ -378,7 +380,10 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
             let progress_handle = tokio::spawn(async move {
                 while let Some(event) = rx.recv().await {
                     match event {
-                        crate::acquisition::ProgressEvent::Log(msg) => eprintln!("[VOLATILITY] {}", msg),
+                        crate::acquisition::ProgressEvent::Log(msg) => {
+                            let clean_msg = msg.strip_prefix("[VOLATILITY] ").unwrap_or(msg.strip_prefix("[VOLATILITY]").unwrap_or(&msg).trim_start());
+                            eprintln!("[VOLATILITY] {}", clean_msg);
+                        }
                         crate::acquisition::ProgressEvent::Error(err) => eprintln!("[ERROR] {}", err),
                         _ => {}
                     }
@@ -386,7 +391,7 @@ pub fn run_cli(args: CliArgs) -> Result<(), String> {
             });
             let config = crate::ram_analysis::VolatilityConfig {
                 image_path: dump.clone(),
-                vol_path: "vol.py".to_string(),
+                vol_path: "builtin".to_string(),
                 profile: profile.clone(),
                 enrich_vt: ioc_enrich,
                 enrich_mb: ioc_enrich,

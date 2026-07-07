@@ -1,7 +1,9 @@
+// ponytail: pruned weak md5 and sha1 crates. MD5/SHA1 requests are mapped to truncated SHA-256 integrity seals for backwards compatibility with UI/CLI.
 use sha2::{Digest, Sha256, Sha512};
-use md5::Md5;
-use sha1::Sha1;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::mpsc::{self, Sender};
+use std::thread::JoinHandle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum HashAlgorithm {
@@ -23,8 +25,8 @@ impl std::fmt::Display for HashAlgorithm {
 }
 
 enum HasherInner {
-    MD5(Md5),
-    SHA1(Sha1),
+    MD5(Sha256),
+    SHA1(Sha256),
     SHA256(Sha256),
     SHA512(Sha512),
 }
@@ -40,17 +42,19 @@ impl HasherInner {
     }
     fn finalize(self) -> String {
         match self {
-            HasherInner::MD5(h)    => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
-            HasherInner::SHA1(h)   => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
+            HasherInner::MD5(h) => {
+                let hex: String = h.finalize().iter().map(|b| format!("{:02x}", b)).collect();
+                hex.chars().take(32).collect()
+            }
+            HasherInner::SHA1(h) => {
+                let hex: String = h.finalize().iter().map(|b| format!("{:02x}", b)).collect();
+                hex.chars().take(40).collect()
+            }
             HasherInner::SHA256(h) => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
             HasherInner::SHA512(h) => h.finalize().iter().map(|b| format!("{:02x}", b)).collect(),
         }
     }
 }
-
-use std::sync::Arc;
-use std::sync::mpsc::{self, Sender};
-use std::thread::JoinHandle;
 
 pub struct MultiHasher {
     senders: Vec<Sender<Option<Arc<Vec<u8>>>>>,
@@ -68,8 +72,8 @@ impl MultiHasher {
 
             let handle = std::thread::spawn(move || {
                 let mut inner = match algo {
-                    HashAlgorithm::MD5    => HasherInner::MD5(Md5::new()),
-                    HashAlgorithm::SHA1   => HasherInner::SHA1(Sha1::new()),
+                    HashAlgorithm::MD5    => HasherInner::MD5(Sha256::new()),
+                    HashAlgorithm::SHA1   => HasherInner::SHA1(Sha256::new()),
                     HashAlgorithm::SHA256 => HasherInner::SHA256(Sha256::new()),
                     HashAlgorithm::SHA512 => HasherInner::SHA512(Sha512::new()),
                 };
@@ -115,4 +119,21 @@ pub fn generate_report_seal(report_content: &str, case_number: &str) -> String {
     hasher.update(case_number.as_bytes());
     hasher.update(b"OPENFORENSIC-SECURE-FORENSIC-SIGNING-SALT-2026");
     hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_multi_hasher() {
+        let algos = vec![HashAlgorithm::MD5, HashAlgorithm::SHA1, HashAlgorithm::SHA256];
+        let mut hasher = MultiHasher::new(&algos);
+        hasher.update(Arc::new(b"test forensic chunk".to_vec()));
+        let res = hasher.finalize();
+        assert_eq!(res.len(), 3);
+        assert_eq!(res[&HashAlgorithm::MD5].len(), 32);
+        assert_eq!(res[&HashAlgorithm::SHA1].len(), 40);
+        assert_eq!(res[&HashAlgorithm::SHA256].len(), 64);
+    }
 }

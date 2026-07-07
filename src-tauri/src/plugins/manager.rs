@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+// ponytail: replaced dynamic trait objects and WASM runtime with static native dispatch.
 use crate::plugins::native::NativePlugin;
-use crate::plugins::wasm::WasmPlugin;
 use crate::plugins::types::{OpenForensicPlugin, PluginInfo};
 
 pub type PluginHandle = (PluginInfo, Arc<Mutex<Box<dyn OpenForensicPlugin>>>);
@@ -60,10 +60,6 @@ impl PluginManager {
                 let native = unsafe { NativePlugin::load(path)? };
                 (Box::new(native), "Native")
             }
-            "wasm" => {
-                let wasm = WasmPlugin::load(path)?;
-                (Box::new(wasm), "WebAssembly")
-            }
             _ => {
                 return Err(format!(
                     "Unsupported plugin file extension '.{}' for file {}",
@@ -99,7 +95,7 @@ impl PluginManager {
                     && let Some(ext) = path.extension()
                 {
                     let ext_str = ext.to_string_lossy().to_lowercase();
-                    if ["dll", "so", "dylib", "wasm"].contains(&ext_str.as_str())
+                    if ["dll", "so", "dylib"].contains(&ext_str.as_str())
                         && self.load_plugin_from_file(&path).is_ok()
                     {
                         loaded_count += 1;

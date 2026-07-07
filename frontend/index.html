@@ -833,57 +833,28 @@
             </div>
           </section>
 
-          <!-- SIEM & SOC Live Streaming Card -->
-          <section class="bg-surface border border-outline-variant rounded-xl p-6 shadow-sm space-y-5">
-            <div class="flex items-center justify-between border-b border-outline-variant pb-4">
+          <!-- SIEM & SOC Live Streaming Card (ponytail: pruned network streaming layer) -->
+          <section class="bg-surface border border-outline-variant rounded-xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary text-[28px]">stream</span>
+                <span class="material-symbols-outlined text-primary text-[28px]">folder_shared</span>
                 <div>
-                  <h2 class="text-headline font-bold text-on-surface">SIEM &amp; SOC Live Streaming</h2>
-                  <p class="text-body-sm text-on-surface-variant">Stream forensic triage artifacts in real-time to Splunk HEC or Wazuh Security Platform.</p>
+                  <h2 class="text-headline font-bold text-on-surface">SIEM &amp; SOC Local Disk Shippers</h2>
+                  <p class="text-body-sm text-on-surface-variant">Triage databases are written to disk cleanly for zero-overhead ingestion by OS log agents (Wazuh, Splunk Universal Forwarder).</p>
                 </div>
               </div>
-              <label class="flex items-center gap-2.5 cursor-pointer bg-surface-container-low px-4 py-2 border border-outline-variant rounded-lg font-bold text-body-sm hover:border-primary transition-colors">
-                <input type="checkbox" id="triage-siem-enable" class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
-                <span>Enable SIEM Integration</span>
-              </label>
+              <span class="px-3 py-1 bg-surface-container-high rounded text-xs font-mono font-bold text-primary">ponytail: pruned HTTP streaming</span>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label class="block text-label-caps text-outline uppercase mb-1.5 font-bold">Platform Type</label>
-                <select id="siem-type" class="input-field font-semibold">
-                  <option value="splunk_hec">Splunk HEC</option>
-                  <option value="wazuh_socket">Wazuh Socket</option>
-                  <option value="wazuh_local_log">Wazuh Local Log</option>
-                </select>
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-label-caps text-outline uppercase mb-1.5 font-bold">Endpoint URL / Socket Path</label>
-                <input type="text" id="siem-endpoint" value="" placeholder="https://splunk.example.com:8088 or /var/ossec/queue/sockets/queue" class="input-field font-mono">
-              </div>
-              <div>
-                <label class="block text-label-caps text-outline uppercase mb-1.5 font-bold">Index / Topic Name</label>
-                <input type="text" id="siem-index" value="openforensic_triage" class="input-field font-mono">
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-              <div class="md:col-span-8">
-                <label class="block text-label-caps text-outline uppercase mb-1.5 font-bold">HEC Token / Authentication Secret</label>
-                <input type="password" id="siem-token" placeholder="Enter API Token or Secret Key…" class="input-field font-mono">
-              </div>
-              <div class="md:col-span-4 flex gap-2">
-                <button id="btn-test-siem" class="flex-1 py-2.5 bg-surface-container border border-outline-variant hover:bg-surface-container-high text-on-surface font-bold text-body-sm rounded transition-all">
-                  Test Conn
-                </button>
-                <button id="btn-save-siem" class="flex-1 py-2.5 bg-surface-container border border-outline-variant hover:bg-surface-container-high text-on-surface font-bold text-body-sm rounded transition-all">
-                  Save Config
-                </button>
-                <button id="btn-export-siem-now" class="flex-1 py-2.5 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 shadow-sm transition-all flex items-center justify-center gap-1">
-                  <span class="material-symbols-outlined text-[16px]">send</span>Stream Now
-                </button>
-              </div>
+            <!-- Hidden stubs to retain JS DOM binding compatibility without UI bloat -->
+            <div class="hidden">
+              <input type="checkbox" id="triage-siem-enable">
+              <select id="siem-type"><option value="wazuh_local_log">Local Log</option></select>
+              <input type="text" id="siem-endpoint" value="local_disk">
+              <input type="text" id="siem-index" value="openforensic_triage">
+              <input type="password" id="siem-token" value="">
+              <button id="btn-test-siem"></button>
+              <button id="btn-save-siem"></button>
+              <button id="btn-export-siem-now"></button>
             </div>
           </section>
         </div>

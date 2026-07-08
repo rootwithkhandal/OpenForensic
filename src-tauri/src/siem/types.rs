@@ -35,7 +35,7 @@ pub struct SiemEvent {
     pub host: String,
     pub source: String,
     pub sourcetype: String,
-    pub event_type: String, // e.g., "process", "network_connection", "browser_history", "event_log", "mobile_device", "mobile_app", "ioc_alert"
+    pub event_type: String, // e.g., "process", "network_connection", "browser_history", "event_log", "im_app", "ioc_alert"
     pub data: serde_json::Value,
 }
 

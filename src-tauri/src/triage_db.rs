@@ -41,6 +41,20 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
     )?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS installed_browsers (
+            id INTEGER PRIMARY KEY,
+            browser_name TEXT,
+            engine TEXT,
+            user_name TEXT,
+            profile_name TEXT,
+            history_path TEXT,
+            history_count INTEGER,
+            status TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS event_logs (
             id INTEGER PRIMARY KEY,
             log_name TEXT,
@@ -53,31 +67,19 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
     )?;
 
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS mobile_devices (
+        "CREATE TABLE IF NOT EXISTS im_apps (
             id INTEGER PRIMARY KEY,
-            device_id TEXT,
-            model TEXT,
-            os_version TEXT,
-            connection_type TEXT,
-            serial_number TEXT,
-            state TEXT
+            app_name TEXT,
+            app_type TEXT,
+            user_name TEXT,
+            install_path TEXT,
+            data_path TEXT,
+            artifacts_count INTEGER,
+            status TEXT
         )",
         [],
     )?;
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS mobile_apps (
-            id INTEGER PRIMARY KEY,
-            package_name TEXT,
-            app_name TEXT,
-            version TEXT,
-            apk_path TEXT,
-            installer TEXT,
-            is_system INTEGER,
-            pulled_local_path TEXT
-        )",
-        [],
-    )?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS prefetch_executions (

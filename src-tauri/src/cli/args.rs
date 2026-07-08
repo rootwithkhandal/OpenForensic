@@ -109,9 +109,9 @@ pub enum CliSubcommand {
         #[arg(long)]
         no_eventlogs: bool,
 
-        /// Skip mobile device apps and APK triage acquisition
+        /// Skip desktop messaging and communication apps triage (WhatsApp, Telegram, etc.)
         #[arg(long)]
-        no_mobile: bool,
+        no_im_apps: bool,
 
         /// Enable real-time SIEM export to Splunk HEC or Wazuh socket (requires --mode analysis)
         #[arg(long)]

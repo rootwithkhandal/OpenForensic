@@ -320,6 +320,24 @@ function updateAnalysisLockScreens() {
   }
 }
 
+function getImAppBadge(row) {
+  const count = row.artifacts_count || 0;
+  if (count > 0) {
+    return `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">EVIDENCE COPIED (${count})</span>`;
+  } else {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">INSTALLED (NO DATA)</span>';
+  }
+}
+
+function getBrowserRiskBadge(row) {
+  const count = row.history_count || 0;
+  if (count > 0) {
+    return `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">HISTORY EXTRACTED (${count})</span>`;
+  } else {
+    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">PROFILE ONLY / EMPTY</span>';
+  }
+}
+
 function getAppRiskBadge(row) {
   const isSystem = row.is_system;
   const installer = (row.installer || '').toLowerCase();
@@ -1127,7 +1145,7 @@ function setupEventListeners() {
     const collect_volatile = document.getElementById('triage-volatile').checked;
     const collect_browsers = document.getElementById('triage-browsers').checked;
     const collect_eventlogs = document.getElementById('triage-eventlogs').checked;
-    const collect_mobile = document.getElementById('triage-mobile').checked;
+    const collect_im_apps = document.getElementById('triage-im-apps') ? document.getElementById('triage-im-apps').checked : true;
     const siemConfig = getSiemConfigFromUI();
 
     try {
@@ -1143,14 +1161,31 @@ function setupEventListeners() {
         collectVolatile: collect_volatile,
         collectBrowsers: collect_browsers,
         collectEventlogs: collect_eventlogs,
-        collectMobile: collect_mobile,
+        collectImApps: collect_im_apps,
         siemConfig: siemConfig.enabled ? siemConfig : null,
         sourceRoot: sourceRoot
       });
 
-      // Auto-load DB path for analysis workbench if it succeeds
+      // Auto-load DB path for analysis workbench and populate summary box if it succeeds
       if (elements.triageDbPath) {
-         elements.triageDbPath.value = destPath + "\\triage.db";
+         const db = destPath + "\\triage.db";
+         elements.triageDbPath.value = db;
+         const statMap = [
+           { table: 'processes', id: 'stat-processes' },
+           { table: 'network_connections', id: 'stat-connections' },
+           { table: 'browser_history', id: 'stat-history' },
+           { table: 'installed_browsers', id: 'stat-browsers' },
+           { table: 'event_logs', id: 'stat-logs' },
+           { table: 'im_apps', id: 'stat-im-apps' }
+         ];
+         for (const item of statMap) {
+           try {
+             const resJson = await invoke('query_triage_db', { dbPath: db, tableName: item.table });
+             const rows = JSON.parse(resJson);
+             const el = document.getElementById(item.id);
+             if (el) el.textContent = rows.length.toString();
+           } catch (e) { /* table skipped or empty */ }
+         }
       }
     } catch (err) {
       state.activeJob = false;
@@ -1179,13 +1214,15 @@ function setupEventListeners() {
 
     const firstRow = data[0];
     const keys = Object.keys(firstRow);
-    const hasAppRisk = ('package_name' in firstRow);
+    const hasBrowserRisk = ('browser_name' in firstRow && 'history_count' in firstRow);
+    const hasImRisk = !hasBrowserRisk && ('app_name' in firstRow && 'artifacts_count' in firstRow);
+    const hasAppRisk = !hasBrowserRisk && !hasImRisk && ('package_name' in firstRow);
     const hasProcRisk = ('pid' in firstRow || 'exe_path' in firstRow || 'command_line' in firstRow);
     const hasExecRisk = ('prefetch_hash' in firstRow || 'source_type' in firstRow);
 
     let theadHtml = '';
-    if (hasAppRisk || hasProcRisk || hasExecRisk) {
-      theadHtml += '<th style="padding: 12px; font-weight: bold; color: var(--color-primary);">Risk &amp; Anomaly</th>';
+    if (hasBrowserRisk || hasImRisk || hasAppRisk || hasProcRisk || hasExecRisk) {
+      theadHtml += '<th style="padding: 12px; font-weight: bold; color: var(--color-primary);">Status &amp; Evidence</th>';
     }
     keys.forEach(key => {
       theadHtml += `<th style="padding: 12px; font-weight: 600; text-transform: capitalize;">${key.replace(/_/g, ' ')}</th>`;
@@ -1195,7 +1232,11 @@ function setupEventListeners() {
     let tbodyHtml = '';
     data.forEach(row => {
       tbodyHtml += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">';
-      if (hasAppRisk) {
+      if (hasBrowserRisk) {
+        tbodyHtml += `<td style="padding: 10px 12px;">${getBrowserRiskBadge(row)}</td>`;
+      } else if (hasImRisk) {
+        tbodyHtml += `<td style="padding: 10px 12px;">${getImAppBadge(row)}</td>`;
+      } else if (hasAppRisk) {
         tbodyHtml += `<td style="padding: 10px 12px;">${getAppRiskBadge(row)}</td>`;
       } else if (hasProcRisk) {
         tbodyHtml += `<td style="padding: 10px 12px;">${getProcessRiskBadge(row)}</td>`;

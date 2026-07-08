@@ -762,7 +762,7 @@ pub async fn acquire_triage(
     collect_volatile: bool,
     collect_browsers: bool,
     collect_eventlogs: bool,
-    collect_mobile: bool,
+    collect_im_apps: bool,
     siem_config: Option<crate::siem::SiemConfig>,
     source_root: Option<String>,
     progress_tx: Sender<ProgressEvent>,
@@ -908,96 +908,22 @@ pub async fn acquire_triage(
         }
     }
 
-    // 3. Collect Browser History Logs
+    // 3. Collect Browser History Logs & Installed Browsers across Windows, macOS, and Linux
     if collect_browsers {
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Copying browser history databases...".to_string())).await;
-        let browser_dir = dest_dir.join("browsers");
-        fs::create_dir_all(&browser_dir)?;
-
-        fn copy_if_exists(src: std::path::PathBuf, dst: std::path::PathBuf, label: &str) -> Option<String> {
-            if src.exists() {
-                let _ = std::fs::copy(&src, &dst);
-                Some(format!("[TRIAGE] Successfully copied {} history database.", label))
-            } else {
-                None
-            }
-        }
-
-        let mut copied_dbs = Vec::new();
-
-        if is_mounted_target {
-            let users_dir = root_path.join("Users");
-            if let Ok(entries) = fs::read_dir(&users_dir) {
-                for entry in entries.flatten() {
-                    let user_path = entry.path();
-                    if user_path.is_dir() {
-                        let user_name = user_path.file_name().unwrap_or_default().to_string_lossy();
-                        let chrome_src = user_path.join("AppData/Local/Google/Chrome/User Data/Default/History");
-                        let chrome_dst = browser_dir.join(format!("chrome_history_{}", user_name));
-                        if let Some(msg) = copy_if_exists(chrome_src, chrome_dst.clone(), &format!("Chrome ({})", user_name)) {
-                            let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
-                            copied_dbs.push((chrome_dst, format!("Chrome ({})", user_name)));
-                        }
-                        let edge_src = user_path.join("AppData/Local/Microsoft/Edge/User Data/Default/History");
-                        let edge_dst = browser_dir.join(format!("edge_history_{}", user_name));
-                        if let Some(msg) = copy_if_exists(edge_src, edge_dst.clone(), &format!("Edge ({})", user_name)) {
-                            let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
-                            copied_dbs.push((edge_dst, format!("Edge ({})", user_name)));
-                        }
-                    }
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Initiating cross-platform browser triage...".to_string())).await;
+        match crate::browser_triage::run_browser_triage(
+            &dest_dir,
+            &root_path,
+            is_mounted_target,
+            progress_tx.clone(),
+        ).await {
+            Ok(browsers) => {
+                if let Some(ref db) = triage_db {
+                    crate::browser_triage::save_browsers_to_db(db, &browsers);
                 }
             }
-        } else if cfg!(target_os = "windows") {
-            let base = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
-            let entries = [
-                (base.join("Google/Chrome/User Data/Default/History"), browser_dir.join("chrome_history"), "Chrome"),
-                (base.join("Microsoft/Edge/User Data/Default/History"),  browser_dir.join("edge_history"),  "Edge"),
-            ];
-            for (src, dst, label) in entries {
-                if let Some(msg) = copy_if_exists(src, dst.clone(), label) {
-                    let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
-                    copied_dbs.push((dst, label.to_string()));
-                }
-            }
-        } else {
-            let home = std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default());
-            let chrome_rel = if cfg!(target_os = "macos") {
-                "Library/Application Support/Google/Chrome/Default/History"
-            } else {
-                ".config/google-chrome/Default/History"
-            };
-            let label = if cfg!(target_os = "macos") { "macOS Chrome" } else { "Linux Chrome" };
-            let dst = browser_dir.join("chrome_history");
-            if let Some(msg) = copy_if_exists(home.join(chrome_rel), dst.clone(), label) {
-                let _ = progress_tx.send(ProgressEvent::Log(msg)).await;
-                copied_dbs.push((dst, label.to_string()));
-            }
-        }
-
-        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Parsing browser history into SQLite...".to_string())).await;
-        if let Some(ref db) = triage_db {
-            for (db_file, browser) in copied_dbs {
-                if let Ok(hist_db) = rusqlite::Connection::open(&db_file)
-                    && let Ok(mut stmt) = hist_db.prepare("SELECT url, title, visit_count, last_visit_time FROM urls")
-                {
-                    let rows = stmt.query_map([], |row| {
-                        Ok((
-                            row.get::<_, String>(0)?,
-                            row.get::<_, String>(1)?,
-                            row.get::<_, i32>(2)?,
-                            row.get::<_, i64>(3)?,
-                        ))
-                    });
-                    if let Ok(iter) = rows {
-                        for row in iter.flatten() {
-                            let (url, title, count, time) = row;
-                            let _ = db.execute(
-                                "INSERT INTO browser_history (browser_name, url, title, visit_time, visit_count) VALUES (?1, ?2, ?3, ?4, ?5)",
-                                rusqlite::params![browser, url, title, time.to_string(), count],
-                            );
-                        }
-                    }
-                }
+            Err(e) => {
+                let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] WARNING: Web browser triage encountered an issue: {}. Continuing.", e))).await;
             }
         }
     }
@@ -1064,31 +990,22 @@ pub async fn acquire_triage(
         }
     }
 
-    // 5. Collect Mobile Device Triage (Android via ADB)
-    if collect_mobile {
-        if is_mounted_target {
-            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Target is mounted dead disk: skipping live ADB mobile triage.".to_string())).await;
-        } else {
-            let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Starting mobile device triage (Android ADB)...".to_string())).await;
-
-            let mobile_config = crate::mobile_triage::MobileTriageConfig {
-                dest_dir: dest_dir.clone(),
-                adb_path: None,
-                pull_apks: false,
-            };
-
-            match crate::mobile_triage::run_mobile_triage(
-                &mobile_config,
-                progress_tx.clone(),
-            ).await {
-                Ok((devices, apps)) => {
-                    if let Some(ref db) = triage_db {
-                        crate::mobile_triage::save_mobile_triage_to_db(db, &devices, &apps);
-                    }
+    // 5. Collect Installed Messaging & Communication Apps (WhatsApp, Telegram, Discord, etc.)
+    if collect_im_apps {
+        let _ = progress_tx.send(ProgressEvent::Log("[TRIAGE] Scanning system for installed messaging & communication apps (WhatsApp, Telegram, Discord, etc.)...".to_string())).await;
+        match crate::im_triage::run_im_triage(
+            &dest_dir,
+            &root_path,
+            is_mounted_target,
+            progress_tx.clone(),
+        ).await {
+            Ok(apps) => {
+                if let Some(ref db) = triage_db {
+                    crate::im_triage::save_im_apps_to_db(db, &apps);
                 }
-                Err(e) => {
-                    let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] WARNING: Mobile triage failed: {}. Continuing.", e))).await;
-                }
+            }
+            Err(e) => {
+                let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] WARNING: Messaging apps triage encountered an issue: {}. Continuing.", e))).await;
             }
         }
     }

@@ -23,7 +23,8 @@ pub mod siem;
 mod state;
 pub mod timeline;
 mod triage_db;
-mod mobile_triage;
+mod im_triage;
+mod browser_triage;
 mod yara_scanner;
 mod disk_mount;
 mod prefetch;
@@ -343,11 +344,7 @@ async fn start_acquisition(
             read_verification: config_input.read_verification,
             keywords: config_input.keywords.clone(),
             yara_rules_path: config_input.yara_rules_path.clone(),
-            active_plugins: app_handle
-                .state::<PluginManagerState>()
-                .lock()
-                .map(|m| m.get_active_plugins().into_iter().map(|(_, p)| p).collect())
-                .unwrap_or_default(),
+            active_plugins: vec![], // Issue #4: Excluded from live capture path per architectural defense-in-depth
         };
 
         let source_path = config_input.source_path.clone();
@@ -861,7 +858,7 @@ async fn start_triage(
     collect_volatile: bool,
     collect_browsers: bool,
     collect_eventlogs: bool,
-    collect_mobile: bool,
+    collect_im_apps: bool,
     siem_config: Option<crate::siem::SiemConfig>,
     source_root: Option<String>,
     state: State<'_, ActiveTaskState>,
@@ -889,7 +886,7 @@ async fn start_triage(
             collect_volatile,
             collect_browsers,
             collect_eventlogs,
-            collect_mobile,
+            collect_im_apps,
             siem_config,
             source_root,
             tx.clone(),
@@ -922,9 +919,9 @@ async fn query_triage_db(
         "processes",
         "network_connections",
         "browser_history",
+        "installed_browsers",
         "event_logs",
-        "mobile_devices",
-        "mobile_apps",
+        "im_apps",
         "prefetch_executions",
         "amcache_entries",
         "srum_resource_usage",
@@ -1392,13 +1389,7 @@ async fn start_live_acquisition(
                             read_verification: false,
                             keywords: Vec::new(),
                             yara_rules_path: None,
-                            active_plugins: app_handle
-                                .state::<PluginManagerState>()
-                                .lock()
-                                .map(|m| {
-                                    m.get_active_plugins().into_iter().map(|(_, p)| p).collect()
-                                })
-                                .unwrap_or_default(),
+                            active_plugins: vec![], // Issue #4: Excluded from live capture path per architectural defense-in-depth
                         };
 
                         match crate::output::OutputWriter::new(
@@ -1691,7 +1682,9 @@ async fn set_acquisition_mode(
 async fn load_plugin(
     path: String,
     state: State<'_, PluginManagerState>,
+    mode_state: State<'_, crate::state::AcquisitionModeState>,
 ) -> Result<crate::plugins::PluginInfo, String> {
+    crate::state::require_analysis_mode(&mode_state)?;
     let path = std::path::Path::new(&path);
     let mut manager = state
         .lock()

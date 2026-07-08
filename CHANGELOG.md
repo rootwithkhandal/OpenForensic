@@ -46,9 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `pre_acquisition`: Invoked before disk imaging to inspect case metadata, volume dimensions, and initialize resources.
   - `on_block`: Streamed asynchronously for every block chunk read from source devices without degrading disk reading throughput.
   - `post_acquisition`: Executed upon completion to return custom metrics, hashes, and analytical outputs.
-- **Dual-Loader Extension Engine**:
-  - **Native Loader**: Support for dynamically loading compiled shared libraries (`.so`, `.dll`, `.dylib`) via FFI symbols (`_openforensic_plugin_create`) using `libloading`.
-  - **WebAssembly Loader**: Support for running sandboxed `.wasm` modules inside memory-isolated runtime environments powered by `wasmtime`.
+- **Static Native Extension Engine**: Support for loading compiled shared libraries (`.so`, `.dll`, `.dylib`) via FFI symbols (`_openforensic_plugin_create`) using `libloading` with static native dispatch for high throughput without virtual table or WASM runtime overhead.
 - **Pipeline & Report Integration**: Integrated asynchronous broadcast channels into disk imaging and live VSS acquisition workflows. Embedded plugin results into generated PDF, HTML, and text case reports.
 - **Tauri Management Commands**: Exposed front-end IPC commands (`load_plugin`, `list_plugins`, `unload_plugin`, `scan_plugins_directory`) to manage registered plugins.
 - **Automated Testing**: Added unit tests verifying plugin lifecycle ordering and manager operations.

@@ -652,16 +652,15 @@
                   </div>
                 </div>
                 <input type="checkbox" id="triage-registry" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
-              </label>
               <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
                 <div class="flex items-center gap-3">
-                  <span class="material-symbols-outlined text-primary text-[20px]">smartphone</span>
+                  <span class="material-symbols-outlined text-primary text-[20px]">chat</span>
                   <div>
-                    <div class="text-body-md font-bold text-on-surface">Mobile Devices</div>
-                    <div class="text-label-caps text-outline">Android ADB triage</div>
+                    <div class="text-body-md font-bold text-on-surface">Messaging &amp; IM Apps</div>
+                    <div class="text-label-caps text-outline">WhatsApp, Telegram, Discord</div>
                   </div>
                 </div>
-                <input type="checkbox" id="triage-mobile" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+                <input type="checkbox" id="triage-im-apps" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
               </label>
             </div>
           </section>
@@ -698,23 +697,27 @@
             <div class="space-y-2">
               <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
                 <span class="text-label-caps text-outline uppercase">Processes</span>
-                <div class="mt-1 text-xl font-bold text-on-surface">—</div>
+                <div id="stat-processes" class="mt-1 text-xl font-bold text-on-surface">—</div>
               </div>
               <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
                 <span class="text-label-caps text-outline uppercase">Connections</span>
-                <div class="mt-1 text-xl font-bold text-on-surface">—</div>
+                <div id="stat-connections" class="mt-1 text-xl font-bold text-on-surface">—</div>
               </div>
               <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
                 <span class="text-label-caps text-outline uppercase">History Entries</span>
-                <div class="mt-1 text-xl font-bold text-on-surface">—</div>
+                <div id="stat-history" class="mt-1 text-xl font-bold text-on-surface">—</div>
               </div>
               <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
                 <span class="text-label-caps text-outline uppercase">Log Events</span>
-                <div class="mt-1 text-xl font-bold text-on-surface">—</div>
+                <div id="stat-logs" class="mt-1 text-xl font-bold text-on-surface">—</div>
               </div>
               <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
-                <span class="text-label-caps text-outline uppercase">Mobile Devices</span>
-                <div class="mt-1 text-xl font-bold text-on-surface">—</div>
+                <span class="text-label-caps text-outline uppercase">Web Browsers</span>
+                <div id="stat-browsers" class="mt-1 text-xl font-bold text-on-surface">—</div>
+              </div>
+              <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
+                <span class="text-label-caps text-outline uppercase">Messaging Apps</span>
+                <div id="stat-im-apps" class="mt-1 text-xl font-bold text-on-surface">—</div>
               </div>
             </div>
           </section>
@@ -730,7 +733,7 @@
           </div>
           <h3 class="text-headline font-bold text-on-surface mb-2">Analysis Mode Required</h3>
           <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
-            Interactive SQL querying, mobile risk analysis, and SIEM live streaming require <span class="text-amber-500 font-bold">Analysis Mode</span>.
+            Interactive SQL querying and SIEM live streaming require <span class="text-amber-500 font-bold">Analysis Mode</span>.
           </p>
           <button class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2">
             <span class="material-symbols-outlined text-[20px]">lock_open</span>Unlock Analysis Mode
@@ -746,7 +749,7 @@
                 <span class="material-symbols-outlined text-primary text-[28px]">database</span>
                 <div>
                   <h2 class="text-headline font-bold text-on-surface">Triage SQL Workbench</h2>
-                  <p class="text-body-sm text-on-surface-variant">Query SQLite triage databases, inspect mobile app risk indicators, and export forensic findings.</p>
+                  <p class="text-body-sm text-on-surface-variant">Query SQLite triage databases and export forensic findings.</p>
                 </div>
               </div>
               <div class="flex items-center gap-2">
@@ -777,9 +780,10 @@
                     <option value="processes">Running Processes</option>
                     <option value="network_connections">Network Connections</option>
                     <option value="browser_history">Browser History</option>
+                    <option value="installed_browsers">Installed Web Browsers &amp; Profiles</option>
                     <option value="event_logs">System Event Logs</option>
-                    <option value="mobile_devices">Mobile Devices</option>
-                    <option value="mobile_apps">Mobile Apps (Risk Analysis)</option>
+                    <option value="im_apps">Installed Messaging &amp; IM Apps</option>
+
                     <option value="prefetch_executions">Prefetch Executions (.pf)</option>
                     <option value="amcache_entries">Amcache & Shimcache Evidence</option>
                     <option value="srum_resource_usage">SRUM Resource Usage</option>
@@ -800,7 +804,7 @@
                 <span class="text-[11px] font-mono text-outline">SELECT, EXPLAIN, WITH only (Zero-Panic enforced)</span>
               </div>
               <div class="flex gap-2">
-                <textarea id="triage-custom-sql" rows="2" placeholder="e.g. SELECT package_name, app_name, installer FROM mobile_apps WHERE is_system = 0;" class="flex-1 text-body-sm font-mono bg-surface border border-outline-variant rounded p-2.5 focus:ring-1 focus:ring-primary outline-none resize-y"></textarea>
+                <textarea id="triage-custom-sql" rows="2" placeholder="e.g. SELECT * FROM processes WHERE pid > 1000;" class="flex-1 text-body-sm font-mono bg-surface border border-outline-variant rounded p-2.5 focus:ring-1 focus:ring-primary outline-none resize-y"></textarea>
                 <button id="btn-execute-custom-sql" class="px-5 py-2 bg-surface-container-high hover:bg-primary hover:text-on-primary text-on-surface font-bold text-body-sm rounded border border-outline-variant transition-all flex flex-col items-center justify-center gap-1 shrink-0">
                   <span class="material-symbols-outlined text-[20px]">play_arrow</span>Execute
                 </button>
@@ -1525,8 +1529,9 @@
   }
   if (_caseInput) _caseInput.addEventListener('input', syncCaseLabel);
 
-  // 4. Set initial active state
-  window.switchTab('imaging');
+  // 4. Set initial active state — Case Management is the default landing tab
+  window.switchTab('cases');
+  if (typeof loadCases === 'function') loadCases();
 </script>
 </body>
 </html>

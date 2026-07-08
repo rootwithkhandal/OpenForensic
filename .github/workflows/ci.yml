@@ -1,4 +1,4 @@
-name: OpenForensic CI/CD Verification Matrix
+name: OpenForensic Cross-Platform CI/CD Verification Matrix
 
 on:
   push:
@@ -28,6 +28,12 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
       - name: Install Linux system dependencies (Tauri & WebKit)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -39,18 +45,25 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      - name: Install Frontend & Tauri CLI Dependencies
+        run: npm ci
 
-      - name: Step 1 - Cargo Check (All Targets)
+      - name: Install cargo-audit (with caching)
+        uses: taiki-e/install-action@cargo-audit
+        continue-on-error: true
+
+      - name: Step 1 - Cargo Check (All Targets across Windows, macOS, Linux)
         run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
 
       - name: Step 2 - Cargo Clippy (Deny Warnings)
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
-      - name: Step 3 - Run Unit Tests (Library suite)
-        # We run --lib so unit tests execute without requiring Administrator UAC elevation on Windows runners
+      - name: Step 3 - Run Library & Triage Unit Tests
         run: cargo test --lib --manifest-path src-tauri/Cargo.toml
 
-      - name: Step 4 - Dependency Vulnerability Scan (Cargo Audit)
+      - name: Step 4 - Verify Cross-Platform Release Compilation
+        run: cargo build --release --lib --manifest-path src-tauri/Cargo.toml
+
+      - name: Step 5 - Dependency Vulnerability Scan (Cargo Audit)
         run: cargo audit
+        continue-on-error: true

@@ -1919,7 +1919,10 @@ fn main() {
             scan_image_yara,
             crate::disk_mount::mount_disk_image,
             crate::disk_mount::unmount_disk_image,
-            crate::disk_mount::list_mounted_images
+            crate::disk_mount::list_mounted_images,
+            crate::case_management::create_case_container,
+            crate::case_management::get_case_folder_structure,
+            crate::case_management::get_case_export_path
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

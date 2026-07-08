@@ -21,7 +21,7 @@ To keep the active acquisition footprint lightweight and prevent accidental evid
 Mode transitions are designed to be intentional, audited investigator actions rather than silent background toggles.
 
 ### 1. In the Desktop GUI Dashboard
-1. Look at the top navigation header bar. By default, the status badge displays 🟢 **Capture Mode**.
+1. The application opens on the **Case Management** tab by default. Look at the top navigation header bar — by default, the status badge displays 🟢 **Capture Mode**.
 2. Click the **"Switch to Analysis Mode"** button.
 3. A modal confirmation dialog will appear:
    > *"Switching to Analysis Mode unlocks deep analysis features, threat intelligence API enrichment, and live SIEM streaming. This disables further read-only evidence safeguards for this session. Do you wish to proceed?"*

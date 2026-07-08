@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-07-08
+
+### Added
+- **Unified Forensic Case Folder Architecture**: Designed and implemented a native, self-contained Autopsy-style directory container architecture (`<CaseRoot>/<CaseNumber>/`) ensuring all case artifacts reside in one central folder on disk without external database import scripts.
+- **Standardized Case Subfolders**:
+  - `Cache/`: Temporary indexing, YARA compilation artifacts, and scratch space.
+  - `Export/`: Default destination for physical/logical disk extractions, carved files, and supertimelines.
+  - `Log/`: Chain-of-custody acquisition logs, audit trails, and cryptographic verification records.
+  - `ModuleOutput/`: Live Triage SQLite databases (`triage_results.db`) and Volatility RAM analysis outputs.
+  - `Reports/`: Court-admissible HTML, JSON, and PDF forensic reports.
+  - `<CaseName>.ofc`: JSON-based case container manifest tracking metadata and subfolder schemas.
+  - `openforensic.db`: Self-contained per-case portable SQLite database mirroring all chain-of-custody evidence records.
+- **Interactive Case Architecture Control Center**:
+  - Added a "+ New Case Folder" modal with native OS directory browsing (`browse_folder`) in the Case Management tab.
+  - Added an interactive visual directory tree showing real-time item counts and storage consumption (MB) across subfolders.
+  - Added a "Set Active Workspace" button that binds the active case number to the app header and automatically pre-populates acquisition, triage, and timeline export destinations to the active case folder.
+- **Dual-Database Portability**: Implemented synchronization between the global workspace database (`cases.db`) and per-case portable SQLite databases (`openforensic.db`), enabling zero-import archiving and seamless transport across workstations.
+- **Default Landing Tab Changed to Case Management**: The application now opens directly to the **Case Management** tab instead of Disk Imaging, reflecting a case-first forensic workflow where investigators create or select a case container before beginning acquisition.
+
 ## [2.0.2] - 2026-07-03
 
 ### Added

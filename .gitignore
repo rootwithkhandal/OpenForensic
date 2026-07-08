@@ -54,3 +54,4 @@ src-tauri/*.pub
 undefined/
 mcp.json
 .gemini/
+Test/

@@ -2175,34 +2175,241 @@ if (document.readyState === 'loading') {
 }
 
 // Case Management Functions
+// Case Management Functions
+let activeSelectedCaseId = null;
+
 async function loadCases() {
   const container = document.getElementById('cases-list');
-  container.innerHTML = '<div class="info-message">Loading cases...</div>';
+  if (!container) return;
+  container.innerHTML = '<div class="info-message text-body-sm text-outline p-4">Loading cases...</div>';
   try {
     const cases = await invoke('get_cases');
     if (cases.length === 0) {
-      container.innerHTML = '<div class="info-message">No cases found in the database.</div>';
+      container.innerHTML = '<div class="info-message text-body-sm text-outline p-4">No cases found. Click "New Case Folder" to initialize.</div>';
       return;
     }
 
-    let html = '<table style="width: 100%; border-collapse: collapse; color: var(--text-main);">';
-    html += '<tr style="border-bottom: 1px solid var(--color-border);"><th style="text-align: left; padding: 8px;">Case Number</th><th style="text-align: left; padding: 8px;">Examiner</th><th style="text-align: left; padding: 8px;">Created At</th><th style="text-align: right; padding: 8px;">Actions</th></tr>';
-
+    let html = '<div class="flex items-center gap-3 py-1">';
     for (const c of cases) {
-      html += `<tr style="border-bottom: 1px solid var(--color-bg);">
-        <td style="padding: 8px; font-family: 'JetBrains Mono', monospace;">${c.case_number}</td>
-        <td style="padding: 8px;">${c.examiner_name}</td>
-        <td style="padding: 8px;">${c.created_at}</td>
-        <td style="padding: 8px; text-align: right;">
-          <button class="btn btn-secondary btn-sm" onclick="exportCaseReport(${c.id}, '${c.case_number}')">Export Report</button>
-        </td>
-      </tr>`;
+      const isSelected = activeSelectedCaseId === c.id;
+      const borderClass = isSelected ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-outline-variant bg-surface hover:border-primary/50';
+      const badge = c.case_root ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-600 border border-green-500/20">Unified Folder</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">Legacy</span>';
+      
+      html += `
+        <div onclick="selectCase(${c.id})" class="cursor-pointer shrink-0 w-64 p-3 rounded-xl border ${borderClass} shadow-sm transition-all flex flex-col justify-between h-20">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono font-bold text-body-sm text-on-surface truncate" title="${c.case_number}">${c.case_number}</span>
+            ${badge}
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-outline mt-1">
+            <span class="truncate max-w-[120px]">${c.examiner_name}</span>
+            <span>${c.created_at.split(' ')[0]}</span>
+          </div>
+        </div>
+      `;
     }
-    html += '</table>';
+    html += '</div>';
     container.innerHTML = html;
+
+    if (activeSelectedCaseId) {
+      selectCase(activeSelectedCaseId);
+    } else if (cases.length > 0) {
+      selectCase(cases[0].id);
+    }
   } catch (e) {
-    container.innerHTML = `<div class="info-message" style="color: red;">Failed to load cases: ${e}</div>`;
+    container.innerHTML = `<div class="info-message text-body-sm text-error p-4">Failed to load cases: ${e}</div>`;
   }
+}
+
+async function selectCase(caseId) {
+  activeSelectedCaseId = caseId;
+  await loadCasesRibbonOnly();
+  
+  const detailContainer = document.getElementById('case-detail-content');
+  const breadcrumb = document.getElementById('case-detail-breadcrumb');
+  if (!detailContainer) return;
+  
+  detailContainer.innerHTML = '<div class="p-8 text-center text-outline"><span class="material-symbols-outlined animate-spin text-[32px] mb-2">sync</span><p>Loading case architecture...</p></div>';
+
+  try {
+    const details = await invoke('get_case_details', { caseId });
+    if (breadcrumb) breadcrumb.textContent = details.case.case_number;
+
+    let treeHtml = '';
+    if (details.case.case_root) {
+      try {
+        const tree = await invoke('get_case_folder_structure', { caseId });
+        treeHtml = `
+          <div class="bg-surface border border-outline-variant rounded-xl p-6 shadow-sm mb-6">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-outline-variant">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                  <span class="material-symbols-outlined text-[24px]">folder_managed</span>
+                </div>
+                <div>
+                  <h4 class="text-headline font-bold text-on-surface">Unified Forensic Case Tree</h4>
+                  <p class="text-data-mono text-outline font-mono">${tree.case_root}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="setActiveWorkspaceCase('${details.case.case_number}', ${caseId})" class="px-4 py-2 bg-primary text-on-primary font-bold text-body-sm rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px]">check_circle</span>Set Active Workspace
+                </button>
+                <button onclick="exportCaseReport(${caseId}, '${details.case.case_number}')" class="px-3.5 py-2 border border-outline-variant rounded-lg hover:bg-surface-container text-on-surface font-semibold text-body-sm flex items-center gap-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-[18px]">file_download</span>Export HTML Report
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+        `;
+        
+        for (const f of tree.folders) {
+          const sizeMB = (f.total_size_bytes / (1024 * 1024)).toFixed(2);
+          treeHtml += `
+            <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col justify-between">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="material-symbols-outlined text-amber-500 text-[20px]">folder</span>
+                <span class="font-bold text-body-sm text-on-surface">${f.name}/</span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-outline font-mono">
+                <span>${f.file_count} items</span>
+                <span class="font-bold text-on-surface-variant">${sizeMB} MB</span>
+              </div>
+            </div>
+          `;
+        }
+
+        treeHtml += `
+            </div>
+            <div class="flex items-center gap-4 text-data-mono text-outline bg-surface-container-low p-3 rounded-lg border border-outline-variant">
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-green-600 text-[18px]">description</span>
+                <span>Manifest: <strong class="font-mono text-on-surface">${tree.manifest_path.split('\\').pop() || tree.manifest_path.split('/').pop()}</strong></span>
+              </div>
+              <div class="h-4 w-px bg-outline-variant"></div>
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-blue-600 text-[18px]">storage</span>
+                <span>Portable DB: <strong class="font-mono text-on-surface">openforensic.db</strong></span>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        treeHtml = `<div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 text-body-sm mb-6">Folder structure warning: ${err}</div>`;
+      }
+    } else {
+      treeHtml = `
+        <div class="bg-surface border border-outline-variant rounded-xl p-6 shadow-sm mb-6 flex items-center justify-between">
+          <div>
+            <h4 class="text-headline font-bold text-on-surface">Legacy Case (No Folder Assigned)</h4>
+            <p class="text-body-sm text-on-surface-variant">This case was created without a unified directory structure.</p>
+          </div>
+          <button onclick="exportCaseReport(${caseId}, '${details.case.case_number}')" class="px-4 py-2 bg-primary text-on-primary font-bold text-body-sm rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[18px]">file_download</span>Export Report
+          </button>
+        </div>
+      `;
+    }
+
+    let evHtml = '<h4 class="text-headline font-bold text-on-surface mb-3">Chain of Custody & Evidence Log</h4>';
+    if (details.evidence.length === 0) {
+      evHtml += '<div class="p-6 bg-surface border border-outline-variant rounded-xl text-center text-outline">No evidence acquired under this case yet.</div>';
+    } else {
+      evHtml += '<div class="space-y-4">';
+      for (const ev of details.evidence) {
+        evHtml += `
+          <div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+            <div class="px-5 py-3 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px]">hard_drive</span>
+                <span class="font-bold text-body-md text-on-surface">${ev.item.evidence_tag}</span>
+                <span class="text-data-mono text-outline font-mono">(${ev.item.source_path})</span>
+              </div>
+              <span class="text-[11px] text-outline">${ev.item.created_at}</span>
+            </div>
+            <div class="p-4">
+        `;
+        if (ev.logs.length === 0) {
+          evHtml += '<p class="text-body-sm text-outline">No acquisition jobs recorded.</p>';
+        } else {
+          evHtml += '<table class="w-full text-left border-collapse text-body-sm"><tr class="border-b border-outline-variant text-outline text-label-caps"><th class="pb-2">Status</th><th class="pb-2">Destination</th><th class="pb-2">Format</th><th class="pb-2">Timestamp</th></tr>';
+          for (const l of ev.logs) {
+            const statusBadge = l.status === 'SUCCESS' ? '<span class="px-2 py-0.5 bg-green-500/10 text-green-600 border border-green-500/20 rounded text-[11px] font-bold">SUCCESS</span>' : `<span class="px-2 py-0.5 bg-error/10 text-error border border-error/20 rounded text-[11px] font-bold">${l.status}</span>`;
+            evHtml += `
+              <tr class="border-b border-outline-variant/40 last:border-0 font-mono">
+                <td class="py-2.5">${statusBadge}</td>
+                <td class="py-2.5 max-w-xs truncate" title="${l.dest_path}">${l.dest_path}</td>
+                <td class="py-2.5">${l.format}</td>
+                <td class="py-2.5 text-outline">${l.timestamp}</td>
+              </tr>
+            `;
+          }
+          evHtml += '</table>';
+        }
+        evHtml += '</div></div>';
+      }
+      evHtml += '</div>';
+    }
+
+    detailContainer.innerHTML = treeHtml + evHtml;
+  } catch (e) {
+    detailContainer.innerHTML = `<div class="p-4 bg-error/10 text-error border border-error/20 rounded-xl">Failed to load case details: ${e}</div>`;
+  }
+}
+
+async function loadCasesRibbonOnly() {
+  const container = document.getElementById('cases-list');
+  if (!container) return;
+  try {
+    const cases = await invoke('get_cases');
+    let html = '<div class="flex items-center gap-3 py-1">';
+    for (const c of cases) {
+      const isSelected = activeSelectedCaseId === c.id;
+      const borderClass = isSelected ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-outline-variant bg-surface hover:border-primary/50';
+      const badge = c.case_root ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-600 border border-green-500/20">Unified Folder</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">Legacy</span>';
+      
+      html += `
+        <div onclick="selectCase(${c.id})" class="cursor-pointer shrink-0 w-64 p-3 rounded-xl border ${borderClass} shadow-sm transition-all flex flex-col justify-between h-20">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono font-bold text-body-sm text-on-surface truncate" title="${c.case_number}">${c.case_number}</span>
+            ${badge}
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-outline mt-1">
+            <span class="truncate max-w-[120px]">${c.examiner_name}</span>
+            <span>${c.created_at.split(' ')[0]}</span>
+          </div>
+        </div>
+      `;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (e) {}
+}
+
+async function setActiveWorkspaceCase(caseNumber, caseId) {
+  const lbl = document.getElementById('active-case-label');
+  const bc  = document.getElementById('breadcrumb-case');
+  const inputCase = document.getElementById('input-case-number');
+  if (lbl) lbl.textContent = caseNumber;
+  if (bc)  bc.textContent  = caseNumber;
+  if (inputCase) inputCase.value = caseNumber;
+  
+  try {
+    const modOut = await invoke('get_case_export_path', { caseId, filename: 'triage_results.db', subfolder: 'ModuleOutput' });
+    const btnTriageDest = document.getElementById('triage-dest-root');
+    if (btnTriageDest) btnTriageDest.value = modOut.replace(/[/\\][^/\\]+$/, '');
+    
+    const expOut = await invoke('get_case_export_path', { caseId, filename: 'timeline.csv', subfolder: 'Export' });
+    const btnTimeDest = document.getElementById('timeline-dest-dir');
+    if (btnTimeDest) btnTimeDest.value = expOut.replace(/[/\\][^/\\]+$/, '');
+
+    const imgOut = await invoke('get_case_export_path', { caseId, filename: `${caseNumber}_image.dd`, subfolder: 'Export' });
+    const btnAcqDest = document.getElementById('input-dest-path');
+    if (btnAcqDest && !btnAcqDest.value) btnAcqDest.value = imgOut;
+  } catch (e) {}
+
+  alert(`Active workspace set to ${caseNumber}. Output destinations pre-populated to the case folder!`);
 }
 
 async function exportCaseReport(caseId, caseNumber) {
@@ -2428,6 +2635,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         console.error('Failed to open file dialog:', err);
+      }
+    });
+  }
+
+  // Create Case Modal Handlers
+  const btnShowCreateCase = document.getElementById('btn-show-create-case-modal');
+  const modalCreateCase = document.getElementById('create-case-modal');
+  const btnCloseCreateCase = document.getElementById('btn-close-create-case-modal');
+  const btnCancelCreateCase = document.getElementById('btn-cancel-create-case');
+  const btnBrowseCaseRoot = document.getElementById('btn-browse-case-root');
+  const formCreateCase = document.getElementById('form-create-case');
+
+  if (btnShowCreateCase && modalCreateCase) {
+    btnShowCreateCase.addEventListener('click', () => modalCreateCase.classList.remove('hidden'));
+  }
+  const hideCreateCaseModal = () => {
+    if (modalCreateCase) modalCreateCase.classList.add('hidden');
+    if (formCreateCase) formCreateCase.reset();
+  };
+  if (btnCloseCreateCase) btnCloseCreateCase.addEventListener('click', hideCreateCaseModal);
+  if (btnCancelCreateCase) btnCancelCreateCase.addEventListener('click', hideCreateCaseModal);
+
+  if (btnBrowseCaseRoot) {
+    btnBrowseCaseRoot.addEventListener('click', async () => {
+      try {
+        const folder = await invoke('browse_folder');
+        if (folder) {
+          const inp = document.getElementById('new-case-root-path');
+          if (inp) inp.value = folder;
+        }
+      } catch (err) {
+        console.error('Failed to browse directory:', err);
+      }
+    });
+  }
+
+  if (formCreateCase) {
+    formCreateCase.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const caseNumber = document.getElementById('new-case-number').value.trim();
+      const caseName = document.getElementById('new-case-name').value.trim();
+      const examinerName = document.getElementById('new-case-examiner').value.trim();
+      const rootPath = document.getElementById('new-case-root-path').value.trim();
+      const notes = document.getElementById('new-case-notes').value.trim();
+
+      if (!caseNumber || !caseName || !examinerName || !rootPath) {
+        alert('Please fill out all required fields.');
+        return;
+      }
+
+      try {
+        logMessage('SYSTEM', `Creating unified forensic case folder for ${caseNumber} at ${rootPath}...`);
+        const caseId = await invoke('create_case_container', {
+          caseNumber,
+          caseName,
+          examinerName,
+          notes,
+          rootPath
+        });
+        logMessage('SYSTEM', `Case ${caseNumber} initialized successfully! Subdirectories and manifest generated.`);
+        hideCreateCaseModal();
+        await loadCases();
+        if (caseId) {
+          selectCase(caseId);
+          setActiveWorkspaceCase(caseNumber, caseId);
+        }
+      } catch (err) {
+        logMessage('ERROR', `Failed to initialize case folder: ` + err);
+        alert('Error creating case folder structure: ' + err);
       }
     });
   }

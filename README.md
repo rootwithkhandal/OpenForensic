@@ -27,7 +27,7 @@
 | **🧩 Extensible Plugin Platform** | Modular plugin architecture supporting compiled native shared libraries (`.so`, `.dll`, `.dylib`). Features standardized lifecycle hooks (`pre_acquisition`, `on_block`, `post_acquisition`) with static native dispatch for real-time data streaming, custom hashing, and automated report enrichment without dynamic trait or runtime overhead. |
 | **🔐 Cryptographic Hash Verification** | Single-pass integrity verification using NIST-approved **SHA-256 and SHA-512** engines. MD5 and SHA-1 requests from legacy presets are mapped to deterministic truncated SHA-256 seals for zero-vulnerability compliance. Includes built-in checkpointing to pause and resume long acquisitions without data corruption. |
 | **🔑 Keyed Integrity Manifests** | Built-in SHA-256 Keyed Integrity Sealing engine generating detached tamper-evident signatures (`.manifest` / `.sig`) for evidence containers and case reports without requiring external asymmetric dependency bloat. |
-| **📁 Case Management & Reporting** | Integrated SQLite case database tracking evidence tags, investigator notes, device metadata, and cryptographic hashes. Generates court-admissible HTML and PDF forensic reports. |
+| **📁 Unified Case Management & Reporting** | Self-contained **Autopsy-style Unified Case Folder Architecture** (`Cache/`, `Export/`, `Log/`, `ModuleOutput/`, `Reports/`, `.ofc` manifest, and portable `openforensic.db`). All disk images, triage databases, timelines, and court-admissible HTML/PDF reports are automatically routed to one central directory per case. Zero external database import scripts required. |
 
 > [!NOTE]
 > **Strict Separation of Capture vs. Analysis (Defense-in-Depth)**: OpenForensic enforces a strict forensic boundary between data acquisition and post-acquisition analysis. On boot, the application defaults to **Capture Mode** (read-only physical/logical acquisition and hashing). To access analytical and streaming features (**Triage SQL Workbench**, **Native Rust Volatility RAM Analysis**, **Threat-Intel Enrichment**, **SIEM & SOC Integration**, **Timeline Generation**, and **RAM Master-Key Extraction**), investigators must explicitly toggle to **Analysis Mode** per session via an interactive UI confirmation dialog or `--mode analysis` CLI flag. Mode transitions are enforced by Rust runtime guards (`require_analysis_mode`), backed by dual static capability allowlists (`capabilities/default.json` and `capabilities/analysis.json`), and automatically recorded in the SQLite case database (`audit_logs` table) for chain-of-custody compliance. See the **[Enabling Analysis Suite Features Guide](docs/enabling-analysis-suite-features.md)** for details.
@@ -59,7 +59,8 @@ graph TD
     end
 
     subgraph Storage & UI
-        CaseDB[(SQLite Case Management DB)]
+        CaseDB[(Global & Portable SQLite Case DBs)]
+        CaseRoot[📁 Unified Case Folder Architecture]
         Reports[HTML / PDF Evidence Reports]
         UI[Tauri 2 / Vanilla CSS Forensic Dashboard]
     end
@@ -80,7 +81,8 @@ graph TD
     Writer --> CaseDB
     VolEngine --> CaseDB
 
-    CaseDB --> Reports
+    CaseDB --> CaseRoot
+    CaseRoot --> Reports
     CaseDB -->|Structured JSON Stream| SIEM[Splunk HEC / Wazuh Socket]
     CaseDB <-->|Asynchronous IPC| UI
     VolEngine -->|Real-time Event Streams| UI
@@ -211,28 +213,30 @@ sudo ./target/release/openforensic
 
 ## 🖥️ Dashboard Overview & Workflow
 
-1. **📂 Disk Imaging Tab**:
+1. **📁 Case Management Tab** *(Default Landing Tab)*:
+   - The application opens directly to Case Management. Initialize native **Unified Case Folder Architecture** containers (`Cache/`, `Export/`, `Log/`, `ModuleOutput/`, `Reports/`, `.ofc` manifest, and portable `openforensic.db`) with native OS directory browsing.
+   - Inspect live item counts and storage consumption (MB) across case subfolders via the interactive **Case Architecture Visualizer**.
+   - Click **Set Active Workspace** to automatically pre-populate acquisition, triage, and timeline export destinations directly to the active case folder.
+   - Review historical acquisition jobs, verify stored SHA-256/SHA-512 hashes, and export self-contained HTML evidence reports. See the **[Unified Case Architecture Guide](docs/unified-case-architecture.md)** for details.
+
+2. **📂 Disk Imaging Tab**:
    - Select a physical block device or logical directory.
    - Choose destination format (`Raw .dd`, `E01`, or `AFF`).
    - Enable sector compression, sparse zero-block skipping, and select verification hash algorithms.
    - Attach optional YARA rulesets (`.yar`) for real-time IOC alerting during the imaging process.
 
-2. **⚡ System Triage Tab**:
+3. **⚡ System Triage Tab**:
    - One-click execution of rapid system collection: running processes, network sockets, browser histories, and event logs.
    - *(Note: The interactive **Triage SQL Workbench** is gated behind **Analysis Mode**; click "Switch to Analysis Mode" in the top bar to unlock).*
 
-3. **🔴 Live Acquisition Tab**:
+4. **🔴 Live Acquisition Tab**:
    - Acquire live system volume shadow copies without rebooting.
    - Check **Capture Physical Memory (RAM)** to dump volatile system memory using auto-detected or custom tools (`winpmem`, `avml`).
 
-4. **⏱️ Timeline Generator Tab** *(Requires Analysis Mode)*:
+5. **⏱️ Timeline Generator Tab** *(Requires Analysis Mode)*:
    - Input any acquired raw disk image (`.dd`).
    - Specify output destination to generate a unified, chronological timeline (`timeline.csv` / `timeline.json`) of file system modifications and journal entries.
    - *Gated behind **Analysis Mode** to protect live acquisition sessions from evidence modification.*
-
-5. **📁 Case Management Tab**:
-   - Create and manage forensic cases with investigator details and agency metadata.
-   - Review historical acquisition jobs, verify stored SHA-256/SHA-512 hashes, and export self-contained HTML evidence reports.
 
 6. **🧠 RAM Analysis Tab** *(Requires Analysis Mode)*:
    - Select an acquired memory dump (`.raw`, `.vmem`, `.dmp`) and optionally specify a custom Volatility engine executable path (uses the built-in native Rust engine by default).

@@ -47,7 +47,7 @@ openforensic --cli --mode analysis ram --dump /mnt/evidence/server_ram.raw --pro
 ```
 
 > [!IMPORTANT]
-> **Strict Mode-Gating**: Memory analysis actively parses complex kernel structures and produces forensic conclusions. To protect live data collection integrity, all memory analysis execution (both CLI and GUI) is strictly gated behind **Analysis Mode** (`--mode analysis`).
+> **Strict Mode-Gating & Unified Case Storage (`v2.1.0+`)**: Memory analysis actively parses complex kernel structures and produces forensic conclusions. To protect live data collection integrity, all memory analysis execution (both CLI and GUI) is strictly gated behind **Analysis Mode** (`--mode analysis`). When an active case workspace is selected, Volatility output tables and extracted IOC artifacts are automatically saved to `<CaseRoot>/<CaseNumber>/ModuleOutput/` and recorded in the case's portable `openforensic.db`.
 
 ---
 

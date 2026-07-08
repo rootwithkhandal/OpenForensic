@@ -2,6 +2,7 @@ use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use sha2::Digest;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Case {
@@ -120,12 +121,82 @@ pub fn init_db(app: &AppHandle) -> Result<(), String> {
             investigator TEXT NOT NULL,
             case_id TEXT NOT NULL,
             event_type TEXT NOT NULL,
-            details TEXT NOT NULL
+            details TEXT NOT NULL,
+            prev_hash TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000',
+            entry_hash TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'
         )",
         [],
     ).map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct AuditChainVerificationReport {
+    pub is_valid: bool,
+    pub total_records: usize,
+    pub broken_record_id: Option<i64>,
+    pub message: String,
+}
+
+pub fn verify_audit_log_chain(app: &AppHandle) -> Result<AuditChainVerificationReport, String> {
+    let db_path = get_db_path(app)?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let _ = conn.execute("ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'", []);
+    let _ = conn.execute("ALTER TABLE audit_logs ADD COLUMN entry_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'", []);
+
+    let mut stmt = conn.prepare("SELECT id, investigator, case_id, event_type, details, prev_hash, entry_hash FROM audit_logs ORDER BY id ASC").map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+
+    let mut expected_prev = "0000000000000000000000000000000000000000000000000000000000000000".to_string();
+    let mut total_records = 0;
+
+    while let Ok(Some(row)) = rows.next() {
+        total_records += 1;
+        let id: i64 = row.get(0).unwrap_or(0);
+        let investigator: String = row.get(1).unwrap_or_default();
+        let case_id: String = row.get(2).unwrap_or_default();
+        let event_type: String = row.get(3).unwrap_or_default();
+        let details: String = row.get(4).unwrap_or_default();
+        let prev_hash: String = row.get(5).unwrap_or_default();
+        let entry_hash: String = row.get(6).unwrap_or_default();
+
+        if prev_hash != expected_prev {
+            return Ok(AuditChainVerificationReport {
+                is_valid: false,
+                total_records,
+                broken_record_id: Some(id),
+                message: format!("CHAIN-OF-CUSTODY VIOLATION: Record ID {} has an invalid prev_hash! Expected: {}, Found: {}", id, expected_prev, prev_hash),
+            });
+        }
+
+        let mut hasher = <sha2::Sha256 as sha2::Digest>::new();
+        sha2::Digest::update(&mut hasher, prev_hash.as_bytes());
+        sha2::Digest::update(&mut hasher, investigator.as_bytes());
+        sha2::Digest::update(&mut hasher, case_id.as_bytes());
+        sha2::Digest::update(&mut hasher, event_type.as_bytes());
+        sha2::Digest::update(&mut hasher, details.as_bytes());
+        let computed_hash = hex::encode(hasher.finalize());
+
+        if entry_hash != computed_hash {
+            return Ok(AuditChainVerificationReport {
+                is_valid: false,
+                total_records,
+                broken_record_id: Some(id),
+                message: format!("TAMPER VIOLATION: Record ID {} entry_hash mismatch! Data was modified after insertion (Expected: {}, Found: {})", id, computed_hash, entry_hash),
+            });
+        }
+
+        expected_prev = entry_hash;
+    }
+
+    Ok(AuditChainVerificationReport {
+        is_valid: true,
+        total_records,
+        broken_record_id: None,
+        message: format!("CHAIN-OF-CUSTODY INTACT: All {} audit records cryptographically verified via SHA-256 hash chaining.", total_records),
+    })
 }
 
 pub fn log_audit_event(
@@ -137,9 +208,27 @@ pub fn log_audit_event(
 ) -> Result<(), String> {
     let db_path = get_db_path(app)?;
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let _ = conn.execute("ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'", []);
+    let _ = conn.execute("ALTER TABLE audit_logs ADD COLUMN entry_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'", []);
+
+    let prev_hash: String = conn.query_row(
+        "SELECT entry_hash FROM audit_logs ORDER BY id DESC LIMIT 1",
+        [],
+        |row| row.get(0),
+    ).unwrap_or_else(|_| "0000000000000000000000000000000000000000000000000000000000000000".to_string());
+
+    let mut hasher = <sha2::Sha256 as sha2::Digest>::new();
+    sha2::Digest::update(&mut hasher, prev_hash.as_bytes());
+    sha2::Digest::update(&mut hasher, investigator.as_bytes());
+    sha2::Digest::update(&mut hasher, case_id.as_bytes());
+    sha2::Digest::update(&mut hasher, event_type.as_bytes());
+    sha2::Digest::update(&mut hasher, details.as_bytes());
+    let entry_hash = hex::encode(hasher.finalize());
+
     conn.execute(
-        "INSERT INTO audit_logs (investigator, case_id, event_type, details) VALUES (?1, ?2, ?3, ?4)",
-        params![investigator, case_id, event_type, details],
+        "INSERT INTO audit_logs (investigator, case_id, event_type, details, prev_hash, entry_hash) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![investigator, case_id, event_type, details, prev_hash, entry_hash],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -167,7 +256,7 @@ pub fn create_case_folder_structure(
         "examiner": examiner,
         "notes": notes,
         "created_at": chrono::Local::now().to_rfc3339(),
-        "version": "2.0.2",
+        "version": "2.1.0",
         "schema": "1.0",
         "directories": folders
     });
@@ -212,7 +301,9 @@ pub fn create_case_folder_structure(
             investigator TEXT NOT NULL,
             case_id TEXT NOT NULL,
             event_type TEXT NOT NULL,
-            details TEXT NOT NULL
+            details TEXT NOT NULL,
+            prev_hash TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000',
+            entry_hash TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'
         )",
         [],
     ).map_err(|e| e.to_string())?;
@@ -600,4 +691,9 @@ pub fn get_case_export_path(app: AppHandle, case_id: i64, filename: String, subf
     let folder = if subfolder.is_empty() { "Export" } else { &subfolder };
     let dir = get_case_subfolder_path(&app, case_id, folder)?;
     Ok(dir.join(filename).to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn verify_case_audit_chain(app: AppHandle) -> Result<AuditChainVerificationReport, String> {
+    verify_audit_log_chain(&app)
 }

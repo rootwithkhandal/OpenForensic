@@ -5,6 +5,7 @@ use crate::error::Result;
 use crate::hasher::{HashAlgorithm, MultiHasher};
 use crate::output::OutputWriter;
 use crate::platform::RawDevice;
+use sha2::Digest;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BadSectorEntry {
@@ -1218,14 +1219,37 @@ pub async fn acquire_triage(
         if collect_iot { collected_list.push("IoT/Embedded Firmware"); }
         let collected_str = collected_list.join(", ");
         
+        let _ = db.execute("ALTER TABLE triage_audit_log ADD COLUMN prev_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'", []);
+        let _ = db.execute("ALTER TABLE triage_audit_log ADD COLUMN entry_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'", []);
+
+        let prev_hash: String = db.query_row(
+            "SELECT entry_hash FROM triage_audit_log ORDER BY id DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| "0000000000000000000000000000000000000000000000000000000000000000".to_string());
+
+        let category_str = if is_mounted_target { "Dead-Box (Post-Mortem) Triage" } else { "Live System Triage" };
+        let timestamp_str = chrono::Utc::now().to_rfc3339();
+
+        let mut hasher = <sha2::Sha256 as sha2::Digest>::new();
+        sha2::Digest::update(&mut hasher, prev_hash.as_bytes());
+        sha2::Digest::update(&mut hasher, category_str.as_bytes());
+        sha2::Digest::update(&mut hasher, auto_str.as_bytes());
+        sha2::Digest::update(&mut hasher, profile_str.as_bytes());
+        sha2::Digest::update(&mut hasher, collected_str.as_bytes());
+        sha2::Digest::update(&mut hasher, timestamp_str.as_bytes());
+        let entry_hash = hex::encode(hasher.finalize());
+
         let _ = db.execute(
-            "INSERT INTO triage_audit_log (triage_category, execution_mode, purpose_scope, artifacts_collected, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO triage_audit_log (triage_category, execution_mode, purpose_scope, artifacts_collected, timestamp, prev_hash, entry_hash) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             rusqlite::params![
-                if is_mounted_target { "Dead-Box (Post-Mortem) Triage" } else { "Live System Triage" },
+                category_str,
                 auto_str,
                 profile_str,
                 collected_str,
-                chrono::Utc::now().to_rfc3339()
+                timestamp_str,
+                prev_hash,
+                entry_hash
             ],
         );
     }

@@ -1,7 +1,7 @@
 # Guide: OpenForensic Analysis Suite & Dynamic Mode-Gating
 
 > [!IMPORTANT]
-> **NEW IN v2.0.2+ (Dynamic Session Mode-Gating & Zero-Panic Guarantee)**: You do not need to modify source code or recompile the application to access analysis features. OpenForensic v2.0.2+ ships with built-in **Session Mode Toggling** and a compile-time **Zero-Panic Guarantee** (`#![deny(clippy::unwrap_used)]`). By default, the application boots strictly in **Capture Mode** (read-only acquisition and verification). All advanced analytical and streaming features can be dynamically unlocked per session.
+> **NEW IN v2.1.0+ (Dynamic Session Mode-Gating & Zero-Panic Guarantee)**: You do not need to modify source code or recompile the application to access analysis features. OpenForensic v2.1.0+ ships with built-in **Session Mode Toggling** and a compile-time **Zero-Panic Guarantee** (`#![deny(clippy::unwrap_used)]`). By default, the application boots strictly in **Capture Mode** (read-only acquisition and verification). All advanced analytical and streaming features can be dynamically unlocked per session.
 
 ---
 
@@ -80,7 +80,7 @@ Tauri 2 permissions are organized into modular capability manifests:
 * `capabilities/analysis.json`: Defines allowlists for analysis suite invocations (`query_triage_db`, `start_volatility_analysis`, `generate_image_timeline`, `export_triage_to_siem`, `test_siem_connection`, `save_siem_config`, and `extract_memory_keys`).
 
 ### 3. Zero-Panic Forensic Reliability Guarantee (`#![deny(clippy::unwrap_used)]`)
-In digital forensics, a crash or panic mid-acquisition is unacceptable—it corrupts multi-gigabyte image files, loses volatile live evidence, and breaks chain of custody. OpenForensic v2.0.2+ enforces a strict **Zero-Panic Reliability Guarantee**:
+In digital forensics, a crash or panic mid-acquisition is unacceptable—it corrupts multi-gigabyte image files, loses volatile live evidence, and breaks chain of custody. OpenForensic v2.1.0+ enforces a strict **Zero-Panic Reliability Guarantee**:
 * **Compile-Time Prohibition**: Both `lib.rs` and `main.rs` enforce `#![deny(clippy::unwrap_used)]`. Any introduction of `.unwrap()` or `.expect()` in production code causes an immediate build failure.
 * **Fallible Error Propagation**: All state mutex locks, SQLite row evaluations, I/O streams, and child process pipes utilize fallible pattern matching (`match`, `if let Some/Ok`, or `map_err(...)?`) returning descriptive `OpenForensicError` variants.
 * **Strict Code Quality & Clippy Compliance**: Core acquisition, hashing, reporting, and plugin pipelines are maintained with zero compiler or clippy lint warnings (`-D warnings`), leveraging modern Rust idioms such as `&& let` chains and static zero-fill buffers for optimal memory efficiency.
@@ -90,7 +90,7 @@ In digital forensics, a crash or panic mid-acquisition is unacceptable—it corr
 
 ## 📋 Chain-of-Custody Audit Logging
 
-To satisfy court admissibility and regulatory compliance (e.g., ISO/IEC 27037), every mode transition and feature unlock is cryptographically recorded in the active case's SQLite database (`audit_logs` table):
+To satisfy court admissibility and regulatory compliance (e.g., ISO/IEC 27037), every mode transition and feature unlock is cryptographically recorded in both the global workspace database (`cases.db`) and the active case's portable SQLite database (`openforensic.db` inside `<CaseRoot>/<CaseNumber>/`) under the `audit_logs` table:
 
 ```sql
 SELECT timestamp, event_type, details FROM audit_logs WHERE event_type = 'MODE_TRANSITION';

@@ -1929,7 +1929,8 @@ fn main() {
             crate::disk_mount::list_mounted_images,
             crate::case_management::create_case_container,
             crate::case_management::get_case_folder_structure,
-            crate::case_management::get_case_export_path
+            crate::case_management::get_case_export_path,
+            crate::case_management::verify_case_audit_chain
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

@@ -178,7 +178,9 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
             execution_mode TEXT,
             purpose_scope TEXT,
             artifacts_collected TEXT,
-            timestamp TEXT
+            timestamp TEXT,
+            prev_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000',
+            entry_hash TEXT DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'
         )",
         [],
     )?;

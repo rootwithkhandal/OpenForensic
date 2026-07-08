@@ -17,7 +17,7 @@ When an investigator initializes a new case container via the **Case Management*
 ├── 📁 Log/             # Chain-of-custody acquisition logs, audit trails & hash verification records
 ├── 📁 ModuleOutput/    # Live Triage SQLite databases (triage_results.db) & RAM analysis outputs
 ├── 📁 Reports/         # Court-admissible HTML, JSON, and PDF forensic reports
-├── 📄 <CaseName>.ofc   # JSON-based forensic case container manifest (Specification v2.0.2)
+├── 📄 <CaseName>.ofc   # JSON-based forensic case container manifest (Specification v2.1.0)
 └── 🗄️ openforensic.db  # Self-contained per-case portable SQLite database
 ```
 

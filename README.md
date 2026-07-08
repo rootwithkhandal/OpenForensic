@@ -1,6 +1,6 @@
 # ⚡ OpenForensic Disk Imager & Digital Forensics Suite
 
-[![Version](https://img.shields.io/badge/version-2.0.2-blue.svg?style=for-the-badge&logo=semver)](package.json)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg?style=for-the-badge&logo=semver)](package.json)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg?style=for-the-badge&logo=rust)](src-tauri/Cargo.toml)
 [![Tauri](https://img.shields.io/badge/tauri-2.11-24C8DB.svg?style=for-the-badge&logo=tauri)](src-tauri/tauri.conf.json)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg?style=for-the-badge&logo=linux)]()
@@ -100,7 +100,7 @@ To ensure digital evidence integrity and prevent accidental evidence modificatio
 
 ### ⚡ Zero-Panic Forensic Reliability Guarantee
 
-In digital forensics, a software panic or crash mid-acquisition is unacceptable—it corrupts multi-gigabyte evidence images, destroys unsaved volatile memory artifacts, and breaks chain of custody. OpenForensic v2.0.2 enforces an uncompromising reliability standard across the entire Rust backend:
+In digital forensics, a software panic or crash mid-acquisition is unacceptable—it corrupts multi-gigabyte evidence images, destroys unsaved volatile memory artifacts, and breaks chain of custody. OpenForensic v2.1.0 enforces an uncompromising reliability standard across the entire Rust backend:
 
 - **Compile-Time Prohibition (`#![deny(clippy::unwrap_used)]`)**: Both core library modules (`lib.rs`) and the application binary (`main.rs`) enforce strict lint rules banning the use of `.unwrap()` and `.expect()` in production code. Any introduction of panic-prone assertions is caught and rejected at compile time.
 - **Fallible Error Propagation**: All system mutex locks, SQLite table evaluations, I/O streams, and child process pipes utilize pattern matching (`match`, `if let`, or `map_err(...)?`) returning descriptive `OpenForensicError` variants.
@@ -304,6 +304,7 @@ The compiled standalone binary will be output to `src-tauri/target/release/openf
 
 ## 📚 Documentation & Reference Guides
 
+- [**Unified Forensic Case Folder Architecture Guide**](docs/unified-case-architecture.md): Technical overview of our standardized case directories (`Cache/`, `Export/`, `Log/`, `ModuleOutput/`, `Reports/`), `.ofc` manifest specifications, and zero-import portable SQLite archiving.
 - [**Native Rust Volatility Engine Architecture & Reference**](docs/volatility-rust-engine.md): Complete technical guide on our custom native Rust memory analysis engine (`volatility/`), supported profiles, and zero-dependency memory forensics.
 - [**Ponytail Ultra Debt Pruning & System Architecture**](docs/architecture-pruning-ponytail.md): Deep dive into our streamlined architecture, static native plugins, local disk log shippers, and weak-hash elimination.
 - [**OpenForensic Analysis Suite & Dynamic Mode-Gating Guide**](docs/enabling-analysis-suite-features.md): Comprehensive guide on the forensic boundary between Capture Mode and Analysis Mode, feature toggling, and the Zero-Panic reliability architecture.
@@ -311,6 +312,19 @@ The compiled standalone binary will be output to `src-tauri/target/release/openf
 - [**Memory Capture & Volatile Triage Guide**](docs/memory-dump.md): Overview of live physical RAM acquisition, kernel drivers (WinPmem, LiME), and explanations for memory-mapped hardware offset sizing.
 - [**PGP & Keyed Integrity Manifests Guide**](docs/pgp_manifests.md): Comprehensive guide on generating keyed integrity seals, signing evidence containers, and verifying chain of custody.
 - [**Security Policy**](SECURITY.md): Vulnerability reporting guidelines and scope definitions.
+
+---
+
+## ⚠️ Known Forensic Limitations & Lab Boundaries
+
+In digital forensics, transparency regarding tool capabilities and architectural boundaries is critical for court admissibility. Investigators relying on OpenForensic must note the following operational boundaries:
+
+1. **Memory Forensics Offset Tables (`volatility/`)**:
+   Our native Rust memory analysis engine currently employs static pool-tag scanning (e.g., searching kernel pool allocations for `"Proc"` tags and testing known `EPROCESS` structure offsets per Windows NT build). While fast and zero-dependency, it does not currently download or parse dynamic PDB/Symbol files from Microsoft Symbol Server (`msdl.microsoft.com`). Consequently, on untested or highly customized/hotfixed Windows kernel builds, process parsing may require fallback to manual offset overriding or external Symbol resolution.
+2. **Access Control / Lab Multi-Tenancy**:
+   OpenForensic is designed primarily as a single-investigator workstation application (`--mode capture` or `--mode analysis`). While case management separates files into isolated case directories (`Case/`), the application relies on OS-level user permissions rather than internal Role-Based Access Control (RBAC). For multi-examiner shared lab deployments, access must be governed via OS domain permissions and filesystem ACLs.
+3. **Advanced Cryptographic Hardware Sealing**:
+   Our HMAC-SHA256 integrity manifests (`openforensic_hmac`) securely seal evidence containers using 256-bit secret keys stored in user workspace directories (`~/.openforensic/`). While mathematically tamper-evident, hardware-backed key storage (e.g., YubiKey / PKCS#11 / TPM 2.0 enclave integration) is currently on the roadmap for future releases.
 
 ---
 

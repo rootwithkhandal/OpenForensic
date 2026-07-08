@@ -10,26 +10,27 @@ Our hashing system tracks cryptographic signatures at three distinct stages of t
 
 ---
 
-## NIST Cryptographic Compliance & Weak-Hash Pruning
+## Simultaneous Multi-Algorithm Hashing & NIST Compliance
 
-To maintain strict compliance with modern NIST forensic standards and eliminate vulnerabilities associated with collision attacks against legacy algorithms, OpenForensic implements an advanced cryptographic routing engine:
-- **Primary Cryptographic Proofs**: **SHA-256** and **SHA-512** serve as our uncompromised, court-ready mathematical foundations.
-- **Deterministic Legacy Mapping**: When investigators or legacy SOAR workflows request `md5` or `sha1` verification, OpenForensic automatically computes a deterministic truncated SHA-256 seal (e.g., mapping `md5` to `sha256[..32]` and `sha1` to `sha256[..40]`). This preserves backwards compatibility with existing case management database schemas while guaranteeing zero exposure to MD5 or SHA-1 collision vulnerabilities.
+To maintain strict compliance with modern NIST forensic standards while preserving seamless interoperability with historical case management and threat intelligence databases, OpenForensic implements simultaneous multi-algorithm streaming ([src-tauri/src/hasher.rs](file:///d:/projects/private/Openforensic/src-tauri/src/hasher.rs)):
+- **Primary NIST Cryptographic Proofs**: **SHA-256** and **SHA-512** serve as our uncompromised, court-ready mathematical foundations for evidentiary verification and HMAC-SHA256 manifest sealing.
+- **Simultaneous Legacy Compatibility**: When acquiring evidence blocks, OpenForensic computes genuine **MD5** (`RFC 1321`) and **SHA-1** (`FIPS 180-4`) digests alongside SHA-256 and SHA-512 in a single streaming read pass. This enables instant cross-referencing against standard legacy databases (such as NIST NSRL National Software Reference Library, CFTT verification suites, and VirusTotal IOC feeds) without requiring any second-read disk I/O overhead.
 
 ---
 
 ## The Three Stages of Hashing
 
 ### 1. Pre-Acquisition Hashes (Source Device)
-Before the actual imaging process begins, OpenForensic can optionally calculate the cryptographic hash (e.g., SHA-256, SHA-512, or mapped legacy presets) directly from the physical source drive. This establishes a baseline mathematical fingerprint of the evidence before any read operations for copying occur.
+Before the actual imaging process begins, OpenForensic can optionally calculate the cryptographic hashes (MD5, SHA-1, SHA-256, and SHA-512) directly from the physical source drive. This establishes a baseline mathematical fingerprint of the evidence before any read operations for copying occur.
 
 ### 2. Acquisition Hashes (Stream Verification)
-During the imaging process, as data is read from the source device block by block, OpenForensic computes the hash of the raw data stream in real-time.
+During the imaging process, as data is read from the source device block by block, OpenForensic computes the digests of the raw data stream in real-time across all active algorithms.
 - If a pre-acquisition hash was taken, the stream hash is compared against it to ensure the source data did not change between the pre-hash pass and the imaging pass.
 - This stream hash represents the true, uncompressed, unmodified raw evidence.
 
 ### 3. Post-Acquisition Hashes (Container / Final Hashes)
 After the image is fully written to the examiner's destination drive, OpenForensic computes a hash of the *resulting file(s)* on the destination filesystem. The exact meaning of this post-acquisition hash depends on the selected format.
+- In accordance with the **Unified Forensic Case Folder Architecture** (`v2.1.0+`), all computed pre-acquisition, acquisition (stream), and post-acquisition container hashes are automatically recorded in the active case's portable SQLite database (`openforensic.db`), embedded inside the `<CaseName>.ofc` container manifest, and written to chain-of-custody verification logs in `<CaseRoot>/<CaseNumber>/Log/`.
 
 ---
 

@@ -4,6 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 2.1.x   | :white_check_mark: |
 | 2.0.x   | :white_check_mark: |
 | < 2.0   | :x:                |
 
@@ -24,6 +25,7 @@ The following are in scope for security reports:
 - Bypass of write-blocking mechanisms during forensic acquisition
 - Unauthorized access to raw disk devices or physical memory
 - Tampering with forensic hash integrity verification
+- Bypass of Capture Mode vs. Analysis Mode capability boundaries (`require_analysis_mode`)
 - SQLite injection in case management or triage databases
 - Arbitrary code execution via YARA rule loading
 - Path traversal in file acquisition or report generation

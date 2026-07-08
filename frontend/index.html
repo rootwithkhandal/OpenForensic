@@ -591,11 +591,11 @@
           <section class="bg-surface border border-outline-variant rounded p-4 mb-4">
             <div class="flex items-center justify-between mb-2">
               <h2 class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold tracking-wider">
-                <span class="material-symbols-outlined text-[18px] text-primary">target</span>Triage Target Source
+                <span class="material-symbols-outlined text-[18px] text-primary">target</span>1. By System State (Triage Target Source)
               </h2>
               <div class="flex items-center gap-2">
-                <button id="triage-mode-live" class="px-3 py-1 text-body-sm font-bold rounded bg-primary text-on-primary shadow-sm transition-all">Live System (OS Root)</button>
-                <button id="triage-mode-mounted" class="px-3 py-1 text-body-sm font-semibold rounded border border-outline-variant bg-surface text-on-surface hover:bg-surface-container transition-all">Mounted Disk / Custom Root</button>
+                <button id="triage-mode-live" class="px-3 py-1 text-body-sm font-bold rounded bg-primary text-on-primary shadow-sm transition-all">Live Triage (Running OS)</button>
+                <button id="triage-mode-mounted" class="px-3 py-1 text-body-sm font-semibold rounded border border-outline-variant bg-surface text-on-surface hover:bg-surface-container transition-all">Dead-Box (Post-Mortem / Image)</button>
               </div>
             </div>
             <div id="triage-mounted-container" class="hidden mt-3 pt-3 border-t border-outline-variant/60 flex items-center gap-3">
@@ -607,10 +607,39 @@
             </div>
           </section>
 
+          <!-- Triage Purpose & Automation Level -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <section class="bg-surface border border-outline-variant rounded p-4">
+              <h2 class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold tracking-wider mb-2">
+                <span class="material-symbols-outlined text-[18px] text-primary">flag</span>2. By Purpose / Scope (Triage Profile)
+              </h2>
+              <select id="triage-profile-select" class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-low font-semibold px-3 py-2 focus:ring-1 focus:ring-primary outline-none">
+                <option value="Comprehensive / Baseline Triage">🛡️ Comprehensive / Baseline Triage (Full Artifact Set)</option>
+                <option value="Field / First-Responder Triage">⚡ Field / First-Responder Triage (&lt; 60s On-Scene Assessment)</option>
+                <option value="Targeted / IOC-Driven Triage">🎯 Targeted / IOC-Driven Triage (Known Hashes/YARA/IPs)</option>
+              </select>
+              <p class="text-[11px] text-outline mt-1.5">Determines the depth and breadth of artifact extraction.</p>
+            </section>
+
+            <section class="bg-surface border border-outline-variant rounded p-4">
+              <h2 class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold tracking-wider mb-2">
+                <span class="material-symbols-outlined text-[18px] text-primary">smart_toy</span>3. By Automation Level (Execution Mode)
+              </h2>
+              <select id="triage-automation-select" class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-low font-semibold px-3 py-2 focus:ring-1 focus:ring-primary outline-none">
+                <option value="Automated / Scripted Triage">🤖 Automated / Scripted Triage (Tool-Driven / Repeatable)</option>
+                <option value="Manual / Expert-Driven Triage">🧑‍💻 Manual / Expert-Driven Triage (Interactive / Adaptive)</option>
+              </select>
+              <p class="text-[11px] text-outline mt-1.5">Controls examiner interactivity and headless script behavior.</p>
+            </section>
+          </div>
+
           <section class="bg-surface border border-outline-variant rounded p-5">
             <div class="flex items-center justify-between mb-5">
-              <h2 class="text-headline font-bold text-on-surface">Artifact Collection Targets</h2>
-              <span class="text-body-sm text-outline font-mono">Status: Ready</span>
+              <div>
+                <h2 class="text-headline font-bold text-on-surface">4. By Data Source / Domain (Artifact Collection Targets)</h2>
+                <p class="text-body-sm text-on-surface-variant">Select forensic domains to include in this triage collection.</p>
+              </div>
+              <span class="text-body-sm text-outline font-mono">Status: 10 Domains Active</span>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
@@ -625,10 +654,10 @@
               </label>
               <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
                 <div class="flex items-center gap-3">
-                  <span class="material-symbols-outlined text-primary text-[20px]">lan</span>
+                  <span class="material-symbols-outlined text-primary text-[20px]">public</span>
                   <div>
                     <div class="text-body-md font-bold text-on-surface">Browser Activity</div>
-                    <div class="text-label-caps text-outline">Chrome, Firefox, Edge</div>
+                    <div class="text-label-caps text-outline">Host/Disk Triage</div>
                   </div>
                 </div>
                 <input type="checkbox" id="triage-browsers" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
@@ -638,7 +667,7 @@
                   <span class="material-symbols-outlined text-primary text-[20px]">event_note</span>
                   <div>
                     <div class="text-body-md font-bold text-on-surface">Windows Event Logs</div>
-                    <div class="text-label-caps text-outline">Security, System, App</div>
+                    <div class="text-label-caps text-outline">Host/Disk Triage</div>
                   </div>
                 </div>
                 <input type="checkbox" id="triage-eventlogs" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
@@ -647,20 +676,71 @@
                 <div class="flex items-center gap-3">
                   <span class="material-symbols-outlined text-primary text-[20px]">key</span>
                   <div>
-                    <div class="text-body-md font-bold text-on-surface">Registry Hives</div>
-                    <div class="text-label-caps text-outline">SAM, SECURITY, SYSTEM</div>
+                    <div class="text-body-md font-bold text-on-surface">Registry &amp; Configs</div>
+                    <div class="text-label-caps text-outline">Host/Disk Triage</div>
                   </div>
                 </div>
                 <input type="checkbox" id="triage-registry" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+              </label>
               <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
                 <div class="flex items-center gap-3">
                   <span class="material-symbols-outlined text-primary text-[20px]">chat</span>
                   <div>
                     <div class="text-body-md font-bold text-on-surface">Messaging &amp; IM Apps</div>
-                    <div class="text-label-caps text-outline">WhatsApp, Telegram, Discord</div>
+                    <div class="text-label-caps text-outline">WhatsApp, Telegram, etc.</div>
                   </div>
                 </div>
                 <input type="checkbox" id="triage-im-apps" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+              </label>
+              <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
+                  <div>
+                    <div class="text-body-md font-bold text-on-surface">Memory (RAM) Triage</div>
+                    <div class="text-label-caps text-outline">Handles, drivers, key carving</div>
+                  </div>
+                </div>
+                <input type="checkbox" id="triage-memory" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+              </label>
+              <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary text-[20px]">lan</span>
+                  <div>
+                    <div class="text-body-md font-bold text-on-surface">Network Triage</div>
+                    <div class="text-label-caps text-outline">ARP, DNS, routing tables</div>
+                  </div>
+                </div>
+                <input type="checkbox" id="triage-network" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+              </label>
+              <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary text-[20px]">smartphone</span>
+                  <div>
+                    <div class="text-body-md font-bold text-on-surface">Mobile Device Triage</div>
+                    <div class="text-label-caps text-outline">Logical SMS, calls, apps</div>
+                  </div>
+                </div>
+                <input type="checkbox" id="triage-mobile" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+              </label>
+              <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary text-[20px]">cloud_sync</span>
+                  <div>
+                    <div class="text-body-md font-bold text-on-surface">Cloud / Remote Triage</div>
+                    <div class="text-label-caps text-outline">SaaS tokens, cloud sync</div>
+                  </div>
+                </div>
+                <input type="checkbox" id="triage-cloud" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
+              </label>
+              <label class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-primary text-[20px]">router</span>
+                  <div>
+                    <div class="text-body-md font-bold text-on-surface">IoT / Embedded Triage</div>
+                    <div class="text-label-caps text-outline">Firmware, NVRAM, flash</div>
+                  </div>
+                </div>
+                <input type="checkbox" id="triage-iot" checked class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary">
               </label>
             </div>
           </section>
@@ -718,6 +798,26 @@
               <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
                 <span class="text-label-caps text-outline uppercase">Messaging Apps</span>
                 <div id="stat-im-apps" class="mt-1 text-xl font-bold text-on-surface">—</div>
+              </div>
+              <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
+                <span class="text-label-caps text-outline uppercase">Memory/RAM Artifacts</span>
+                <div id="stat-memory" class="mt-1 text-xl font-bold text-on-surface">—</div>
+              </div>
+              <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
+                <span class="text-label-caps text-outline uppercase">Network Tables</span>
+                <div id="stat-network-triage" class="mt-1 text-xl font-bold text-on-surface">—</div>
+              </div>
+              <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
+                <span class="text-label-caps text-outline uppercase">Cloud/Remote SaaS</span>
+                <div id="stat-cloud" class="mt-1 text-xl font-bold text-on-surface">—</div>
+              </div>
+              <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
+                <span class="text-label-caps text-outline uppercase">IoT/Embedded Configs</span>
+                <div id="stat-iot" class="mt-1 text-xl font-bold text-on-surface">—</div>
+              </div>
+              <div class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors">
+                <span class="text-label-caps text-outline uppercase">Audit Log Entries</span>
+                <div id="stat-audit" class="mt-1 text-xl font-bold text-on-surface">—</div>
               </div>
             </div>
           </section>
@@ -787,6 +887,11 @@
                     <option value="prefetch_executions">Prefetch Executions (.pf)</option>
                     <option value="amcache_entries">Amcache & Shimcache Evidence</option>
                     <option value="srum_resource_usage">SRUM Resource Usage</option>
+                    <option value="memory_triage">Memory (RAM) Triage &amp; Key Carving</option>
+                    <option value="network_triage">Network Triage (ARP, DNS, Routing)</option>
+                    <option value="cloud_remote_triage">Cloud &amp; Remote Triage (SaaS/Tokens)</option>
+                    <option value="iot_embedded_triage">IoT &amp; Embedded Systems Triage</option>
+                    <option value="triage_audit_log">Triage Execution Audit Log</option>
                   </select>
                   <button id="btn-load-triage-table" class="px-5 py-2 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 transition-all flex items-center gap-1">
                     <span class="material-symbols-outlined text-[18px]">query_stats</span>Load

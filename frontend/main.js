@@ -1146,6 +1146,13 @@ function setupEventListeners() {
     const collect_browsers = document.getElementById('triage-browsers').checked;
     const collect_eventlogs = document.getElementById('triage-eventlogs').checked;
     const collect_im_apps = document.getElementById('triage-im-apps') ? document.getElementById('triage-im-apps').checked : true;
+    const collect_memory = document.getElementById('triage-memory') ? document.getElementById('triage-memory').checked : true;
+    const collect_network = document.getElementById('triage-network') ? document.getElementById('triage-network').checked : true;
+    const collect_mobile = document.getElementById('triage-mobile') ? document.getElementById('triage-mobile').checked : true;
+    const collect_cloud = document.getElementById('triage-cloud') ? document.getElementById('triage-cloud').checked : true;
+    const collect_iot = document.getElementById('triage-iot') ? document.getElementById('triage-iot').checked : true;
+    const triage_profile = document.getElementById('triage-profile-select') ? document.getElementById('triage-profile-select').value : null;
+    const automation_level = document.getElementById('triage-automation-select') ? document.getElementById('triage-automation-select').value : null;
     const siemConfig = getSiemConfigFromUI();
 
     try {
@@ -1162,6 +1169,13 @@ function setupEventListeners() {
         collectBrowsers: collect_browsers,
         collectEventlogs: collect_eventlogs,
         collectImApps: collect_im_apps,
+        collectMemory: collect_memory,
+        collectNetwork: collect_network,
+        collectMobile: collect_mobile,
+        collectCloud: collect_cloud,
+        collectIot: collect_iot,
+        triageProfile: triage_profile,
+        automationLevel: automation_level,
         siemConfig: siemConfig.enabled ? siemConfig : null,
         sourceRoot: sourceRoot
       });
@@ -1176,7 +1190,12 @@ function setupEventListeners() {
            { table: 'browser_history', id: 'stat-history' },
            { table: 'installed_browsers', id: 'stat-browsers' },
            { table: 'event_logs', id: 'stat-logs' },
-           { table: 'im_apps', id: 'stat-im-apps' }
+           { table: 'im_apps', id: 'stat-im-apps' },
+           { table: 'memory_triage', id: 'stat-memory' },
+           { table: 'network_triage', id: 'stat-network-triage' },
+           { table: 'cloud_remote_triage', id: 'stat-cloud' },
+           { table: 'iot_embedded_triage', id: 'stat-iot' },
+           { table: 'triage_audit_log', id: 'stat-audit' }
          ];
          for (const item of statMap) {
            try {

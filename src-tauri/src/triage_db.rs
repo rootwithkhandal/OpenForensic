@@ -123,5 +123,65 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS memory_triage (
+            id INTEGER PRIMARY KEY,
+            artifact_type TEXT,
+            process_id INTEGER,
+            details TEXT,
+            risk_level TEXT,
+            timestamp TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS network_triage (
+            id INTEGER PRIMARY KEY,
+            table_type TEXT,
+            local_address TEXT,
+            remote_address TEXT,
+            state TEXT,
+            extra_info TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS cloud_remote_triage (
+            id INTEGER PRIMARY KEY,
+            provider TEXT,
+            account_user TEXT,
+            config_path TEXT,
+            status TEXT,
+            last_accessed TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS iot_embedded_triage (
+            id INTEGER PRIMARY KEY,
+            device_or_image TEXT,
+            component_type TEXT,
+            config_key TEXT,
+            config_value TEXT,
+            notes TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS triage_audit_log (
+            id INTEGER PRIMARY KEY,
+            triage_category TEXT,
+            execution_mode TEXT,
+            purpose_scope TEXT,
+            artifacts_collected TEXT,
+            timestamp TEXT
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }

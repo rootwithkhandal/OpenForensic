@@ -223,7 +223,7 @@ pub async fn run_browser_triage(
                     let dest_filename = format!("{}_{}_{}_{}.sqlite", safe_browser_name, user_name, safe_profile_name, bdef.engine.to_lowercase());
                     let copied_db_path = browser_out_dir.join(&dest_filename);
 
-                    let mut count = 0;
+                    let count = 0;
                     let mut status = "Locked / Unreadable".to_string();
 
                     if fs::copy(&db_path, &copied_db_path).is_ok() {

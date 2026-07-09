@@ -119,7 +119,7 @@ impl SiemClient {
                 .map_err(|e| format!("Failed to open triage database for SIEM export: {}", e))?;
 
             let tables = [
-                "processes", "connections", "pcap_capture_packets", "dns_cache_entries",
+                "processes", "connections", "anti_forensics_alerts", "pcap_capture_packets", "dns_cache_entries",
                 "arp_table_entries", "wifi_profiles", "browser_history", "browser_cookies",
                 "browser_logins", "browser_downloads", "browser_extensions", "event_logs",
                 "im_apps", "memory_triage", "network_triage", "cloud_remote_triage",

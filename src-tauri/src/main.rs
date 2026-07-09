@@ -31,6 +31,7 @@ mod prefetch;
 mod amcache;
 mod srum;
 mod network_forensics;
+mod anti_forensics;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
 use output::CompressionFormat;
@@ -945,6 +946,7 @@ async fn query_triage_db(
     let valid_tables = [
         "processes",
         "network_connections",
+        "anti_forensics_alerts",
         "pcap_capture_packets",
         "dns_cache_entries",
         "arp_table_entries",

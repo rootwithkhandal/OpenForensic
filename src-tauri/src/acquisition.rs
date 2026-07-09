@@ -867,6 +867,26 @@ pub async fn acquire_triage(
                     "[TRIAGE] Network Forensics Complete: Extracted {} DNS entries, {} ARP neighbors, {} Wi-Fi profiles, {} correlated PCAP frames -> acquisition_network_capture.pcap",
                     dns_count, arp_count, wifi_count, pcap_count
                 ))).await;
+
+                // Execute Anti-Forensics & Evidence Tampering Detection Engine
+                let _ = progress_tx.send(ProgressEvent::Log(
+                    "[TRIAGE] Executing Anti-Forensics & Tampering Detection (Wiping tools, NTFS timestomping, partition gaps, stego LSB, clean system audit)...".to_string()
+                )).await;
+                let wipe_cnt = crate::anti_forensics::detect_wiping_tools(db);
+                let part_cnt = crate::anti_forensics::detect_partition_anomalies(db);
+                let clean_cnt = crate::anti_forensics::audit_system_cleanliness(db);
+                let scan_dirs: Vec<&std::path::Path> = if let Some(ref r) = source_root {
+                    vec![std::path::Path::new(r)]
+                } else {
+                    vec![std::path::Path::new("C:\\Users"), std::path::Path::new("C:\\ProgramData")]
+                };
+                let stomp_cnt = crate::anti_forensics::detect_timestomping(&scan_dirs, db);
+                let steg_cnt = crate::anti_forensics::scan_steganography(&scan_dirs, db);
+                let total_anti = wipe_cnt + part_cnt + clean_cnt + stomp_cnt + steg_cnt;
+                let _ = progress_tx.send(ProgressEvent::Log(format!(
+                    "[TRIAGE] Anti-Forensics Audit Complete: Detected {} potential tampering alerts/anomalies (Wiping: {}, Timestomping: {}, Partition: {}, Stego: {}, Cleanliness Red Flags: {})",
+                    total_anti, wipe_cnt, stomp_cnt, part_cnt, steg_cnt, clean_cnt
+                ))).await;
             }
 
             // Save Loaded Modules

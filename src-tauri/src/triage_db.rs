@@ -294,5 +294,17 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS anti_forensics_alerts (
+            id INTEGER PRIMARY KEY,
+            category TEXT,
+            severity TEXT,
+            artifact_path TEXT,
+            details TEXT,
+            detection_timestamp TEXT
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }

@@ -30,5 +30,6 @@ pub mod amcache;
 pub mod srum;
 pub mod disk_mount;
 pub mod network_forensics;
+pub mod anti_forensics;
 
 pub use state::{ActiveTaskState, clear_active_task, AcquisitionMode, AcquisitionModeState, require_analysis_mode};

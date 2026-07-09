@@ -326,4 +326,29 @@ pub fn add_triage_execution_events(db: &rusqlite::Connection, events: &mut Vec<T
             }
         }
     }
+
+    if let Ok(mut stmt) = db.prepare("SELECT category, severity, artifact_path, details, detection_timestamp FROM anti_forensics_alerts") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (cat, sev, path, details, time) = r;
+                if !time.is_empty() {
+                    events.push(TimelineEvent {
+                        timestamp: time,
+                        source: format!("Anti-Forensics Audit ({})", sev),
+                        event_type: cat,
+                        file_path: path,
+                        details,
+                    });
+                }
+            }
+        }
+    }
 }

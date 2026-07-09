@@ -2932,8 +2932,68 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  listen('carving-progress', (event) => {
+    const { bytes_processed, total_bytes, percentage, files_found } = event.payload;
+    const btn = document.getElementById('btn-run-parallel-carver');
+    if (btn) {
+      btn.textContent = `Carving... ${percentage.toFixed(1)}% (${files_found} files)`;
+    }
+  });
+
   // Initialize saved settings on app load
   syncSettingsToUI();
 });
+
+window.runCarverBenchmarkUI = async function() {
+  const resultDiv = document.getElementById('carver-benchmark-result');
+  if (!resultDiv) return;
+  resultDiv.classList.remove('hidden');
+  resultDiv.innerHTML = '<div class="flex items-center gap-2"><span>Running synthetic multi-threaded carving benchmark (Single-Threaded vs Rayon Parallel)...</span></div>';
+
+  try {
+    const res = await invoke('benchmark_data_recovery_carving', { sampleSizeMb: 32 });
+    resultDiv.innerHTML = `
+      <div class="font-bold text-emerald-300 mb-1">✅ Multi-Threaded Carver Benchmark Complete (32 MB synthetic test image):</div>
+      <div>• Single-Threaded Baseline: <span class="text-white font-semibold">${res.single_thread_duration_ms} ms</span></div>
+      <div>• Rayon Parallel Engine: <span class="text-white font-semibold">${res.multi_thread_duration_ms} ms</span></div>
+      <div>• Speedup Factor: <span class="text-emerald-400 font-bold">${res.speedup_factor.toFixed(2)}x speedup</span> across CPU cores</div>
+      <div>• Throughput: <span class="text-white font-semibold">${res.throughput_mb_per_sec.toFixed(1)} MB/s</span></div>
+      <div>• Recovered Objects: <span class="text-white font-semibold">${res.files_carved} files</span> carved</div>
+    `;
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="text-red-400">Benchmark error: ${e}</div>`;
+  }
+};
+
+window.runParallelCarverUI = async function() {
+  const imagePath = document.getElementById('carve-image-path')?.value.trim();
+  const outDir = document.getElementById('carve-out-dir')?.value.trim();
+  const dbPath = document.getElementById('triage-db-path')?.value.trim();
+  if (!imagePath || !outDir) {
+    alert('Please specify both the target Image/Raw dump path and output folder.');
+    return;
+  }
+  try {
+    const btn = document.getElementById('btn-run-parallel-carver');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Carving...';
+    }
+    const records = await invoke('run_data_recovery_carving', {
+      imagePath,
+      outDir,
+      dbPath: dbPath || null
+    });
+    alert(`Carving Complete! Recovered ${records.length} files into ${outDir}.`);
+  } catch (e) {
+    alert(`Carving failed: ${e}`);
+  } finally {
+    const btn = document.getElementById('btn-run-parallel-carver');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">play_arrow</span>Start Rayon Carver';
+    }
+  }
+};
 
 

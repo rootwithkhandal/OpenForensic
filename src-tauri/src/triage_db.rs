@@ -306,5 +306,20 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS carved_files (
+            id INTEGER PRIMARY KEY,
+            file_type TEXT,
+            extension TEXT,
+            offset_start INTEGER,
+            offset_end INTEGER,
+            file_size INTEGER,
+            sha256_hash TEXT,
+            output_path TEXT,
+            carved_time TEXT
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }

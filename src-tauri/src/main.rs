@@ -32,6 +32,7 @@ mod amcache;
 mod srum;
 mod network_forensics;
 mod anti_forensics;
+mod carver;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
 use output::CompressionFormat;
@@ -946,6 +947,7 @@ async fn query_triage_db(
     let valid_tables = [
         "processes",
         "network_connections",
+        "carved_files",
         "anti_forensics_alerts",
         "pcap_capture_packets",
         "dns_cache_entries",
@@ -1833,6 +1835,58 @@ async fn extract_memory_keys(
     crate::encryption::extract_keys_from_ram(&ram_dump_path, target).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn run_data_recovery_carving(
+    image_path: String,
+    out_dir: String,
+    db_path: Option<String>,
+    app: AppHandle,
+    state: State<'_, crate::state::AcquisitionModeState>,
+) -> Result<Vec<crate::carver::CarvedFileRecord>, String> {
+    crate::state::require_analysis_mode(&state)?;
+    let emitter = app.clone();
+    let cb = std::sync::Arc::new(move |bytes_done: u64, total: u64, files: usize| {
+        let pct = if total > 0 {
+            (bytes_done as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        };
+        let _ = emitter.emit(
+            "carving-progress",
+            serde_json::json!({
+                "bytes_processed": bytes_done,
+                "total_bytes": total,
+                "percentage": pct,
+                "files_found": files
+            }),
+        );
+    });
+
+    let records = crate::carver::run_parallel_carving(
+        std::path::Path::new(&image_path),
+        std::path::Path::new(&out_dir),
+        16 * 1024 * 1024,
+        65536,
+        Some(cb),
+    )?;
+
+    if let Some(path) = db_path {
+        if let Ok(conn) = rusqlite::Connection::open(&path) {
+            let _ = crate::carver::save_carved_records_to_db(&conn, &records);
+        }
+    }
+
+    Ok(records)
+}
+
+#[tauri::command]
+async fn benchmark_data_recovery_carving(
+    sample_size_mb: u32,
+) -> Result<crate::carver::CarverBenchmarkResult, String> {
+    let bytes = (sample_size_mb as usize) * 1024 * 1024;
+    Ok(crate::carver::benchmark_carving_engine(bytes))
+}
+
 fn main() {
     // Install forensic panic hook to ensure crash state and logs are preserved
     let default_hook = std::panic::take_hook();
@@ -1953,7 +2007,9 @@ fn main() {
             crate::case_management::create_case_container,
             crate::case_management::get_case_folder_structure,
             crate::case_management::get_case_export_path,
-            crate::case_management::verify_case_audit_chain
+            crate::case_management::verify_case_audit_chain,
+            run_data_recovery_carving,
+            benchmark_data_recovery_carving
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

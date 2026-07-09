@@ -30,6 +30,7 @@ mod disk_mount;
 mod prefetch;
 mod amcache;
 mod srum;
+mod network_forensics;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
 use output::CompressionFormat;
@@ -944,6 +945,10 @@ async fn query_triage_db(
     let valid_tables = [
         "processes",
         "network_connections",
+        "pcap_capture_packets",
+        "dns_cache_entries",
+        "arp_table_entries",
+        "wifi_profiles",
         "browser_history",
         "browser_cookies",
         "browser_logins",

@@ -848,6 +848,25 @@ pub async fn acquire_triage(
                         }
                     }
                 }
+
+                // Execute Live Network Forensics (DNS Cache, ARP Table, Wi-Fi Profiles, PCAP Capture with Process Correlation)
+                let _ = progress_tx.send(ProgressEvent::Log(
+                    "[TRIAGE] Running Live Network Forensics (DNS cache, ARP table, Wi-Fi profiles, PCAP capture)...".to_string()
+                )).await;
+                let dns_count = crate::network_forensics::extract_dns_cache(db);
+                let arp_count = crate::network_forensics::extract_arp_table(db);
+                let wifi_count = crate::network_forensics::extract_wifi_profiles(source_root.as_deref().map(Path::new), db);
+                let pcap_count = match crate::network_forensics::run_live_pcap_capture_window(&dest_dir, db, 5) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] PCAP capture note: {}", e))).await;
+                        0
+                    }
+                };
+                let _ = progress_tx.send(ProgressEvent::Log(format!(
+                    "[TRIAGE] Network Forensics Complete: Extracted {} DNS entries, {} ARP neighbors, {} Wi-Fi profiles, {} correlated PCAP frames -> acquisition_network_capture.pcap",
+                    dns_count, arp_count, wifi_count, pcap_count
+                ))).await;
             }
 
             // Save Loaded Modules

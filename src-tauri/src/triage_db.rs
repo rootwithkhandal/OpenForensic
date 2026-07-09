@@ -241,5 +241,58 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
         [],
     )?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS pcap_capture_packets (
+            id INTEGER PRIMARY KEY,
+            packet_timestamp TEXT,
+            src_ip TEXT,
+            dst_ip TEXT,
+            src_port INTEGER,
+            dst_port INTEGER,
+            protocol TEXT,
+            info TEXT,
+            correlated_pid INTEGER,
+            correlated_process_name TEXT,
+            risk_flags TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS dns_cache_entries (
+            id INTEGER PRIMARY KEY,
+            record_name TEXT,
+            record_type TEXT,
+            record_data TEXT,
+            ttl INTEGER,
+            source TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS arp_table_entries (
+            id INTEGER PRIMARY KEY,
+            ip_address TEXT,
+            mac_address TEXT,
+            interface_name TEXT,
+            entry_type TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS wifi_profiles (
+            id INTEGER PRIMARY KEY,
+            ssid TEXT,
+            authentication TEXT,
+            encryption TEXT,
+            password_or_key TEXT,
+            last_connected TEXT,
+            source TEXT
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }

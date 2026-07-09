@@ -298,4 +298,32 @@ pub fn add_triage_execution_events(db: &rusqlite::Connection, events: &mut Vec<T
             }
         }
     }
+
+    if let Ok(mut stmt) = db.prepare("SELECT packet_timestamp, src_ip, dst_ip, dst_port, protocol, info, correlated_process_name, risk_flags FROM pcap_capture_packets") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i32>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, String>(7)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (time, src, dst, dport, proto, info, proc_name, risk) = r;
+                if !time.is_empty() {
+                    events.push(TimelineEvent {
+                        timestamp: time,
+                        source: "Live PCAP Network Capture".to_string(),
+                        event_type: format!("Network Flow ({})", proto),
+                        file_path: format!("{}:{}", dst, dport),
+                        details: format!("Process: {} | {} | Risk: {}", proc_name, info, risk),
+                    });
+                }
+            }
+        }
+    }
 }

@@ -249,4 +249,53 @@ pub fn add_triage_execution_events(db: &rusqlite::Connection, events: &mut Vec<T
             }
         }
     }
+
+    if let Ok(mut stmt) = db.prepare("SELECT browser_name, url, title, visit_time FROM browser_history") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (b_name, url, title, time) = r;
+                if !time.is_empty() && time != "0" {
+                    events.push(TimelineEvent {
+                        timestamp: time,
+                        source: format!("Browser History ({})", b_name),
+                        event_type: "Web Visit".to_string(),
+                        file_path: url,
+                        details: title,
+                    });
+                }
+            }
+        }
+    }
+
+    if let Ok(mut stmt) = db.prepare("SELECT browser_name, target_path, url, start_time, state FROM browser_downloads") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        }) {
+            for r in rows.flatten() {
+                let (b_name, target_path, url, time, state) = r;
+                if !time.is_empty() && time != "0" {
+                    events.push(TimelineEvent {
+                        timestamp: time,
+                        source: format!("Browser Download ({})", b_name),
+                        event_type: "File Download".to_string(),
+                        file_path: target_path,
+                        details: format!("Source URL: {} | Status: {}", url, state),
+                    });
+                }
+            }
+        }
+    }
 }

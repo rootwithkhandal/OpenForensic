@@ -21,6 +21,7 @@ pub struct InstalledBrowser {
     pub engine: String,
     pub user_name: String,
     pub profile_name: String,
+    pub profile_dir: String,
     pub history_path: String,
     pub history_count: usize,
     pub status: String,
@@ -242,6 +243,7 @@ pub async fn run_browser_triage(
                         engine: bdef.engine.to_string(),
                         user_name: user_name.clone(),
                         profile_name: profile_name.clone(),
+                        profile_dir: db_path.parent().map(|p| p.display().to_string()).unwrap_or_default(),
                         history_path: copied_db_path.display().to_string(),
                         history_count: count,
                         status,
@@ -426,6 +428,318 @@ fn parse_history_db(db_path: &Path, browser_label: &str, triage_db: &Connection)
     count
 }
 
+fn parse_downloads_db(db_path: &Path, browser_label: &str, triage_db: &Connection) -> usize {
+    let mut count = 0;
+    if let Ok(db) = Connection::open(db_path) {
+        if let Ok(mut stmt) = db.prepare("SELECT COALESCE(target_path, ''), COALESCE(tab_url, ''), COALESCE(start_time, 0), COALESCE(total_bytes, 0), COALESCE(state, 0) FROM downloads") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            }) {
+                for row in rows.flatten() {
+                    let (target_path, url, start_time, total_bytes, state_num) = row;
+                    let state = match state_num {
+                        1 => "Complete",
+                        2 => "Cancelled",
+                        3 => "Interrupted",
+                        4 => "Dangerous",
+                        _ => "In Progress / Unknown",
+                    };
+                    let _ = triage_db.execute(
+                        "INSERT INTO browser_downloads (browser_name, target_path, url, start_time, total_bytes, state) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![browser_label, target_path, url, start_time.to_string(), total_bytes, state],
+                    );
+                    count += 1;
+                }
+                return count;
+            }
+        }
+
+        if let Ok(mut stmt) = db.prepare("SELECT COALESCE(p.url, ''), COALESCE(a.content, ''), COALESCE(a.dateAdded, 0) FROM moz_annos a JOIN moz_places p ON a.place_id = p.id WHERE a.anno_attribute_id IN (SELECT id FROM moz_anno_attributes WHERE name LIKE '%download%')") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            }) {
+                for row in rows.flatten() {
+                    let (url, target_path, time) = row;
+                    let _ = triage_db.execute(
+                        "INSERT INTO browser_downloads (browser_name, target_path, url, start_time, total_bytes, state) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![browser_label, target_path, url, time.to_string(), 0i64, "Complete"],
+                    );
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
+fn parse_cookies_db(db_path: &Path, browser_label: &str, triage_db: &Connection) -> usize {
+    let mut count = 0;
+    if let Ok(db) = Connection::open(db_path) {
+        if let Ok(mut stmt) = db.prepare("SELECT COALESCE(host_key, ''), COALESCE(name, ''), COALESCE(value, ''), COALESCE(path, '/'), COALESCE(creation_utc, 0), COALESCE(expires_utc, 0), COALESCE(is_secure, 0) FROM cookies") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, i64>(6)?,
+                ))
+            }) {
+                for row in rows.flatten() {
+                    let (host, name, value, path, created, expires, secure) = row;
+                    let val_str = if value.is_empty() { "[DPAPI/Keychain Encrypted Cookie Value]".to_string() } else { value };
+                    let _ = triage_db.execute(
+                        "INSERT INTO browser_cookies (browser_name, host_key, name, value, path, creation_utc, expires_utc, is_secure) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                        rusqlite::params![browser_label, host, name, val_str, path, created.to_string(), expires.to_string(), secure],
+                    );
+                    count += 1;
+                }
+                return count;
+            }
+        }
+
+        if let Ok(mut stmt) = db.prepare("SELECT COALESCE(host, ''), COALESCE(name, ''), COALESCE(value, ''), COALESCE(path, '/'), COALESCE(creationTime, 0), COALESCE(expiry, 0), COALESCE(isSecure, 0) FROM moz_cookies") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, i64>(6)?,
+                ))
+            }) {
+                for row in rows.flatten() {
+                    let (host, name, value, path, created, expires, secure) = row;
+                    let _ = triage_db.execute(
+                        "INSERT INTO browser_cookies (browser_name, host_key, name, value, path, creation_utc, expires_utc, is_secure) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                        rusqlite::params![browser_label, host, name, value, path, created.to_string(), expires.to_string(), secure],
+                    );
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
+fn parse_logins_db(db_path: &Path, browser_label: &str, triage_db: &Connection) -> usize {
+    let mut count = 0;
+    if let Ok(db) = Connection::open(db_path) {
+        if let Ok(mut stmt) = db.prepare("SELECT COALESCE(origin_url, ''), COALESCE(username_value, ''), COALESCE(password_value, ''), COALESCE(date_created, 0) FROM logins") {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i64>(3)?,
+                ))
+            }) {
+                for row in rows.flatten() {
+                    let (origin_url, username, password, date_created) = row;
+                    let (pass_display, status) = if password.starts_with("v10") || password.starts_with("v11") {
+                        ("[AES-GCM DPAPI Encrypted Keychain Blob]".to_string(), "Windows DPAPI v10/v11 Encrypted".to_string())
+                    } else if password.is_empty() {
+                        ("[Encrypted / Keychain Protected]".to_string(), "OS Keychain / DPAPI Encrypted".to_string())
+                    } else {
+                        (password, "Cleartext / Unlocked".to_string())
+                    };
+                    let _ = triage_db.execute(
+                        "INSERT INTO browser_logins (browser_name, origin_url, username_value, password_value, creation_date, encryption_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![browser_label, origin_url, username, pass_display, date_created.to_string(), status],
+                    );
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
+fn parse_firefox_logins_json(json_path: &Path, browser_label: &str, triage_db: &Connection) -> usize {
+    let mut count = 0;
+    if let Ok(content) = fs::read_to_string(json_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(logins) = val.get("logins").and_then(|v| v.as_array()) {
+                for entry in logins {
+                    let origin_url = entry.get("hostname").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let username = entry.get("encryptedUsername").and_then(|v| v.as_str()).unwrap_or("[3DES-AES Encrypted Username]").to_string();
+                    let _ = triage_db.execute(
+                        "INSERT INTO browser_logins (browser_name, origin_url, username_value, password_value, creation_date, encryption_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![
+                            browser_label,
+                            origin_url,
+                            username,
+                            "[NSS Key3.db 3DES-AES Encrypted Password]",
+                            "0",
+                            "Firefox NSS Logins.json Encrypted"
+                        ],
+                    );
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
+fn parse_extensions(profile_dir: &Path, browser_label: &str, _engine: &str, triage_db: &Connection) -> usize {
+    let mut count = 0;
+
+    // 1. Chromium Extensions directory: <profile_dir>/Extensions/<ext_id>/<version>/manifest.json
+    let ext_dir = profile_dir.join("Extensions");
+    if ext_dir.exists() && ext_dir.is_dir() {
+        if let Ok(ext_entries) = fs::read_dir(&ext_dir) {
+            for entry in ext_entries.flatten() {
+                let id_path = entry.path();
+                if id_path.is_dir() {
+                    let ext_id = id_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    if let Ok(ver_entries) = fs::read_dir(&id_path) {
+                        for v_entry in ver_entries.flatten() {
+                            let ver_path = v_entry.path();
+                            let manifest_path = ver_path.join("manifest.json");
+                            if manifest_path.exists() && manifest_path.is_file() {
+                                if let Ok(content) = fs::read_to_string(&manifest_path) {
+                                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                                        let name = val.get("name").and_then(|v| v.as_str()).unwrap_or("Unnamed Extension").to_string();
+                                        let version = val.get("version").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+                                        let desc = val.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+                                        let mut perms = Vec::new();
+                                        if let Some(arr) = val.get("permissions").and_then(|v| v.as_array()) {
+                                            for p in arr {
+                                                if let Some(s) = p.as_str() { perms.push(s.to_string()); }
+                                            }
+                                        }
+                                        if let Some(arr) = val.get("host_permissions").and_then(|v| v.as_array()) {
+                                            for p in arr {
+                                                if let Some(s) = p.as_str() { perms.push(s.to_string()); }
+                                            }
+                                        }
+
+                                        let perms_str = perms.join(", ");
+                                        let mut risk_flags = Vec::new();
+                                        for p in &perms {
+                                            let lower = p.to_lowercase();
+                                            if lower.contains("<all_urls>") || lower.contains("*://*/*") || lower.contains("http://*/*") || lower.contains("https://*/*") {
+                                                risk_flags.push("CRITICAL: Full URL Interception (<all_urls>)");
+                                            }
+                                            if lower.contains("webrequest") || lower.contains("webrequestblocking") || lower.contains("declarativewebrequest") {
+                                                risk_flags.push("HIGH: WebRequest Traffic Interception");
+                                            }
+                                            if lower.contains("cookies") {
+                                                risk_flags.push("HIGH: Session Cookie Exfiltration Capable");
+                                            }
+                                            if lower.contains("debugger") || lower.contains("nativemessaging") {
+                                                risk_flags.push("CRITICAL: Debugger / Native Execution API Access");
+                                            }
+                                            if lower.contains("clipboardread") {
+                                                risk_flags.push("MEDIUM: Clipboard Reading API");
+                                            }
+                                        }
+
+                                        let suspicious_status = if risk_flags.is_empty() {
+                                            "Clean / Low Risk Permissions".to_string()
+                                        } else {
+                                            risk_flags.join("; ")
+                                        };
+
+                                        let _ = triage_db.execute(
+                                            "INSERT INTO browser_extensions (browser_name, extension_id, name, version, description, permissions, suspicious_flags, manifest_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                                            rusqlite::params![
+                                                browser_label,
+                                                ext_id,
+                                                name,
+                                                version,
+                                                desc,
+                                                perms_str,
+                                                suspicious_status,
+                                                manifest_path.display().to_string()
+                                            ],
+                                        );
+                                        count += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Firefox extensions.json: <profile_dir>/extensions.json
+    let ff_ext_file = profile_dir.join("extensions.json");
+    if ff_ext_file.exists() && ff_ext_file.is_file() {
+        if let Ok(content) = fs::read_to_string(&ff_ext_file) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(addons) = val.get("addons").and_then(|v| v.as_array()) {
+                    for ext in addons {
+                        let default_locale = ext.get("defaultLocale").unwrap_or(&serde_json::Value::Null);
+                        let name = ext.get("name").or_else(|| default_locale.get("name")).and_then(|v| v.as_str()).unwrap_or("Firefox Addon").to_string();
+                        let ext_id = ext.get("id").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                        let version = ext.get("version").and_then(|v| v.as_str()).unwrap_or("1.0").to_string();
+                        let desc = ext.get("description").or_else(|| default_locale.get("description")).and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+                        let mut perms = Vec::new();
+                        if let Some(arr) = ext.get("userPermissions").and_then(|p| p.get("permissions")).and_then(|v| v.as_array()) {
+                            for p in arr {
+                                if let Some(s) = p.as_str() { perms.push(s.to_string()); }
+                            }
+                        }
+                        let perms_str = perms.join(", ");
+                        let mut risk_flags = Vec::new();
+                        for p in &perms {
+                            let lower = p.to_lowercase();
+                            if lower.contains("<all_urls>") || lower.contains("*://*/*") {
+                                risk_flags.push("CRITICAL: Full URL Interception");
+                            }
+                            if lower.contains("webrequest") || lower.contains("cookies") {
+                                risk_flags.push("HIGH: WebRequest/Cookie Access");
+                            }
+                        }
+                        let suspicious_status = if risk_flags.is_empty() {
+                            "Clean / Standard Addon".to_string()
+                        } else {
+                            risk_flags.join("; ")
+                        };
+
+                        let _ = triage_db.execute(
+                            "INSERT INTO browser_extensions (browser_name, extension_id, name, version, description, permissions, suspicious_flags, manifest_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                            rusqlite::params![
+                                browser_label,
+                                ext_id,
+                                name,
+                                version,
+                                desc,
+                                perms_str,
+                                suspicious_status,
+                                ff_ext_file.display().to_string()
+                            ],
+                        );
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    count
+}
+
 fn write_browser_report(out_dir: &Path, browsers: &[InstalledBrowser]) {
     let report_path = out_dir.join("installed_browsers_report.txt");
     if let Ok(mut f) = fs::File::create(report_path) {
@@ -450,15 +764,49 @@ pub fn save_browsers_to_db(db: &Connection, browsers: &[InstalledBrowser]) {
     for b in browsers {
         let mut count = 0;
         let mut status = b.status.clone();
+        let label = format!("{} ({} - {})", b.browser_name, b.profile_name, b.user_name);
+
         if Path::new(&b.history_path).exists() && status == "Copied / Ready for Parsing" {
-            let label = format!("{} ({} - {})", b.browser_name, b.profile_name, b.user_name);
             count = parse_history_db(Path::new(&b.history_path), &label, db);
+            let _ = parse_downloads_db(Path::new(&b.history_path), &label, db);
             if count > 0 {
                 status = format!("Extracted ({} History Records)", count);
             } else {
                 status = "Extracted (Profile Empty / No Visits)".to_string();
             }
         }
+
+        let prof_dir = Path::new(&b.profile_dir);
+        if prof_dir.exists() {
+            // 1. Cookies
+            let cookies_file = prof_dir.join("Cookies");
+            let ff_cookies_file = prof_dir.join("cookies.sqlite");
+            if cookies_file.exists() {
+                let _ = parse_cookies_db(&cookies_file, &label, db);
+            } else if let Some(parent) = cookies_file.parent() {
+                let net_cookies = parent.join("Network").join("Cookies");
+                if net_cookies.exists() {
+                    let _ = parse_cookies_db(&net_cookies, &label, db);
+                }
+            }
+            if ff_cookies_file.exists() {
+                let _ = parse_cookies_db(&ff_cookies_file, &label, db);
+            }
+
+            // 2. Login Data / Logins.json
+            let logins_file = prof_dir.join("Login Data");
+            let ff_logins_file = prof_dir.join("logins.json");
+            if logins_file.exists() {
+                let _ = parse_logins_db(&logins_file, &label, db);
+            }
+            if ff_logins_file.exists() {
+                let _ = parse_firefox_logins_json(&ff_logins_file, &label, db);
+            }
+
+            // 3. Extensions & Addons Manifest Analysis
+            let _ = parse_extensions(prof_dir, &label, &b.engine, db);
+        }
+
         let _ = db.execute(
             "INSERT INTO installed_browsers (browser_name, engine, user_name, profile_name, history_path, history_count, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             rusqlite::params![

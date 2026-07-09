@@ -552,17 +552,29 @@ async fn start_acquisition(
             if let Ok(enc_report) = crate::encryption::inspect_device_encryption(&source_path) {
                 if enc_report.is_encrypted {
                     log(format!(
-                        "[SECURITY WARNING] Detected Volume Encryption: {} on {}",
+                        "[ENCRYPTION DETECTED] Active Volume Encryption: {} on {}",
                         enc_report.encryption_type, source_path
                     ))
                     .await;
                     log(format!(
-                        "[SECURITY WARNING] Actionable Recommendation: {}",
+                        "[KEY EXTRACTION WARNING] Physical acquisition on modern encrypted volumes produces un-decryptable ciphertext without memory keys. {}",
                         enc_report.recommended_action
                     ))
                     .await;
-                    if enc_report.encryption_type == crate::encryption::EncryptionType::AndroidFbe {
-                        log("[CRITICAL BLOCKER PREVENTED] Android FBE (File-Based Encryption / fscrypt post-Android 7) detected! Standard physical imaging will produce un-decryptable garbage ciphertext. Activating OpenForensic FBE CE/DE Logical Stream Hook...".to_string()).await;
+                    match enc_report.encryption_type {
+                        crate::encryption::EncryptionType::BitLocker => {
+                            log("[ENCRYPTION ACTION] BitLocker volume header (-FVE-FS-) detected. Use OpenForensic RAM Forensics -> 'BitLocker VMK / FVEK Key Extraction' to carve Fvec/FVEK Volume Master Keys from physical memory.".to_string()).await;
+                        }
+                        crate::encryption::EncryptionType::Luks1 | crate::encryption::EncryptionType::Luks2 => {
+                            log("[ENCRYPTION ACTION] Linux LUKS header detected. Use OpenForensic RAM Forensics -> 'Linux LUKS Master Encryption Key Extraction' if volume is unlocked at capture time.".to_string()).await;
+                        }
+                        crate::encryption::EncryptionType::FileVault => {
+                            log("[ENCRYPTION ACTION] Apple FileVault APFS volume detected. Use OpenForensic RAM Forensics -> 'Apple FileVault APFS Key Extraction' to retrieve active volume keys.".to_string()).await;
+                        }
+                        crate::encryption::EncryptionType::AndroidFbe => {
+                            log("[CRITICAL BLOCKER PREVENTED] Android FBE (File-Based Encryption / fscrypt post-Android 7) detected! Standard physical imaging will produce un-decryptable garbage ciphertext. Activating OpenForensic FBE CE/DE Logical Stream Hook...".to_string()).await;
+                        }
+                        _ => {}
                     }
                 } else {
                     log(format!("[ACQUISITION] Volume inspection verified cleartext / unencrypted structure ({}).", enc_report.encryption_type)).await;
@@ -933,6 +945,10 @@ async fn query_triage_db(
         "processes",
         "network_connections",
         "browser_history",
+        "browser_cookies",
+        "browser_logins",
+        "browser_downloads",
+        "browser_extensions",
         "installed_browsers",
         "event_logs",
         "im_apps",

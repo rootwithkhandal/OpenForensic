@@ -1148,8 +1148,8 @@ function setupEventListeners() {
     const collect_im_apps = document.getElementById('triage-im-apps') ? document.getElementById('triage-im-apps').checked : true;
     const collect_memory = document.getElementById('triage-memory') ? document.getElementById('triage-memory').checked : true;
     const collect_network = document.getElementById('triage-network') ? document.getElementById('triage-network').checked : true;
-    const collect_mobile = document.getElementById('triage-mobile') ? document.getElementById('triage-mobile').checked : true;
-    const collect_cloud = document.getElementById('triage-cloud') ? document.getElementById('triage-cloud').checked : true;
+    const collect_mobile = document.getElementById('triage-mobile') ? document.getElementById('triage-mobile').checked : false;
+    const collect_cloud = document.getElementById('triage-cloud') ? document.getElementById('triage-cloud').checked : false;
     const collect_iot = document.getElementById('triage-iot') ? document.getElementById('triage-iot').checked : true;
     const triage_profile = document.getElementById('triage-profile-select') ? document.getElementById('triage-profile-select').value : null;
     const automation_level = document.getElementById('triage-automation-select') ? document.getElementById('triage-automation-select').value : null;
@@ -2767,5 +2767,173 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // GLOBAL SETTINGS & API CONFIGURATION HANDLERS
+  // ═══════════════════════════════════════════════════════════════
+  const btnSettings = document.getElementById('btn-settings');
+  const modalSettings = document.getElementById('settings-modal');
+  const btnCloseSettings = document.getElementById('btn-close-settings-modal');
+  const btnCancelSettings = document.getElementById('btn-cancel-settings');
+  const btnResetSettings = document.getElementById('btn-reset-settings');
+  const btnBrowseSettingsRoot = document.getElementById('btn-browse-settings-case-root');
+  const formSettings = document.getElementById('form-settings');
+
+  const syncSettingsToUI = () => {
+    // 1. External API keys
+    const vtKey = localStorage.getItem('OpenForensic-vt-key') || '';
+    const abuseIpKey = localStorage.getItem('OpenForensic-abuseip-key') || '';
+    const mbKey = localStorage.getItem('OpenForensic-mb-key') || '';
+    const siemEndpoint = localStorage.getItem('OpenForensic-siem-endpoint') || '';
+    const siemToken = localStorage.getItem('OpenForensic-siem-token') || '';
+
+    const ramKeyVt = document.getElementById('ram-key-vt');
+    const ramKeyAbuseIp = document.getElementById('ram-key-abuseip');
+    const siemEndpointInp = document.getElementById('siem-endpoint');
+    const siemTokenInp = document.getElementById('siem-token');
+
+    if (ramKeyVt && vtKey) ramKeyVt.value = vtKey;
+    if (ramKeyAbuseIp && abuseIpKey) ramKeyAbuseIp.value = abuseIpKey;
+    if (siemEndpointInp && siemEndpoint) siemEndpointInp.value = siemEndpoint;
+    if (siemTokenInp && siemToken) siemTokenInp.value = siemToken;
+
+    // 2. Application & Engine Defaults
+    const defaultCaseRoot = localStorage.getItem('OpenForensic-default-case-root') || '';
+    const newCaseRootInp = document.getElementById('new-case-root-path');
+    if (newCaseRootInp && defaultCaseRoot && !newCaseRootInp.value) {
+      newCaseRootInp.value = defaultCaseRoot;
+    }
+
+    const defaultVolEngine = localStorage.getItem('OpenForensic-default-vol-engine') || '';
+    const ramVolPathInp = document.getElementById('ram-vol-path');
+    if (ramVolPathInp && defaultVolEngine) {
+      ramVolPathInp.value = defaultVolEngine;
+    }
+
+    const defaultHashAlgo = localStorage.getItem('OpenForensic-default-hash-algo');
+    const hashSelect = document.getElementById('select-hash-algo');
+    if (hashSelect && defaultHashAlgo) {
+      hashSelect.value = defaultHashAlgo;
+    }
+
+    const defaultBlockSize = localStorage.getItem('OpenForensic-default-block-size');
+    const blockSelect = document.getElementById('select-block-size');
+    if (blockSelect && defaultBlockSize) {
+      blockSelect.value = defaultBlockSize;
+    }
+
+    const defaultMountRO = localStorage.getItem('OpenForensic-default-mount-readonly');
+    const mountRoCheckbox = document.getElementById('mount-readonly');
+    if (mountRoCheckbox && defaultMountRO !== null) {
+      mountRoCheckbox.checked = defaultMountRO === 'true';
+    }
+  };
+
+  const loadSettingsIntoModal = () => {
+    const elVt = document.getElementById('settings-key-vt');
+    const elAbuse = document.getElementById('settings-key-abuseip');
+    const elMb = document.getElementById('settings-key-mb');
+    const elSiemEnd = document.getElementById('settings-siem-endpoint');
+    const elSiemTok = document.getElementById('settings-siem-token');
+    const elCaseRoot = document.getElementById('settings-default-case-root');
+    const elVolEng = document.getElementById('settings-default-vol-engine');
+    const elHash = document.getElementById('settings-default-hash-algo');
+    const elBlock = document.getElementById('settings-default-block-size');
+    const elFormat = document.getElementById('settings-default-export-format');
+    const elMountRo = document.getElementById('settings-default-mount-readonly');
+
+    if (elVt) elVt.value = localStorage.getItem('OpenForensic-vt-key') || '';
+    if (elAbuse) elAbuse.value = localStorage.getItem('OpenForensic-abuseip-key') || '';
+    if (elMb) elMb.value = localStorage.getItem('OpenForensic-mb-key') || '';
+    if (elSiemEnd) elSiemEnd.value = localStorage.getItem('OpenForensic-siem-endpoint') || '';
+    if (elSiemTok) elSiemTok.value = localStorage.getItem('OpenForensic-siem-token') || '';
+    if (elCaseRoot) elCaseRoot.value = localStorage.getItem('OpenForensic-default-case-root') || '';
+    if (elVolEng) elVolEng.value = localStorage.getItem('OpenForensic-default-vol-engine') || 'Built-in Native Rust Volatility Engine (Fast)';
+    if (elHash) elHash.value = localStorage.getItem('OpenForensic-default-hash-algo') || 'SHA-256';
+    if (elBlock) elBlock.value = localStorage.getItem('OpenForensic-default-block-size') || '1048576';
+    if (elFormat) elFormat.value = localStorage.getItem('OpenForensic-default-export-format') || 'JSON';
+    if (elMountRo) elMountRo.checked = (localStorage.getItem('OpenForensic-default-mount-readonly') !== 'false');
+  };
+
+  const hideSettingsModal = () => {
+    if (modalSettings) modalSettings.classList.add('hidden');
+  };
+
+  if (btnSettings && modalSettings) {
+    btnSettings.addEventListener('click', () => {
+      loadSettingsIntoModal();
+      modalSettings.classList.remove('hidden');
+    });
+  }
+
+  if (btnCloseSettings) btnCloseSettings.addEventListener('click', hideSettingsModal);
+  if (btnCancelSettings) btnCancelSettings.addEventListener('click', hideSettingsModal);
+
+  if (btnBrowseSettingsRoot) {
+    btnBrowseSettingsRoot.addEventListener('click', async () => {
+      try {
+        const folder = await invoke('browse_folder');
+        if (folder) {
+          const inp = document.getElementById('settings-default-case-root');
+          if (inp) inp.value = folder;
+        }
+      } catch (err) {
+        console.error('Failed to browse settings directory:', err);
+      }
+    });
+  }
+
+  if (btnResetSettings) {
+    btnResetSettings.addEventListener('click', () => {
+      const keys = [
+        'OpenForensic-vt-key', 'OpenForensic-abuseip-key', 'OpenForensic-mb-key',
+        'OpenForensic-siem-endpoint', 'OpenForensic-siem-token',
+        'OpenForensic-default-case-root', 'OpenForensic-default-vol-engine',
+        'OpenForensic-default-hash-algo', 'OpenForensic-default-block-size',
+        'OpenForensic-default-export-format', 'OpenForensic-default-mount-readonly'
+      ];
+      keys.forEach(k => localStorage.removeItem(k));
+      loadSettingsIntoModal();
+      syncSettingsToUI();
+      logMessage('SYSTEM', '[SETTINGS] Reset global API keys and defaults.');
+    });
+  }
+
+  if (formSettings) {
+    formSettings.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const vt = document.getElementById('settings-key-vt')?.value.trim() || '';
+      const abuseIp = document.getElementById('settings-key-abuseip')?.value.trim() || '';
+      const mb = document.getElementById('settings-key-mb')?.value.trim() || '';
+      const siemEnd = document.getElementById('settings-siem-endpoint')?.value.trim() || '';
+      const siemTok = document.getElementById('settings-siem-token')?.value.trim() || '';
+      const caseRoot = document.getElementById('settings-default-case-root')?.value.trim() || '';
+      const volEng = document.getElementById('settings-default-vol-engine')?.value || 'Built-in Native Rust Volatility Engine (Fast)';
+      const hashAlgo = document.getElementById('settings-default-hash-algo')?.value || 'SHA-256';
+      const blockSize = document.getElementById('settings-default-block-size')?.value || '1048576';
+      const exportFormat = document.getElementById('settings-default-export-format')?.value || 'JSON';
+      const mountRo = document.getElementById('settings-default-mount-readonly')?.checked !== false;
+
+      localStorage.setItem('OpenForensic-vt-key', vt);
+      localStorage.setItem('OpenForensic-abuseip-key', abuseIp);
+      localStorage.setItem('OpenForensic-mb-key', mb);
+      localStorage.setItem('OpenForensic-siem-endpoint', siemEnd);
+      localStorage.setItem('OpenForensic-siem-token', siemTok);
+      localStorage.setItem('OpenForensic-default-case-root', caseRoot);
+      localStorage.setItem('OpenForensic-default-vol-engine', volEng);
+      localStorage.setItem('OpenForensic-default-hash-algo', hashAlgo);
+      localStorage.setItem('OpenForensic-default-block-size', blockSize);
+      localStorage.setItem('OpenForensic-default-export-format', exportFormat);
+      localStorage.setItem('OpenForensic-default-mount-readonly', String(mountRo));
+
+      syncSettingsToUI();
+      hideSettingsModal();
+      logMessage('SUCCESS', '[SETTINGS] Saved external API keys and system defaults successfully.');
+    });
+  }
+
+  // Initialize saved settings on app load
+  syncSettingsToUI();
 });
+
 

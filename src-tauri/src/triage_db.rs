@@ -55,6 +55,62 @@ pub fn init_triage_db(db_path: &Path) -> Result<Connection> {
     )?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS browser_cookies (
+            id INTEGER PRIMARY KEY,
+            browser_name TEXT,
+            host_key TEXT,
+            name TEXT,
+            value TEXT,
+            path TEXT,
+            creation_utc TEXT,
+            expires_utc TEXT,
+            is_secure INTEGER
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS browser_logins (
+            id INTEGER PRIMARY KEY,
+            browser_name TEXT,
+            origin_url TEXT,
+            username_value TEXT,
+            password_value TEXT,
+            creation_date TEXT,
+            encryption_status TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS browser_downloads (
+            id INTEGER PRIMARY KEY,
+            browser_name TEXT,
+            target_path TEXT,
+            url TEXT,
+            start_time TEXT,
+            total_bytes INTEGER,
+            state TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS browser_extensions (
+            id INTEGER PRIMARY KEY,
+            browser_name TEXT,
+            extension_id TEXT,
+            name TEXT,
+            version TEXT,
+            description TEXT,
+            permissions TEXT,
+            suspicious_flags TEXT,
+            manifest_path TEXT
+        )",
+        [],
+    )?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS event_logs (
             id INTEGER PRIMARY KEY,
             log_name TEXT,

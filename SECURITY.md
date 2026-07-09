@@ -35,3 +35,11 @@ The following are in scope for security reports:
 - Vulnerabilities in third-party tools (e.g., WinPmem, avml, Volatility)
 - Issues requiring physical access to the examiner's workstation
 - Social engineering attacks
+
+## Automated Dependency Scan Assessment (Dependabot)
+
+GitHub Dependabot alerts flagged on transitive lockfile dependencies (`Cargo.lock`) have been formally audited:
+- **`wasmtime` (v26.0.1)**: Transitive dependency of `yara-x`. Flagged alerts (including the experimental ARM64 `Winch` backend and WASI component model string transcoding) are **Not Exploitable** in OpenForensic desktop deployments (`x86_64-pc-windows-msvc`).
+- **`glib` (v0.18.5)**: Transitive Linux GTK dependency of `tauri`. **Not Exploitable** on Windows builds.
+
+For the complete technical exploitability matrix and remediation commands, see [`docs/resources/dependabot-security-assessment.md`](file:///d:/projects/private/Openforensic/docs/resources/dependabot-security-assessment.md).

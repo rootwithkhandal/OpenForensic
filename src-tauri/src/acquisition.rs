@@ -1209,7 +1209,7 @@ pub async fn acquire_triage(
         let mut collected_list = Vec::new();
         if collect_volatile { collected_list.push("Live Volatile State"); }
         if collect_registry { collected_list.push("Host/Disk Registry"); }
-        if collect_browsers { collected_list.push("Browser History"); }
+        if collect_browsers { collected_list.push("Browser Forensics (History, Cookies, Logins, Downloads, Extensions)"); }
         if collect_eventlogs { collected_list.push("Event Logs"); }
         if collect_im_apps { collected_list.push("IM & Messaging"); }
         if collect_memory { collected_list.push("Memory/RAM"); }

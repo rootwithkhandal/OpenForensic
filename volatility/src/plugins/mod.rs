@@ -5,6 +5,7 @@ pub mod netstat;
 pub mod cmdline;
 pub mod filescan;
 pub mod malfind;
+pub mod crypto_keys;
 
 use crate::error::{Result, VolatilityError};
 use crate::reader::MemoryReader;
@@ -27,6 +28,13 @@ pub const SUPPORTED_PLUGINS: &[(&str, &str)] = &[
     ("filescan", "Scan for file objects (short alias)"),
     ("windows.malfind.Malfind", "Find injected code and hidden PE (Windows)"),
     ("malfind", "Find injected code and hidden PE (short alias)"),
+    ("windows.crypto.bitlocker.BitLocker", "Extract BitLocker VMK/FVEK from RAM"),
+    ("bitlocker", "Extract BitLocker VMK/FVEK from RAM (alias)"),
+    ("linux.crypto.luks.LUKS", "Extract LUKS Master Key from RAM"),
+    ("luks", "Extract LUKS Master Key from RAM (alias)"),
+    ("mac.crypto.filevault.FileVault", "Extract Apple FileVault APFS Key from RAM"),
+    ("filevault", "Extract Apple FileVault APFS Key from RAM (alias)"),
+    ("crypto_keys", "Extract BitLocker, LUKS, and FileVault Master Keys from RAM"),
 ];
 
 /// Run a specific analysis plugin against the opened memory image.
@@ -63,6 +71,18 @@ pub async fn dispatch(
         }
         "windows.malfind.malfind" | "malfind" => {
             malfind::run(reader, tx).await
+        }
+        "windows.crypto.bitlocker.bitlocker" | "bitlocker" => {
+            crypto_keys::run_bitlocker(reader, tx).await
+        }
+        "linux.crypto.luks.luks" | "luks" => {
+            crypto_keys::run_luks(reader, tx).await
+        }
+        "mac.crypto.filevault.filevault" | "filevault" => {
+            crypto_keys::run_filevault(reader, tx).await
+        }
+        "crypto_keys" | "encryption_keys" => {
+            crypto_keys::run_all(reader, tx).await
         }
         _ => Err(VolatilityError::UnsupportedProfile(profile.to_string())),
     }

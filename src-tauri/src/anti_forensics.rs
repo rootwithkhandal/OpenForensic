@@ -4,6 +4,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use chrono::Utc;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AntiForensicAlert {
     pub category: String,

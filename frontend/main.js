@@ -1873,11 +1873,14 @@ async function refreshMountedImages() {
 async function checkCheckpointExists(destPath) {
   try {
     const exists = await invoke('check_checkpoint', { destPath });
+    const banner = document.getElementById('checkpoint-resume-banner');
     if (exists) {
-      elements.btnResumeAcquisition.classList.remove('hidden');
-      logMessage('SYSTEM', 'Detected partial checkpoint. You can resume this acquisition job.');
+      if (elements.btnResumeAcquisition) elements.btnResumeAcquisition.classList.remove('hidden');
+      if (banner) banner.classList.remove('hidden');
+      logMessage('SYSTEM', 'Detected partial checkpoint sidecar! Acquisition will verify 64KB crash boundary and resume automatically.');
     } else {
-      elements.btnResumeAcquisition.classList.add('hidden');
+      if (elements.btnResumeAcquisition) elements.btnResumeAcquisition.classList.add('hidden');
+      if (banner) banner.classList.add('hidden');
     }
   } catch (e) {
     console.error(e);

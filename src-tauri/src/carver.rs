@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -86,6 +86,7 @@ pub fn get_default_signatures() -> Vec<FileSignature> {
     ]
 }
 
+#[allow(dead_code)]
 pub struct CarveChunkJob {
     pub chunk_index: usize,
     pub base_offset: u64,

@@ -33,6 +33,7 @@ mod srum;
 mod network_forensics;
 mod anti_forensics;
 mod carver;
+mod checkpoint;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
 use output::CompressionFormat;
@@ -1887,6 +1888,19 @@ async fn benchmark_data_recovery_carving(
     Ok(crate::carver::benchmark_carving_engine(bytes))
 }
 
+#[tauri::command]
+async fn check_acquisition_checkpoint(
+    dest_path: String,
+    source_path: String,
+    expected_total_bytes: u64,
+) -> Result<Option<crate::checkpoint::AcquisitionCheckpoint>, String> {
+    Ok(crate::checkpoint::load_checkpoint(
+        &source_path,
+        std::path::Path::new(&dest_path),
+        expected_total_bytes,
+    ))
+}
+
 fn main() {
     // Install forensic panic hook to ensure crash state and logs are preserved
     let default_hook = std::panic::take_hook();
@@ -2009,7 +2023,8 @@ fn main() {
             crate::case_management::get_case_export_path,
             crate::case_management::verify_case_audit_chain,
             run_data_recovery_carving,
-            benchmark_data_recovery_carving
+            benchmark_data_recovery_carving,
+            check_acquisition_checkpoint,
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

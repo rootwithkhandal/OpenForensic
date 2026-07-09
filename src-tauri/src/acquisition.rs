@@ -199,6 +199,9 @@ pub async fn acquire(
     let compression = config.compression;
     let writer_progress_tx = progress_tx.clone();
 
+    let dest_part_path = dest.current_part_path();
+    let dest_path_str = dest_part_path.to_string_lossy().to_string();
+
     let writing_task = tokio::task::spawn_blocking(move || -> Result<std::path::PathBuf> {
         while let Some(chunk) = write_rx.blocking_recv() {
             dest.write_all(&chunk)?;
@@ -236,8 +239,24 @@ pub async fn acquire(
     let block_size = config.block_size;
     let total_size = source.size;
 
-    if start_offset > 0 {
-        let _ = source.seek_forward(start_offset);
+    // Check for existing sidecar checkpoint to resume interrupted acquisition
+    if start_offset == 0 {
+        if let Some(chk) = crate::checkpoint::load_checkpoint(
+            &source.path,
+            &dest_part_path,
+            total_size,
+        ) {
+            bytes_read = chk.completed_offset;
+            let _ = progress_tx.send(ProgressEvent::Log(format!(
+                "[RESUME] Found interrupted acquisition checkpoint sidecar! Verified crash boundary overlap. Resuming from byte offset {} ({:.1}%)",
+                bytes_read,
+                (bytes_read as f64 / total_size as f64) * 100.0
+            ))).await;
+        }
+    }
+
+    if bytes_read > 0 {
+        let _ = source.seek_forward(bytes_read);
     }
 
     if config.read_verification && config.compression != crate::output::CompressionFormat::None {
@@ -393,6 +412,20 @@ pub async fn acquire(
                 timestamp: chrono::Utc::now(),
             };
             let _ = checkpoint.save(checkpoint_path);
+
+            let sidecar_chk = crate::checkpoint::AcquisitionCheckpoint {
+                evidence_id: config.evidence_id.clone(),
+                source_path: source.path.clone(),
+                destination_path: dest_path_str.clone(),
+                total_bytes: total_size,
+                completed_offset: bytes_read,
+                chunk_size: block_size as u64,
+                overlap_window_bytes: 65536,
+                sha256_partial_hex: String::new(),
+                last_updated_time: chrono::Utc::now().to_rfc3339(),
+                format: format!("{:?}", config.compression),
+            };
+            let _ = crate::checkpoint::save_checkpoint(&sidecar_chk);
         }
     }
 
@@ -465,7 +498,7 @@ pub async fn acquire(
 
     if !bad_sector_map.sectors.is_empty() {
         use std::io::Write;
-        let dest_path = final_dest_path;
+        let dest_path = &final_dest_path;
         let log_path = dest_path.with_extension("bad_sectors.log");
         if let Ok(mut log_file) = std::fs::File::create(&log_path) {
             let _ = writeln!(log_file, "=== OPENFORENSIC BAD SECTOR MAP ===");
@@ -476,6 +509,9 @@ pub async fn acquire(
             let _ = writeln!(log_file, "Total Bad Sectors: {}", bad_sector_map.sectors.len());
         }
     }
+
+    // Acquisition verified and completed successfully — clean up sidecar checkpoint
+    crate::checkpoint::delete_checkpoint(&final_dest_path);
 
     Ok(result)
 }
@@ -848,46 +884,62 @@ pub async fn acquire_triage(
                         }
                     }
                 }
+            }
 
-                // Execute Live Network Forensics (DNS Cache, ARP Table, Wi-Fi Profiles, PCAP Capture with Process Correlation)
-                let _ = progress_tx.send(ProgressEvent::Log(
-                    "[TRIAGE] Running Live Network Forensics (DNS cache, ARP table, Wi-Fi profiles, PCAP capture)...".to_string()
-                )).await;
-                let dns_count = crate::network_forensics::extract_dns_cache(db);
-                let arp_count = crate::network_forensics::extract_arp_table(db);
-                let wifi_count = crate::network_forensics::extract_wifi_profiles(source_root.as_deref().map(Path::new), db);
-                let pcap_count = match crate::network_forensics::run_live_pcap_capture_window(&dest_dir, db, 5) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] PCAP capture note: {}", e))).await;
-                        0
-                    }
-                };
-                let _ = progress_tx.send(ProgressEvent::Log(format!(
-                    "[TRIAGE] Network Forensics Complete: Extracted {} DNS entries, {} ARP neighbors, {} Wi-Fi profiles, {} correlated PCAP frames -> acquisition_network_capture.pcap",
-                    dns_count, arp_count, wifi_count, pcap_count
-                ))).await;
+            // Execute Live Network Forensics (DNS Cache, ARP Table, Wi-Fi Profiles, PCAP Capture with Process Correlation)
+            let _ = progress_tx.send(ProgressEvent::Log(
+                "[TRIAGE] Running Live Network Forensics (DNS cache, ARP table, Wi-Fi profiles, PCAP capture)...".to_string()
+            )).await;
 
-                // Execute Anti-Forensics & Evidence Tampering Detection Engine
-                let _ = progress_tx.send(ProgressEvent::Log(
-                    "[TRIAGE] Executing Anti-Forensics & Tampering Detection (Wiping tools, NTFS timestomping, partition gaps, stego LSB, clean system audit)...".to_string()
-                )).await;
-                let wipe_cnt = crate::anti_forensics::detect_wiping_tools(db);
-                let part_cnt = crate::anti_forensics::detect_partition_anomalies(db);
-                let clean_cnt = crate::anti_forensics::audit_system_cleanliness(db);
+            let (dns_count, arp_count, wifi_count, pcap_res) = if let Some(ref db) = triage_db {
+                let dns = crate::network_forensics::extract_dns_cache(db);
+                let arp = crate::network_forensics::extract_arp_table(db);
+                let wifi = crate::network_forensics::extract_wifi_profiles(source_root.as_deref().map(std::path::Path::new), db);
+                let pcap = crate::network_forensics::run_live_pcap_capture_window(&dest_dir, db, 5);
+                (dns, arp, wifi, pcap)
+            } else {
+                (0, 0, 0, Err("No triage database connection".to_string()))
+            };
+
+            let pcap_count = match pcap_res {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = progress_tx.send(ProgressEvent::Log(format!("[TRIAGE] PCAP capture note: {}", e))).await;
+                    0
+                }
+            };
+
+            let _ = progress_tx.send(ProgressEvent::Log(format!(
+                "[TRIAGE] Network Forensics Complete: Extracted {} DNS entries, {} ARP neighbors, {} Wi-Fi profiles, {} correlated PCAP frames -> acquisition_network_capture.pcap",
+                dns_count, arp_count, wifi_count, pcap_count
+            ))).await;
+
+            // Execute Anti-Forensics & Evidence Tampering Detection Engine
+            let _ = progress_tx.send(ProgressEvent::Log(
+                "[TRIAGE] Executing Anti-Forensics & Tampering Detection (Wiping tools, NTFS timestomping, partition gaps, stego LSB, clean system audit)...".to_string()
+            )).await;
+
+            let (wipe_cnt, part_cnt, clean_cnt, stomp_cnt, steg_cnt) = if let Some(ref db) = triage_db {
+                let wipe = crate::anti_forensics::detect_wiping_tools(db);
+                let part = crate::anti_forensics::detect_partition_anomalies(db);
+                let clean = crate::anti_forensics::audit_system_cleanliness(db);
                 let scan_dirs: Vec<&std::path::Path> = if let Some(ref r) = source_root {
                     vec![std::path::Path::new(r)]
                 } else {
                     vec![std::path::Path::new("C:\\Users"), std::path::Path::new("C:\\ProgramData")]
                 };
-                let stomp_cnt = crate::anti_forensics::detect_timestomping(&scan_dirs, db);
-                let steg_cnt = crate::anti_forensics::scan_steganography(&scan_dirs, db);
-                let total_anti = wipe_cnt + part_cnt + clean_cnt + stomp_cnt + steg_cnt;
-                let _ = progress_tx.send(ProgressEvent::Log(format!(
-                    "[TRIAGE] Anti-Forensics Audit Complete: Detected {} potential tampering alerts/anomalies (Wiping: {}, Timestomping: {}, Partition: {}, Stego: {}, Cleanliness Red Flags: {})",
-                    total_anti, wipe_cnt, stomp_cnt, part_cnt, steg_cnt, clean_cnt
-                ))).await;
-            }
+                let stomp = crate::anti_forensics::detect_timestomping(&scan_dirs, db);
+                let steg = crate::anti_forensics::scan_steganography(&scan_dirs, db);
+                (wipe, part, clean, stomp, steg)
+            } else {
+                (0, 0, 0, 0, 0)
+            };
+
+            let total_anti = wipe_cnt + part_cnt + clean_cnt + stomp_cnt + steg_cnt;
+            let _ = progress_tx.send(ProgressEvent::Log(format!(
+                "[TRIAGE] Anti-Forensics Audit Complete: Detected {} potential tampering alerts/anomalies (Wiping: {}, Timestomping: {}, Partition: {}, Stego: {}, Cleanliness Red Flags: {})",
+                total_anti, wipe_cnt, stomp_cnt, part_cnt, steg_cnt, clean_cnt
+            ))).await;
 
             // Save Loaded Modules
             let modules_file = dest_dir.join("loaded_modules.txt");

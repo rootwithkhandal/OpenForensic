@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use chrono::Utc;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct CapturedPacket {
     pub timestamp: String,
@@ -19,6 +20,7 @@ pub struct CapturedPacket {
     pub risk_flags: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct DnsCacheRecord {
     pub record_name: String,
@@ -28,6 +30,7 @@ pub struct DnsCacheRecord {
     pub source: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ArpTableEntry {
     pub ip_address: String,
@@ -36,6 +39,7 @@ pub struct ArpTableEntry {
     pub entry_type: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct WifiProfileEntry {
     pub ssid: String,
@@ -92,7 +96,7 @@ pub fn correlate_packet_to_process(
     db: &Connection,
     src_ip: &str,
     src_port: u16,
-    dst_ip: &str,
+    _dst_ip: &str,
     dst_port: u16,
 ) -> (Option<u32>, String) {
     let port_str = format!(":{}", src_port);

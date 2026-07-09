@@ -313,7 +313,7 @@ pub fn add_triage_execution_events(db: &rusqlite::Connection, events: &mut Vec<T
             ))
         }) {
             for r in rows.flatten() {
-                let (time, src, dst, dport, proto, info, proc_name, risk) = r;
+                let (time, _src, dst, dport, proto, info, proc_name, risk) = r;
                 if !time.is_empty() {
                     events.push(TimelineEvent {
                         timestamp: time,

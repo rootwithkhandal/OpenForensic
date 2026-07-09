@@ -2999,4 +2999,176 @@ window.runParallelCarverUI = async function() {
   }
 };
 
+let activeCorrelationReport = null;
+
+window.browseCorrPath = async function(target) {
+  try {
+    const mode = document.getElementById('corr-mode-select')?.value || 'db';
+    let selected;
+    if (mode === 'db') {
+      selected = await openDialog({
+        title: target === 'baseline' ? 'Select Baseline Triage DB (.sqlite/.db)' : 'Select Incident Triage DB (.sqlite/.db)',
+        filters: [{ name: 'SQLite Databases', extensions: ['sqlite', 'db'] }]
+      });
+    } else {
+      selected = await openDialog({
+        title: target === 'baseline' ? 'Select Baseline Mounted Image Directory' : 'Select Incident Mounted Image Directory',
+        directory: true
+      });
+    }
+    if (selected) {
+      const inputId = target === 'baseline' ? 'corr-baseline-path' : 'corr-incident-path';
+      const input = document.getElementById(inputId);
+      if (input) input.value = selected;
+    }
+  } catch (e) {
+    console.error('Browse error:', e);
+  }
+};
+
+window.runCorrelationUI = async function() {
+  const baselinePath = document.getElementById('corr-baseline-path')?.value.trim();
+  const incidentPath = document.getElementById('corr-incident-path')?.value.trim();
+  const mode = document.getElementById('corr-mode-select')?.value || 'db';
+  const saveToDbChecked = document.getElementById('corr-save-db')?.checked;
+  const activeDbPath = document.getElementById('triage-db-path')?.value.trim();
+
+  if (!baselinePath || !incidentPath) {
+    alert('Please select both a Baseline (Clean) and an Incident (Compromised) source path.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-run-correlation');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Comparing...';
+  }
+
+  try {
+    let report;
+    if (mode === 'db') {
+      report = await invoke('correlate_triage_databases', {
+        baselinePath,
+        incidentPath,
+        saveToDb: saveToDbChecked && activeDbPath ? activeDbPath : null
+      });
+    } else {
+      report = await invoke('correlate_image_directories', {
+        baselineDir: baselinePath,
+        incidentDir: incidentPath
+      });
+    }
+
+    activeCorrelationReport = report;
+
+    // Update scoreboard
+    const resultsDiv = document.getElementById('corr-results-div');
+    if (resultsDiv) resultsDiv.classList.remove('hidden');
+
+    const addedElem = document.getElementById('corr-stat-added');
+    const modElem = document.getElementById('corr-stat-modified');
+    const delElem = document.getElementById('corr-stat-deleted');
+    const hrElem = document.getElementById('corr-stat-highrisk');
+
+    if (addedElem) addedElem.textContent = (report.summary.files_added + report.summary.apps_added);
+    if (modElem) modElem.textContent = (report.summary.files_modified + report.summary.apps_modified);
+    if (delElem) delElem.textContent = (report.summary.files_deleted + report.summary.apps_deleted);
+    if (hrElem) hrElem.textContent = report.summary.high_risk_anomalies;
+
+    // Render Preview
+    const previewDiv = document.getElementById('corr-report-preview');
+    if (previewDiv) {
+      let html = `<div class="font-bold text-primary mb-2">📋 Multi-Image Correlation Summary Report (${report.summary.correlation_timestamp}):</div>`;
+      
+      if (report.file_diffs.length > 0) {
+        html += `<div class="font-bold text-on-surface mt-2">Binary & File Deltas (${report.file_diffs.length}):</div>`;
+        for (const f of report.file_diffs.slice(0, 15)) {
+          const badge = f.risk_level === 'High' ? '🔴 HIGH' : f.risk_level === 'Medium' ? '🟡 MED' : '🟢 INFO';
+          html += `<div class="border-b border-outline-variant/30 py-1">
+            <span class="font-bold">${badge}</span> [${f.change_type}] <span class="text-white">${f.path}</span> - <span class="text-on-surface-variant">${f.details}</span>
+          </div>`;
+        }
+      }
+
+      if (report.app_diffs.length > 0) {
+        html += `<div class="font-bold text-on-surface mt-2">Installed Apps & Extension Deltas (${report.app_diffs.length}):</div>`;
+        for (const a of report.app_diffs.slice(0, 15)) {
+          const badge = a.risk_level === 'High' ? '🔴 HIGH' : a.risk_level === 'Medium' ? '🟡 MED' : '🟢 INFO';
+          html += `<div class="border-b border-outline-variant/30 py-1">
+            <span class="font-bold">${badge}</span> [${a.change_type}] <span class="text-white">${a.app_name}</span> (${a.app_type}) - <span class="text-on-surface-variant">${a.details}</span>
+          </div>`;
+        }
+      }
+
+      if (report.config_diffs.length > 0) {
+        html += `<div class="font-bold text-on-surface mt-2">Registry & Process State Deltas (${report.config_diffs.length}):</div>`;
+        for (const c of report.config_diffs.slice(0, 15)) {
+          const badge = c.risk_level === 'High' ? '🔴 HIGH' : c.risk_level === 'Medium' ? '🟡 MED' : '🟢 INFO';
+          html += `<div class="border-b border-outline-variant/30 py-1">
+            <span class="font-bold">${badge}</span> [${c.change_type}] <span class="text-white">${c.item_key}</span> (${c.category}) - <span class="text-on-surface-variant">${c.details}</span>
+          </div>`;
+        }
+      }
+
+      previewDiv.innerHTML = html;
+    }
+
+    const exportBtn = document.getElementById('btn-export-correlation');
+    if (exportBtn) exportBtn.classList.remove('hidden');
+
+  } catch (e) {
+    alert(`Correlation failed: ${e}`);
+  } finally {
+    const btn = document.getElementById('btn-run-correlation');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">troubleshoot</span>Compare Baseline vs Incident';
+    }
+  }
+};
+
+window.exportCorrelationUI = async function() {
+  if (!activeCorrelationReport) return;
+  try {
+    const targetPath = await saveDialog({
+      title: 'Export Multi-Image Correlation IR Report (.md)',
+      defaultPath: 'OpenForensic_Baseline_Incident_Diff.md',
+      filters: [{ name: 'Markdown Report', extensions: ['md'] }]
+    });
+    if (targetPath) {
+      await invoke('export_correlation_markdown', {
+        report: activeCorrelationReport,
+        outputPath: targetPath
+      });
+      alert(`Report exported successfully to: ${targetPath}`);
+    }
+  } catch (e) {
+    alert(`Export failed: ${e}`);
+  }
+};
+
+window.toggleSidebarCompact = function() {
+  const sidebar = document.getElementById('app-sidebar');
+  const btn = document.getElementById('btn-toggle-sidebar');
+  if (!sidebar) return;
+  
+  sidebar.classList.toggle('sidebar-compact');
+  const isCompact = sidebar.classList.contains('sidebar-compact');
+  
+  if (btn) {
+    btn.innerHTML = isCompact
+      ? '<span class="material-symbols-outlined text-[18px]">dock_to_right</span>'
+      : '<span class="material-symbols-outlined text-[18px]">dock_to_left</span>';
+  }
+};
+
+// Automatically adapt sidebar layout on screen resize
+window.addEventListener('resize', () => {
+  const sidebar = document.getElementById('app-sidebar');
+  if (!sidebar) return;
+  if (window.innerWidth < 1024 && !sidebar.classList.contains('sidebar-compact')) {
+    sidebar.classList.add('sidebar-compact');
+  }
+});
+
 

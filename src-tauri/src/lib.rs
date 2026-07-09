@@ -33,5 +33,6 @@ pub mod network_forensics;
 pub mod anti_forensics;
 pub mod carver;
 pub mod checkpoint;
+pub mod correlation;
 
 pub use state::{ActiveTaskState, clear_active_task, AcquisitionMode, AcquisitionModeState, require_analysis_mode};

@@ -34,6 +34,7 @@ mod network_forensics;
 mod anti_forensics;
 mod carver;
 mod checkpoint;
+mod correlation;
 
 use acquisition::{AcquisitionConfig, ProgressEvent};
 use output::CompressionFormat;
@@ -1901,6 +1902,47 @@ async fn check_acquisition_checkpoint(
     ))
 }
 
+#[tauri::command]
+async fn correlate_triage_databases(
+    baseline_path: String,
+    incident_path: String,
+    save_to_db: Option<String>,
+) -> Result<crate::correlation::CorrelationReport, String> {
+    let report = crate::correlation::compare_triage_databases(
+        std::path::Path::new(&baseline_path),
+        std::path::Path::new(&incident_path),
+    )?;
+
+    if let Some(db_path) = save_to_db {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            let _ = crate::correlation::save_correlation_report_to_db(&conn, &report);
+        }
+    }
+
+    Ok(report)
+}
+
+#[tauri::command]
+async fn correlate_image_directories(
+    baseline_dir: String,
+    incident_dir: String,
+) -> Result<crate::correlation::CorrelationReport, String> {
+    crate::correlation::compare_image_directories(
+        std::path::Path::new(&baseline_dir),
+        std::path::Path::new(&incident_dir),
+    )
+}
+
+#[tauri::command]
+async fn export_correlation_markdown(
+    report: crate::correlation::CorrelationReport,
+    output_path: String,
+) -> Result<String, String> {
+    let md = crate::correlation::generate_markdown_report(&report);
+    std::fs::write(&output_path, &md).map_err(|e| format!("Failed to save report: {}", e))?;
+    Ok(output_path)
+}
+
 fn main() {
     // Install forensic panic hook to ensure crash state and logs are preserved
     let default_hook = std::panic::take_hook();
@@ -2025,6 +2067,9 @@ fn main() {
             run_data_recovery_carving,
             benchmark_data_recovery_carving,
             check_acquisition_checkpoint,
+            correlate_triage_databases,
+            correlate_image_directories,
+            export_correlation_markdown,
         ])
         .setup(|app| {
             let _ = crate::case_management::init_db(app.handle());

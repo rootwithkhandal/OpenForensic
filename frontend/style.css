@@ -425,3 +425,74 @@
   border-color: #00488d;
   background: rgba(213, 227, 252, 0.20);
 }
+
+/* ==========================================================
+   OPENFORENSIC ANALYSIS SUITE RESPONSIVE LAYOUT SYSTEM
+   Supports Mobile, Tablet, Laptop, and Ultra-Wide Screens
+   ========================================================== */
+
+/* Responsive Sidebar Navigation Modes */
+#app-sidebar {
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Compact Icon-Only Sidebar Mode (Width: 64px) */
+#app-sidebar.sidebar-compact {
+  width: 68px !important;
+}
+#app-sidebar.sidebar-compact .nav-label,
+#app-sidebar.sidebar-compact .brand-label,
+#app-sidebar.sidebar-compact .case-label-box {
+  display: none !important;
+}
+#app-sidebar.sidebar-compact .tab-btn {
+  justify-content: center !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Mobile Sidebar Drawer Overlay (< 768px) */
+@media (max-width: 768px) {
+  #app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+  #app-sidebar.mobile-hidden {
+    transform: translateX(-100%);
+  }
+}
+
+/* Responsive Table Wrapper with Touch Scrolling */
+.table-responsive-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+}
+
+/* Responsive Grids & Spacing Adjustments */
+@media (max-width: 1024px) {
+  .responsive-grid-12 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  .responsive-grid-split {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .tab-panel {
+    padding: 0.75rem !important;
+  }
+  .header-flex-responsive {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+}

@@ -56,3 +56,6 @@ mcp.json
 .gemini/
 Test/
 issues.md
+
+frontend/web/
+frontend/website/

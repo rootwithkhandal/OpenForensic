@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help & Documentation — OpenForensic</title>
+  <meta name="description" content="OpenForensic Help & Documentation: Installation guides, disk imaging walkthrough, live acquisition, RAM analysis, system triage, case management, and CLI reference." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══ NAVIGATION ════════════════════════════════════════ -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg class="nav-logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      OpenForensic
+    </a>
+    <div class="nav-links">
+      <a href="index.html#features" class="nav-link">Features</a>
+      <a href="index.html#modes"    class="nav-link">Modes</a>
+      <a href="help.html"           class="nav-link active">Help</a>
+      <a href="faq.html"            class="nav-link">FAQ</a>
+    </div>
+    <div class="nav-actions">
+      <span class="badge badge-gray" style="font-size:11px;">v2.1.0</span>
+      <a href="https://github.com/rootwithkhandal/OpenForensic" target="_blank" class="btn btn-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      </a>
+      <a href="index.html#download" class="btn btn-primary">Download v2.1.0</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ PAGE HERO ════════════════════════════════════════ -->
+<div class="page-hero">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">Help & Documentation</span>
+    </div>
+    <h1 style="font-size:32px;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px;">Help & Documentation</h1>
+    <p style="font-size:15px;color:var(--on-surface-variant);max-width:560px;">
+      Complete guides for installation, disk imaging, live acquisition, RAM analysis, case management, and CLI automation.
+    </p>
+  </div>
+</div>
+
+<!-- ══ HELP BODY ════════════════════════════════════════ -->
+<section class="section-sm">
+  <div class="container">
+    <div class="help-layout">
+
+      <!-- ── Sidebar ────────────────────────────────── -->
+      <aside class="help-sidebar">
+        <div class="help-sidebar-header">Documentation</div>
+        <a class="help-nav-item active" onclick="showArticle('getting-started', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Getting Started
+        </a>
+        <a class="help-nav-item" onclick="showArticle('disk-imaging', this)" id="disk-imaging">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Disk Imaging
+        </a>
+        <a class="help-nav-item" onclick="showArticle('live-acquisition', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+          Live Acquisition
+        </a>
+        <a class="help-nav-item" onclick="showArticle('system-triage', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          System Triage
+        </a>
+        <a class="help-nav-item" onclick="showArticle('ram-analysis', this)" id="ram-analysis">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          RAM Analysis
+        </a>
+        <a class="help-nav-item" onclick="showArticle('case-management', this)" id="case-management">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          Case Management
+        </a>
+        <a class="help-nav-item" onclick="showArticle('modes', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Capture vs Analysis
+        </a>
+        <a class="help-nav-item" onclick="showArticle('hashes', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Hash Verification
+        </a>
+        <a class="help-nav-item" onclick="showArticle('cli', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          CLI Reference
+        </a>
+        <a class="help-nav-item" onclick="showArticle('manifests', this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Integrity Manifests
+        </a>
+      </aside>
+
+      <!-- ── Article Content ─────────────────────────── -->
+      <main class="help-content">
+
+        <!-- Getting Started -->
+        <article class="help-article active" data-id="getting-started">
+          <h2>Getting Started with OpenForensic</h2>
+          <p>OpenForensic v2.1.0 is an enterprise-grade, cross-platform digital forensics and incident response (DFIR) desktop application. This guide will help you install, launch, and perform your first evidence acquisition.</p>
+
+          <div class="callout">
+            <strong>Administrator Required:</strong> OpenForensic interacts directly with raw block storage and kernel memory. It must always be launched with elevated administrative privileges.
+          </div>
+
+          <h3>System Requirements</h3>
+          <table class="data-table" style="margin-bottom:20px;">
+            <thead><tr><th>Platform</th><th>Requirement</th><th>Privilege</th></tr></thead>
+            <tbody>
+              <tr><td>🪟 Windows 10 / 11 (64-bit)</td><td>Bundled <code>winpmem_mini_x64</code></td><td>Administrator (UAC)</td></tr>
+              <tr><td>🐧 Ubuntu 20.04+ / Debian / Arch</td><td>Raw block device access (<code>/dev/sdX</code>)</td><td>root / sudo</td></tr>
+              <tr><td>🍎 macOS 11 Big Sur+</td><td>Full Disk Access in Privacy settings</td><td>root + Full Disk Access</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Minimum Hardware:</strong> 4+ CPU cores · 4 GB RAM (8 GB+ for large RAM dumps) · NVMe SSD recommended for acquisition destination.</p>
+
+          <h3>Installation on Windows</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Download <code>openforensic.exe</code> from the GitHub Releases page.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Launch the application. The embedded UAC manifest will prompt for <strong>Administrator elevation</strong>. Click <strong>Yes</strong>.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>The app opens to the <strong>Case Management</strong> tab by default. Create or select a case folder before starting acquisition.</p></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-content"><p>Navigate to <strong>Disk Imaging</strong> to select a source device and begin your first acquisition.</p></div></div>
+          </div>
+
+          <h3>Installation on Linux</h3>
+          <pre>sudo ./target/release/openforensic</pre>
+          <div class="callout warn"><strong>Note:</strong> Raw block device access requires root. Ensure your user has permission to access <code>/dev/sdX</code> or <code>/dev/nvme0n1</code>.</div>
+
+          <h3>Building from Source</h3>
+          <pre>git clone https://github.com/rootwithkhandal/OpenForensic.git
+cd OpenForensic
+npm install
+npm run tauri dev      # Development mode with live reload</pre>
+          <p>Uses <a href="https://mise.jdx.dev/" style="color:var(--primary-container);">mise</a> for reproducible Rust 1.85+ and Node.js toolchain management. See <code>mise.toml</code> for task definitions.</p>
+        </article>
+
+        <!-- Disk Imaging -->
+        <article class="help-article" data-id="disk-imaging">
+          <h2>Disk Imaging</h2>
+          <p>OpenForensic's Disk Imaging module performs forensically sound, bit-for-bit sector-by-sector and logical file acquisition. The engine enforces read-only access at the OS kernel boundary.</p>
+
+          <div class="callout">
+            <strong>Write-Blocking:</strong> On Windows, devices are opened with strictly <code>GENERIC_READ</code> via <code>CreateFileW</code>. On Linux, <code>O_RDONLY | O_DIRECT</code> bypasses page caches and <code>BLKROSET</code> ioctls verify read-only enforcement.
+          </div>
+
+          <h3>Supported Output Formats</h3>
+          <table class="data-table" style="margin-bottom:20px;">
+            <thead><tr><th>Format</th><th>Extension</th><th>Features</th></tr></thead>
+            <tbody>
+              <tr><td>Raw</td><td><span class="mono">.dd / .img</span></td><td>Flat bit-for-bit copy. Container hash matches stream hash.</td></tr>
+              <tr><td>EnCase E01</td><td><span class="mono">.e01</span></td><td>Compressed segments with metadata. Industry standard.</td></tr>
+              <tr><td>Advanced Forensic Format</td><td><span class="mono">.aff</span></td><td>Compressed with embedded case metadata and hashes.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Step-by-Step: Acquire a Disk Image</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Navigate to the <strong>📂 Disk Imaging</strong> tab in the sidebar.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Select your physical source device from the <strong>Source Selector</strong> dropdown (e.g., <code>\\.\PhysicalDrive0</code> on Windows or <code>/dev/sda</code> on Linux).</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>Choose the destination path and output format (Raw, E01, or AFF).</p></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-content"><p>Enable desired hash algorithms: <code>SHA-256</code> (required), <code>SHA-512</code>, <code>MD5</code>, <code>SHA-1</code>. Enable compression (<code>zstd</code> recommended) and sparse zero-block skipping if desired.</p></div></div>
+            <div class="step"><div class="step-num">5</div><div class="step-content"><p>Optionally attach YARA rulesets (<code>.yar</code>) for real-time IOC alerting during imaging.</p></div></div>
+            <div class="step"><div class="step-num">6</div><div class="step-content"><p>Click <strong>Start Acquisition</strong>. Monitor real-time progress, hash computation, and log output. The integrity manifest is automatically generated upon completion.</p></div></div>
+          </div>
+
+          <h3>Understanding Container vs. Stream Hashes</h3>
+          <p>When acquiring to AFF or E01 format, the <strong>Post-Acquisition (container) hash will NOT match the stream hash</strong>. This is normal — AFF/E01 files include metadata, compressed data, and internal structures that change the file's binary composition.</p>
+          <p>Integrity of evidence is verified via the <strong>acquisition stream hash</strong> embedded inside the container. Analysis tools like Autopsy re-compute this hash on decompressed data to confirm integrity.</p>
+        </article>
+
+        <!-- Live Acquisition -->
+        <article class="help-article" data-id="live-acquisition">
+          <h2>Live Acquisition</h2>
+          <p>The Live Acquisition module enables zero-downtime evidence collection from a running system. It uses Volume Shadow Copy Service (VSS) on Windows to freeze filesystem state, capturing OS-locked artifacts without rebooting.</p>
+
+          <div class="callout danger">
+            <strong>Memory First:</strong> Always capture RAM <em>before</em> running heavy triage scripts or disk imaging. Running software overwrites unallocated physical memory, destroying volatile evidence.
+          </div>
+
+          <h3>RAM Capture Process</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Navigate to <strong>🔴 Live Acquisition</strong> tab.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Specify an output path. <strong>Never</strong> write to the target machine's system drive (<code>C:\</code>). Use an external forensic USB drive or network share. When a case workspace is active, output paths are pre-populated to <code>&lt;CaseRoot&gt;/&lt;CaseNumber&gt;/Export/</code>.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>Check <strong>"Capture Physical Memory (RAM)"</strong>. OpenForensic auto-detects and invokes the appropriate kernel driver: <strong>WinPmem</strong> (<code>winpmem_mini_x64.exe</code>) on Windows, <strong>LiME</strong> (<code>lime.ko</code>) on Linux.</p></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-content"><p>Click <strong>Start Live Acquisition</strong>. The driver loads temporarily, reads physical address space, and streams it to a <code>.raw</code> / <code>.img</code> file, then unloads the driver.</p></div></div>
+          </div>
+
+          <h3>Why is My RAM Dump Larger Than Installed RAM?</h3>
+          <p>A system with 16 GB RAM may produce a 16.5–17 GB dump. This is expected behavior caused by <strong>Memory-Mapped I/O (MMIO)</strong>: PCIe devices, ACPI tables, and GPU VRAM are mapped into the CPU's physical address space, pushing the highest physical address past the 16 GB boundary. WinPmem pads these hardware holes with zeros to preserve accurate file offsets for memory analysis tools.</p>
+        </article>
+
+        <!-- System Triage -->
+        <article class="help-article" data-id="system-triage">
+          <h2>System Triage</h2>
+          <p>The System Triage module provides instantaneous extraction of volatile system state from a running or acquired system. Results are stored in an SQLite database for querying.</p>
+
+          <h3>What Gets Collected</h3>
+          <ul>
+            <li>Running processes and their command-line arguments</li>
+            <li>Active and listening network connections (TCP/UDP)</li>
+            <li>Loaded kernel modules and drivers</li>
+            <li>Chrome and Edge browser history databases</li>
+            <li>Windows Event Logs (EVTX) and syslog event records</li>
+          </ul>
+
+          <h3>Triage SQL Workbench</h3>
+          <div class="callout">
+            <strong>Analysis Mode Required:</strong> The interactive SQL Workbench is gated behind Analysis Mode. Click "Switch to Analysis Mode" in the navigation bar to unlock.
+          </div>
+          <p>Once in Analysis Mode, the SQL Workbench allows you to execute queries directly against the acquired <code>triage_results.db</code>:</p>
+          <pre>-- Find all processes with network connections
+SELECT p.name, p.pid, n.remote_addr, n.remote_port
+FROM processes p
+JOIN network_connections n ON p.pid = n.pid
+WHERE n.state = 'ESTABLISHED';
+
+-- Recent browser history
+SELECT url, title, visit_time FROM browser_history
+ORDER BY visit_time DESC LIMIT 50;</pre>
+        </article>
+
+        <!-- RAM Analysis -->
+        <article class="help-article" data-id="ram-analysis">
+          <h2>RAM Analysis — Native Rust Volatility Engine</h2>
+          <p>OpenForensic includes a proprietary <strong>native Rust memory forensics engine</strong> in the <code>volatility/</code> workspace. It replaces Python-based Volatility 3 with a standalone, in-process analyzer featuring zero external dependencies, in-process real-time streaming, and Rust memory safety guarantees.</p>
+
+          <div class="callout">
+            <strong>Analysis Mode Required:</strong> All RAM analysis features are gated behind Analysis Mode to protect active acquisition sessions.
+          </div>
+
+          <h3>Supported Analysis Profiles</h3>
+          <table class="data-table" style="margin-bottom:20px;">
+            <thead><tr><th>Profile</th><th>OS</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="mono">windows.pslist.PsList</span></td><td>Windows x64/x86</td><td>Enumerates processes via EPROCESS doubly-linked list traversal</td></tr>
+              <tr><td><span class="mono">windows.netstat.NetStat</span></td><td>Windows x64/x86</td><td>Lists open TCP/UDP connections and listening ports</td></tr>
+              <tr><td><span class="mono">windows.cmdline.CmdLine</span></td><td>Windows x64/x86</td><td>Extracts process command-line arguments from PEB</td></tr>
+              <tr><td><span class="mono">windows.filescan.FileScan</span></td><td>Windows x64/x86</td><td>Scans memory pools for open FILE_OBJECT structures</td></tr>
+              <tr><td><span class="mono">windows.malfind.Malfind</span></td><td>Windows x64/x86</td><td>Detects injected DLLs and hollowed processes via VAD inspection</td></tr>
+              <tr><td><span class="mono">linux.pslist.PsList</span></td><td>Linux x64/ARM64</td><td>Enumerates kernel tasks via task_struct traversal</td></tr>
+              <tr><td><span class="mono">mac.pslist.PsList</span></td><td>macOS x64/Apple Silicon</td><td>Enumerates Darwin kernel processes</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Running RAM Analysis</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Switch to <strong>Analysis Mode</strong> via the navigation bar toggle.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Navigate to the <strong>🧠 RAM Analysis</strong> tab.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>Select your acquired memory dump (<code>.raw</code>, <code>.vmem</code>, <code>.dmp</code>).</p></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-content"><p>Choose an analysis profile from the dropdown.</p></div></div>
+            <div class="step"><div class="step-num">5</div><div class="step-content"><p>Optionally enable <strong>AbuseIPDB</strong> and <strong>VirusTotal</strong> API enrichment to flag malicious IPs and suspicious hashes in real time.</p></div></div>
+            <div class="step"><div class="step-num">6</div><div class="step-content"><p>Click <strong>Run Analysis</strong>. Results stream in real-time to the UI and are saved to <code>&lt;CaseRoot&gt;/ModuleOutput/</code>.</p></div></div>
+          </div>
+        </article>
+
+        <!-- Case Management -->
+        <article class="help-article" data-id="case-management">
+          <h2>Case Management & Unified Case Architecture</h2>
+          <p>OpenForensic implements a native <strong>Unified Forensic Case Folder Architecture</strong>, ensuring every disk image, triage database, timeline, and report for a single case resides in one standardized, central directory.</p>
+
+          <h3>Case Directory Structure</h3>
+          <pre>📁 &lt;CaseRoot&gt;/&lt;CaseNumber&gt;/
+├── 📁 Cache/         # Temporary indexing, YARA artifacts, scratch space
+├── 📁 Export/        # Disk images (.dd, .e01), carved files, timeline CSVs
+├── 📁 Log/           # Acquisition logs, audit trails, hash records
+├── 📁 ModuleOutput/  # Triage SQLite DBs, Volatility outputs, RAM analysis
+├── 📁 Reports/       # HTML, JSON, PDF forensic reports
+├── 📄 &lt;CaseName&gt;.ofc # JSON case container manifest (v2.1.0)
+└── 🗄️ openforensic.db # Portable per-case SQLite database</pre>
+
+          <h3>Creating a New Case</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>The app opens to <strong>📁 Case Management</strong> by default. Click <strong>"+ New Case Folder"</strong>.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Enter Case Number, Case Name, and Examiner Name. Browse to a destination root directory.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>Click <strong>Create</strong>. The standardized folder tree is created instantly.</p></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-content"><p>Click <strong>"Set Active Workspace"</strong> to bind the case. All subsequent acquisition and analysis outputs are automatically routed to the correct subdirectories.</p></div></div>
+          </div>
+
+          <div class="callout">
+            <strong>Portable by Design:</strong> The entire case folder can be copied to an encrypted USB drive or network share. Another investigator can open it on a different workstation — no database import scripts required. The <code>openforensic.db</code> inside the case folder is fully self-contained.
+          </div>
+        </article>
+
+        <!-- Capture vs Analysis Mode -->
+        <article class="help-article" data-id="modes">
+          <h2>Capture Mode vs. Analysis Mode</h2>
+          <p>OpenForensic enforces a strict <strong>defense-in-depth boundary</strong> between data acquisition and post-acquisition analysis to protect chain-of-custody and prevent evidence modification during active field collections.</p>
+
+          <h3>Default: Capture Mode 🟢</h3>
+          <p>On launch, the application operates in <strong>read-only Capture Mode</strong>. Only non-invasive physical/logical acquisition, cryptographic hashing, and general utilities are active. External network connections are blocked.</p>
+
+          <h3>Switching to Analysis Mode 🔴</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Look at the top navigation bar — the status badge shows 🟢 <strong>Capture Mode</strong>.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Click <strong>"Switch to Analysis Mode"</strong>. A confirmation dialog appears: <em>"Switching to Analysis Mode unlocks deep analysis features... Do you wish to proceed?"</em></p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>Click <strong>Confirm</strong>. The badge updates to 🔴 <strong>Analysis Mode Active</strong> and all analysis tabs unlock.</p></div></div>
+          </div>
+
+          <h3>Analysis Mode Features Unlocked</h3>
+          <ul>
+            <li>⚡ Triage SQL Workbench</li>
+            <li>🧠 Native Rust Volatility RAM Analysis</li>
+            <li>⏱️ Timeline Generator (NTFS MFT, Ext4 journals)</li>
+            <li>🛡️ AbuseIPDB &amp; VirusTotal IOC enrichment</li>
+            <li>🛡️ Splunk HEC &amp; Wazuh SIEM streaming</li>
+            <li>🔑 RAM Master-Key extraction (BitLocker VMK, LUKS)</li>
+          </ul>
+
+          <div class="callout warn">
+            <strong>Audit Logging:</strong> Every mode transition is recorded in the SQLite <code>audit_logs</code> table with timestamp and examiner ID for court-admissible chain-of-custody compliance.
+          </div>
+        </article>
+
+        <!-- Hash Verification -->
+        <article class="help-article" data-id="hashes">
+          <h2>Cryptographic Hash Verification</h2>
+          <p>OpenForensic performs simultaneous multi-algorithm streaming hash verification at three stages of the acquisition lifecycle to ensure bit-for-bit evidence integrity.</p>
+
+          <h3>The Three Hashing Stages</h3>
+          <table class="data-table" style="margin-bottom:20px;">
+            <thead><tr><th>Stage</th><th>When</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Pre-Acquisition</strong></td><td>Before imaging starts</td><td>Baseline fingerprint of the source device before any copy operations</td></tr>
+              <tr><td><strong>Acquisition (Stream)</strong></td><td>During read, block-by-block</td><td>Hash of raw uncompressed data stream — the true evidence hash</td></tr>
+              <tr><td><strong>Post-Acquisition (Container)</strong></td><td>After image is written</td><td>Hash of the resulting file on disk — verifies file integrity during storage/transfer</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Why AFF/E01 Container Hashes Differ from Stream Hashes</h3>
+          <p>This is <strong>normal and expected</strong>. AFF and E01 containers include compressed data, embedded case metadata, internal segment headers, and the stream hash itself — all of which change the file's binary composition vs. a flat raw copy.</p>
+          <ul>
+            <li><strong>To verify evidence integrity:</strong> Use the <em>acquisition stream hash</em> embedded inside the container. Analysis tools (Autopsy, EnCase) verify this automatically.</li>
+            <li><strong>To verify file integrity:</strong> Use the <em>container hash</em> to confirm the file wasn't corrupted during storage or network transfer.</li>
+          </ul>
+        </article>
+
+        <!-- CLI Reference -->
+        <article class="help-article" data-id="cli">
+          <h2>CLI Reference</h2>
+          <p>OpenForensic includes a native command-line interface for headless forensic automation — ideal for AWS EC2 cloud triage, remote SSH investigations, or SOAR pipeline integration.</p>
+
+          <h3>Common Commands</h3>
+          <pre># List detected physical block devices
+openforensic --cli list-devices
+
+# E01 acquisition with zstd compression and SHA-256/SHA-512 hashing
+openforensic --cli acquire \
+  --source \\.\PhysicalDrive0 \
+  --dest D:\evidence\disk.e01 \
+  --format e01 \
+  --compression zstd \
+  --hashes md5,sha256,sha512
+
+# Rapid live triage with Splunk HEC SIEM streaming (Analysis Mode)
+openforensic --cli --mode analysis triage \
+  --dest C:\triage_output \
+  --siem-export \
+  --siem-type splunk_hec \
+  --siem-endpoint https://splunk.example.com:8088 \
+  --siem-token &lt;HEC_TOKEN&gt;
+
+# RAM analysis with AbuseIPDB enrichment (Analysis Mode)
+openforensic --cli --mode analysis ram \
+  --dump memory.raw \
+  --profile windows.pslist.PsList \
+  --ioc-enrich
+
+# Generate and sign an integrity manifest
+openforensic --cli acquire \
+  --source /dev/sda \
+  --dest /mnt/evidence/drive.raw \
+  --format raw \
+  --hashes md5,sha1,sha256,sha512 \
+  --sign-manifest \
+  --key /keys/openforensic_hmac.key
+
+# Verify a manifest
+openforensic --cli verify-manifest \
+  --manifest /mnt/evidence/drive.raw.sig \
+  --pubkey /keys/openforensic_hmac.pub</pre>
+
+          <div class="callout warn">
+            <strong>SIEM Validation:</strong> When <code>--siem-export</code> is activated, supplying a target <code>--siem-endpoint</code> is strictly required by clap (<code>required_if_eq</code>). SIEM endpoints default to empty strings in compiled binaries to prevent accidental leakage.
+          </div>
+        </article>
+
+        <!-- Integrity Manifests -->
+        <article class="help-article" data-id="manifests">
+          <h2>Keyed Cryptographic Integrity Manifests</h2>
+          <p>OpenForensic generates <strong>HMAC-SHA256 keyed integrity manifests</strong> that mathematically bind evidence containers to the investigating examiner — producing tamper-evident signatures for court admissibility without requiring heavy OpenPGP tooling.</p>
+
+          <h3>What a Manifest Contains</h3>
+          <ul>
+            <li>Case ID, Evidence Tag, Examiner Name, Agency Name, and acquisition timestamps</li>
+            <li>Source device path, serial number, sector size, and total byte count</li>
+            <li>Cryptographic hashes (MD5, SHA-1, SHA-256, SHA-512) of the acquired image</li>
+            <li>HMAC-SHA256 integrity seal generated with the investigator's 256-bit secret key</li>
+          </ul>
+
+          <h3>Generating a Keypair</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Navigate to the <strong>🔑 PGP Keys &amp; Manifests</strong> tab.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>Enter your Investigator Name and Agency Email, then click <strong>⚡ Generate Keypair</strong>.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>The ASCII-armored secret key and verification token appear instantly. The key fingerprint is shown for reference.</p></div></div>
+          </div>
+          <div class="callout warn">
+            <strong>Key Security:</strong> Back up <code>openforensic_hmac.key</code> to a secure encrypted offline USB. Never distribute your secret key — provide only the Verification Token (<code>openforensic_hmac.pub</code>) to external parties.
+          </div>
+
+          <h3>Verifying a Manifest</h3>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><p>Load the Verification Token from the acquiring investigator in the Key Management panel.</p></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><p>In the Manifest Verification panel, browse to the <code>.manifest</code> or <code>.sig</code> file.</p></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><p>Click <strong>🛡️ Verify Manifest</strong>. OpenForensic displays <span style="color:var(--success);font-weight:700;">VALID INTEGRITY SEAL</span> or <span style="color:var(--error);font-weight:700;">INTEGRITY VIOLATION</span>.</p></div></div>
+          </div>
+        </article>
+
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ════════════════════════════════════════════ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="nav-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-container)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          OpenForensic
+        </div>
+        <p>Enterprise-grade digital forensics suite. Built in Rust for forensic investigators, incident responders, and law enforcement.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#modes">Architecture</a></li><li><a href="index.html#download">Download</a></li></ul>
+      </div>
+      <div class="footer-col">
+        <h4>Documentation</h4>
+        <ul><li><a href="help.html">Getting Started</a></li><li><a href="help.html">Disk Imaging</a></li><li><a href="help.html">RAM Analysis</a></li></ul>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <ul><li><a href="faq.html">FAQ</a></li><li><a href="https://github.com/rootwithkhandal/OpenForensic/issues" target="_blank">Issues</a></li><li><a href="https://github.com/rootwithkhandal/OpenForensic/blob/main/SECURITY.md" target="_blank">Security</a></li></ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 OpenForensic. Proprietary License.</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--outline);">Rust 1.85 · Tauri 2.11 · Edition 2024</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+function showArticle(id, el) {
+  document.querySelectorAll('.help-article').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('.help-nav-item').forEach(n => n.classList.remove('active'));
+  const article = document.querySelector('[data-id="' + id + '"]');
+  if (article) article.classList.add('active');
+  if (el) el.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

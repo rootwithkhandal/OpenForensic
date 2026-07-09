@@ -33,6 +33,15 @@
 //! }
 //! ```
 
+#![allow(
+    clippy::type_complexity,
+    clippy::collapsible_if,
+    clippy::manual_is_multiple_of,
+    clippy::implicit_saturating_sub,
+    clippy::manual_range_contains,
+    clippy::useless_format
+)]
+
 pub mod error;
 pub mod reader;
 pub mod plugins;

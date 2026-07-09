@@ -1,3 +1,11 @@
+#![allow(
+    clippy::type_complexity,
+    clippy::collapsible_if,
+    clippy::too_many_arguments,
+    clippy::useless_format,
+    clippy::needless_borrow
+)]
+
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};

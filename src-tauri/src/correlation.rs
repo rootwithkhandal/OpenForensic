@@ -1,3 +1,11 @@
+#![allow(
+    clippy::type_complexity,
+    clippy::collapsible_if,
+    clippy::too_many_arguments,
+    clippy::useless_format,
+    clippy::needless_borrow
+)]
+
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};

@@ -61,6 +61,13 @@
             class="btn btn-primary"
             >Download v2.1.0</a
           >
+          <button
+            class="nav-toggle"
+            aria-label="Toggle navigation"
+            onclick="toggleMobileNav()"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
         </div>
       </div>
     </nav>
@@ -81,16 +88,7 @@
             &nbsp;·&nbsp; v2.1.0
           </p>
 
-          <h1
-            class="animate-up delay-1"
-            style="
-              font-size: 48px;
-              font-weight: 700;
-              letter-spacing: -0.03em;
-              line-height: 1.1;
-              margin-bottom: 24px;
-            "
-          >
+          <h1 class="hero-title animate-up delay-1">
             Enterprise-Grade<br />Digital Forensics Suite
           </h1>
 
@@ -109,16 +107,7 @@
             write-blocked investigation suite built in <strong>Rust</strong>.
           </p>
 
-          <div
-            class="animate-up delay-3"
-            style="
-              display: flex;
-              gap: 12px;
-              flex-wrap: wrap;
-              align-items: center;
-              margin-bottom: 24px;
-            "
-          >
+          <div class="hero-actions animate-up delay-3">
             <a
               href="https://github.com/rootwithkhandal/OpenForensic/releases"
               class="btn btn-primary btn-lg"
@@ -145,14 +134,7 @@
             >
           </div>
 
-          <div
-            style="
-              display: flex;
-              gap: 10px;
-              flex-wrap: wrap;
-              margin-bottom: 48px;
-            "
-          >
+          <div class="hero-chips">
             <span class="chip">
               <svg
                 width="12"
@@ -273,13 +255,7 @@
           </p>
         </div>
 
-        <div
-          style="
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-          "
-        >
+        <div class="grid-3">
           <!-- Disk Imaging -->
           <div class="card">
             <div class="feature-icon">
@@ -563,14 +539,7 @@
           </p>
         </div>
 
-        <div
-          style="
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 24px;
-            align-items: start;
-          "
-        >
+        <div class="modes-grid">
           <!-- Capture Mode -->
           <div
             class="card"
@@ -730,16 +699,7 @@
           </div>
 
           <!-- Toggle Visual -->
-          <div
-            style="
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              gap: 12px;
-              padding-top: 40px;
-            "
-          >
+          <div class="modes-arrow">
             <div
               style="
                 width: 48px;
@@ -972,14 +932,7 @@
       style="background: var(--surface-container-lowest)"
     >
       <div class="container">
-        <div
-          style="
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 64px;
-            align-items: center;
-          "
-        >
+        <div class="grid-2">
           <div>
             <p class="section-eyebrow">Architecture</p>
             <h2 class="section-title" style="font-size: 28px">
@@ -1291,5 +1244,11 @@
         </div>
       </div>
     </footer>
+    <script>
+      function toggleMobileNav() {
+        const navLinks = document.querySelector('.nav-links');
+        if (navLinks) navLinks.classList.toggle('nav-open');
+      }
+    </script>
   </body>
 </html>

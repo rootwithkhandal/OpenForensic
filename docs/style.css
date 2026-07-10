@@ -108,6 +108,19 @@ ul { list-style: none; }
 .nav-link:hover { background: var(--surface-container); color: var(--on-surface); }
 .nav-link.active { color: var(--primary-container); background: var(--primary-fixed); font-weight: 600; }
 .nav-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: var(--space-4); }
+.nav-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius);
+  color: var(--on-surface-variant);
+  padding: 6px 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.nav-toggle:hover { background: var(--surface-container); color: var(--on-surface); }
 
 /* ── Buttons ───────────────────────────────────────── */
 .btn {
@@ -275,19 +288,200 @@ ul { list-style: none; }
 .data-table tr:hover td { background: var(--surface-container-low); }
 .mono { font-family: var(--font-mono); font-size: 12px; }
 
-/* ── Responsive ────────────────────────────────────── */
-@media (max-width: 1024px) {
-  .footer-grid { grid-template-columns: 1fr 1fr; }
-  .stats-grid  { grid-template-columns: repeat(2, 1fr); }
-  .help-layout { grid-template-columns: 1fr; }
-  .help-sidebar { position: static; }
+/* ── Responsive Layout Utility Classes ─────────────── */
+.hero-title {
+  font-size: clamp(32px, 5.5vw, 48px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  margin-bottom: 24px;
 }
+.section-title {
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-3);
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 64px;
+  align-items: center;
+}
+.modes-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.modes-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 40px;
+}
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.hero-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 48px;
+}
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: var(--space-4) 0;
+}
+
+/* ── Responsive Breakpoints ────────────────────────── */
+@media (max-width: 1024px) {
+  .nav-inner { padding: 0 var(--space-6); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { gap: 36px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+  .stats-grid  { grid-template-columns: repeat(2, 1fr); }
+  .help-layout { grid-template-columns: 1fr; gap: 24px; }
+  .help-sidebar {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-radius: var(--radius-lg);
+    padding: var(--space-2);
+    gap: var(--space-1);
+    -webkit-overflow-scrolling: touch;
+  }
+  .help-sidebar-header { display: none; }
+  .help-nav-item {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    flex-shrink: 0;
+  }
+  .help-nav-item.active {
+    border-bottom-color: var(--primary-container);
+  }
+}
+
 @media (max-width: 768px) {
   .container { padding: 0 16px; }
+  .nav-inner { padding: 0 16px; position: relative; }
   .section { padding: 48px 0; }
-  .footer-grid { grid-template-columns: 1fr; }
+  .hero-section { padding: 48px 0 36px !important; }
+  .page-hero { padding: 32px 0; }
+
+  /* Navigation Mobile Drawer */
+  .nav-toggle { display: inline-flex; }
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    background: var(--surface-container-lowest);
+    border-bottom: 1px solid var(--outline-variant);
+    padding: var(--space-4) var(--space-6);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    z-index: 200;
+  }
+  .nav-links.nav-open { display: flex; }
+  .nav-link {
+    padding: 10px 14px;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  /* Grid Stack on Mobile */
+  .grid-3 { grid-template-columns: 1fr; gap: 16px; }
+  .grid-2 { grid-template-columns: 1fr; gap: 24px; }
+  .modes-grid { grid-template-columns: 1fr; gap: 16px; }
+  .modes-arrow {
+    flex-direction: row;
+    padding-top: 0;
+    margin: 8px 0;
+  }
+  .modes-arrow svg {
+    transform: rotate(90deg);
+  }
+
+  /* Terminal Card Responsive */
+  .terminal-body {
+    padding: 12px 14px;
+    overflow-x: auto;
+  }
+  .terminal-line {
+    font-size: 11.5px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .t-cmd, .t-hash, .t-out {
+    word-break: break-word;
+  }
+
+  /* Buttons & Action Bars */
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-actions .btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* FAQ & Help responsiveness */
+  .faq-question {
+    font-size: 14px;
+    padding: 16px 0;
+  }
+  .faq-answer pre, .help-article pre {
+    padding: 12px 14px;
+    font-size: 11.5px;
+    overflow-x: auto;
+  }
+  .help-article h2 { font-size: 20px; }
+  .help-article h3 { font-size: 16px; }
+
+  /* Footer & Stats */
+  .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+  .footer-bottom {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .nav-links { display: none; }
+}
+
+@media (max-width: 480px) {
+  .nav-actions .badge { display: none; }
+  .nav-actions .btn-primary {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+  .hero-title { font-size: 28px !important; }
+  .section-title { font-size: 22px !important; }
+  .stat-value { font-size: 14px; }
+  .stat-item { padding: var(--space-4); }
+  .help-sidebar { gap: 4px; padding: 6px; }
+  .help-nav-item { padding: 6px 10px; font-size: 12px; }
 }
 
 /* ── Animations ────────────────────────────────────── */

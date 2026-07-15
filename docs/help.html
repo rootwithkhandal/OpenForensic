@@ -84,6 +84,10 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           RAM Analysis
         </a>
+        <a class="help-nav-item" onclick="showArticle('data-recovery', this)" id="data-recovery">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Data Recovery
+        </a>
         <a class="help-nav-item" onclick="showArticle('case-management', this)" id="case-management">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
           Case Management
@@ -266,6 +270,63 @@ ORDER BY visit_time DESC LIMIT 50;</pre>
             <div class="step"><div class="step-num">5</div><div class="step-content"><p>Optionally enable <strong>AbuseIPDB</strong> and <strong>VirusTotal</strong> API enrichment to flag malicious IPs and suspicious hashes in real time.</p></div></div>
             <div class="step"><div class="step-num">6</div><div class="step-content"><p>Click <strong>Run Analysis</strong>. Results stream in real-time to the UI and are saved to <code>&lt;CaseRoot&gt;/ModuleOutput/</code>.</p></div></div>
           </div>
+        </article>
+
+        <!-- Data Recovery & File Carving -->
+        <article class="help-article" data-id="data-recovery">
+          <h2>Data Recovery &amp; File Carving (Rayon Parallel Engine)</h2>
+          <p>OpenForensic includes a built-in <strong>Rayon Multi-Threaded Data Recovery &amp; Carving Engine</strong> capable of recovering deleted or lost files from physical USB drives, raw disk images, memory dumps, and unallocated clusters without relying on filesystem allocation tables.</p>
+
+          <div class="callout">
+            <strong>Analysis Mode Required:</strong> Like all analytical and recovery tools in OpenForensic, parallel data carving requires switching your session to Analysis Mode (via the top navigation toggle or <code>--mode analysis</code> CLI flag) to ensure data-modifying safeguards are properly managed.
+          </div>
+
+          <h3>How Deleted File Recovery Works</h3>
+          <p>When files are deleted from a USB drive or storage volume, the operating system marks their directory entries as free space, but the underlying raw bytes remain intact on the physical blocks until overwritten. OpenForensic scans the raw byte streams across multiple CPU cores in parallel to locate exact magic header and footer signatures.</p>
+
+          <h3>Supported File Signatures</h3>
+          <table class="data-table" style="margin-bottom:20px;">
+            <thead><tr><th>File Type</th><th>Extension</th><th>Header Signature</th><th>Footer Signature</th><th>Max Size</th></tr></thead>
+            <tbody>
+              <tr><td><strong>JPEG Image</strong></td><td><span class="mono">.jpg</span></td><td><span class="mono">FF D8 FF</span></td><td><span class="mono">FF D9</span></td><td>25 MB</td></tr>
+              <tr><td><strong>PNG Image</strong></td><td><span class="mono">.png</span></td><td><span class="mono">89 50 4E 47 0D 0A 1A 0A</span></td><td><span class="mono">49 45 4E 44 AE 42 60 82</span></td><td>50 MB</td></tr>
+              <tr><td><strong>PDF Document</strong></td><td><span class="mono">.pdf</span></td><td><span class="mono">%PDF-</span></td><td><span class="mono">%%EOF</span></td><td>100 MB</td></tr>
+              <tr><td><strong>ZIP / Office OpenXML</strong></td><td><span class="mono">.zip</span> (<span class="mono">.docx</span>, <span class="mono">.xlsx</span>)</td><td><span class="mono">50 4B 03 04</span></td><td><em>Variable / Slice</em></td><td>200 MB</td></tr>
+              <tr><td><strong>SQLite Database</strong></td><td><span class="mono">.sqlite</span></td><td><span class="mono">SQLite format 3\0</span></td><td><em>Variable / Slice</em></td><td>500 MB</td></tr>
+              <tr><td><strong>Windows Event Log</strong></td><td><span class="mono">.evtx</span></td><td><span class="mono">ElfFile\0</span></td><td><em>Variable / Slice</em></td><td>100 MB</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Step-by-Step USB Deleted File Recovery Workflow</h3>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                <p><strong>Create a Raw Physical Image (.dd):</strong> Plug in the target USB drive and launch OpenForensic in Capture Mode. Go to <strong>Disk Imaging</strong>, select the physical USB drive as the source, choose <strong>Raw (.dd)</strong> format, and complete the acquisition. A sector-by-sector physical image preserves all unallocated clusters where deleted files reside.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <p><strong>Switch to Analysis Mode:</strong> Once your image is created, switch your session to <strong>Analysis Mode</strong> using the navigation bar toggle to unlock post-acquisition recovery modules.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                <p><strong>Configure the Parallel Carver:</strong> Navigate to the <strong>⚡ Recovered &amp; Carved Files (Rayon Multi-Threaded Engine)</strong> view. Enter the path to your acquired USB disk image (<code>.dd</code>) and specify a destination directory for the carved files.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                <p><strong>Start Carving &amp; Audit Logging:</strong> Click <strong>Start Rayon Carver</strong>. The engine slices the image into overlapping chunks and processes them across all CPU cores. Recovered files are written with their offset filenames (e.g., <code>carved_0001a4c0.pdf</code>), cryptographically hashed using SHA-256, and recorded in the SQLite case database (<code>carved_files</code> table) for chain-of-custody tracking.</p>
+              </div>
+            </div>
+          </div>
+
+          <h3>Benchmarking &amp; Verification</h3>
+          <p>You can verify your workstation's multi-threaded recovery speed anytime by clicking <strong>Run Carver Benchmark</strong> in the recovery dashboard. It runs a synthetic multi-threaded vs. single-threaded comparison test and displays exact throughput metrics (MB/s and speedup factor).</p>
         </article>
 
         <!-- Case Management -->
@@ -452,7 +513,7 @@ openforensic --cli verify-manifest \
       </div>
       <div class="footer-col">
         <h4>Documentation</h4>
-        <ul><li><a href="help.html">Getting Started</a></li><li><a href="help.html">Disk Imaging</a></li><li><a href="help.html">RAM Analysis</a></li></ul>
+        <ul><li><a href="help.html">Getting Started</a></li><li><a href="help.html">Disk Imaging</a></li><li><a href="help.html">RAM Analysis</a></li><li><a href="help.html">Data Recovery</a></li></ul>
       </div>
       <div class="footer-col">
         <h4>Support</h4>

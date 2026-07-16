@@ -1,0 +1,4136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenForensic</title>
+    <meta
+      name="description"
+      content="Professional forensic disk imaging and evidence management powered by Rust and Tauri."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"
+      rel="stylesheet"
+    />
+    <!-- Tailwind config must be set BEFORE loading the CDN script -->
+    <script>
+      tailwind = { config: {} }; // placeholder so the assignment below doesn't throw
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#00488d",
+              "on-primary": "#ffffff",
+              "primary-container": "#005fb8",
+              "on-primary-container": "#cadcff",
+              "primary-fixed": "#d6e3ff",
+              "primary-fixed-dim": "#a8c8ff",
+              "on-primary-fixed": "#001b3d",
+              "on-primary-fixed-variant": "#00468b",
+              "inverse-primary": "#a8c8ff",
+              secondary: "#515f74",
+              "on-secondary": "#ffffff",
+              "secondary-container": "#d5e3fc",
+              "on-secondary-container": "#57657a",
+              "secondary-fixed": "#d5e3fc",
+              "secondary-fixed-dim": "#b9c7df",
+              "on-secondary-fixed": "#0d1c2e",
+              "on-secondary-fixed-variant": "#3a485b",
+              tertiary: "#7b3200",
+              "on-tertiary": "#ffffff",
+              "tertiary-container": "#a04401",
+              "on-tertiary-container": "#ffd1bc",
+              "tertiary-fixed": "#ffdbcb",
+              "tertiary-fixed-dim": "#ffb691",
+              "on-tertiary-fixed": "#341100",
+              "on-tertiary-fixed-variant": "#783100",
+              error: "#ba1a1a",
+              "on-error": "#ffffff",
+              "error-container": "#ffdad6",
+              "on-error-container": "#93000a",
+              surface: "#f8f9fa",
+              "on-surface": "#191c1d",
+              "surface-variant": "#e1e3e4",
+              "on-surface-variant": "#424752",
+              "surface-bright": "#f8f9fa",
+              "surface-dim": "#d9dadb",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-low": "#f3f4f5",
+              "surface-container": "#edeeef",
+              "surface-container-high": "#e7e8e9",
+              "surface-container-highest": "#e1e3e4",
+              "inverse-surface": "#2e3132",
+              "inverse-on-surface": "#f0f1f2",
+              outline: "#727783",
+              "outline-variant": "#c2c6d4",
+              "surface-tint": "#005db5",
+              background: "#f8f9fa",
+              "on-background": "#191c1d",
+            },
+            borderRadius: {
+              DEFAULT: "0.125rem",
+              sm: "0.125rem",
+              md: "0.25rem",
+              lg: "0.25rem",
+              xl: "0.5rem",
+              full: "9999px",
+            },
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+              "body-sm": ["Inter"],
+              "body-md": ["Inter"],
+              "body-lg": ["Inter"],
+              headline: ["Inter"],
+              display: ["Inter"],
+              "label-caps": ["Inter"],
+              "data-mono": ["JetBrains Mono"],
+              "data-mono-bold": ["JetBrains Mono"],
+            },
+            fontSize: {
+              "body-sm": ["12px", { lineHeight: "16px", fontWeight: "400" }],
+              "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+              "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+              headline: ["18px", { lineHeight: "24px", fontWeight: "600" }],
+              display: [
+                "24px",
+                {
+                  lineHeight: "32px",
+                  letterSpacing: "-0.02em",
+                  fontWeight: "600",
+                },
+              ],
+              "label-caps": [
+                "11px",
+                {
+                  lineHeight: "16px",
+                  letterSpacing: "0.05em",
+                  fontWeight: "700",
+                },
+              ],
+              "data-mono": ["13px", { lineHeight: "20px", fontWeight: "400" }],
+              "data-mono-bold": [
+                "13px",
+                { lineHeight: "20px", fontWeight: "600" },
+              ],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body
+    class="bg-background text-on-background font-sans antialiased overflow-hidden"
+  >
+    <!-- Hidden stubs for JS compatibility (switchTab references #sidebar-panel) -->
+    <div id="sidebar-panel" class="hidden"></div>
+
+    <div class="flex h-screen w-full overflow-hidden">
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- SIDEBAR NAVIGATION                                       -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <aside
+        id="app-sidebar"
+        class="w-64 shrink-0 flex flex-col bg-surface border-r border-outline-variant z-50 transition-all duration-300"
+      >
+        <!-- Branding -->
+        <div class="p-4 border-b border-outline-variant flex items-center justify-between gap-1">
+          <div class="flex items-center gap-2 overflow-hidden">
+            <span class="material-symbols-outlined text-primary text-[22px]"
+              >shield_lock</span
+            >
+            <span class="brand-label text-[15px] font-bold tracking-tight text-on-surface truncate"
+              >OpenForensic</span
+            >
+            <span
+              class="brand-label ml-auto font-mono text-[10px] text-outline bg-surface-container px-1.5 py-0.5 rounded"
+              >v2.1.0</span
+            >
+          </div>
+          <button
+            id="btn-toggle-sidebar"
+            class="p-1.5 rounded hover:bg-surface-container text-on-surface-variant transition-colors shrink-0"
+            title="Toggle Sidebar Navigation (Compact / Full)"
+            onclick="toggleSidebarCompact()"
+          >
+            <span class="material-symbols-outlined text-[18px]">dock_to_left</span>
+          </button>
+        </div>
+
+        <!-- Active Case Chip -->
+        <div class="case-label-box px-4 pt-4 pb-2">
+          <div
+            class="bg-surface-container-low border border-outline-variant rounded px-3 py-2"
+          >
+            <p class="text-label-caps text-outline uppercase mb-0.5">
+              Active Case
+            </p>
+            <p
+              id="active-case-label"
+              class="text-body-sm font-bold text-on-surface font-mono truncate"
+            >
+              —
+            </p>
+          </div>
+        </div>
+
+        <!-- Primary Navigation -->
+        <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+          <button
+            id="btn-tab-imaging"
+            class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+            data-tab="imaging"
+            title="Disk Imaging"
+          >
+            <span class="material-symbols-outlined text-[20px]">save</span>
+            <span class="nav-label">Disk Imaging</span>
+          </button>
+          <button
+            id="btn-tab-triage"
+            class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+            data-tab="triage"
+            title="System Triage"
+          >
+            <span class="material-symbols-outlined text-[20px]"
+              >monitor_heart</span
+            >
+            <span class="nav-label">System Triage</span>
+          </button>
+          <button
+            id="btn-tab-live"
+            class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+            data-tab="live"
+            title="Live Acquisition"
+          >
+            <span class="material-symbols-outlined text-[20px]"
+              >database_upload</span
+            >
+            <span class="nav-label">Live Acquisition</span>
+          </button>
+          <button
+            id="btn-tab-cases"
+            class="tab-btn active w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-semibold text-left"
+            data-tab="cases"
+            title="Case Management"
+          >
+            <span class="material-symbols-outlined text-[20px]"
+              >folder_managed</span
+            >
+            <span class="nav-label">Case Management</span>
+          </button>
+          <button
+            id="btn-tab-pgp"
+            class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+            data-tab="pgp"
+            title="PGP Provenance"
+          >
+            <span class="material-symbols-outlined text-[20px]"
+              >verified_user</span
+            >
+            <span class="nav-label">PGP Provenance</span>
+          </button>
+
+          <!-- Analysis Suite Navigation -->
+          <div class="pt-3 mt-2 border-t border-outline-variant space-y-0.5">
+            <div
+              class="nav-label px-3 py-1 text-label-caps text-outline uppercase tracking-wider font-bold"
+            >
+              Analysis Suite
+            </div>
+            <button
+              id="btn-tab-timeline"
+              class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+              data-tab="timeline"
+              title="Timeline Generator"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >timeline</span
+              >
+              <span class="nav-label">Timeline Generator</span>
+            </button>
+            <button
+              id="btn-tab-ram"
+              class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+              data-tab="ram"
+              title="RAM Forensics"
+            >
+              <span class="material-symbols-outlined text-[20px]">memory</span>
+              <span class="nav-label">RAM Forensics</span>
+            </button>
+            <button
+              id="btn-tab-data-recovery"
+              class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+              data-tab="data-recovery"
+              title="Data Recovery & File Carving"
+            >
+              <span class="material-symbols-outlined text-[20px]">restore_page</span>
+              <span class="nav-label">Data Recovery & Carving</span>
+            </button>
+            <button
+              id="btn-tab-ram-viewer"
+              class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+              data-tab="ram-viewer"
+              title="View RAM Results"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >table_view</span
+              >
+              <span class="nav-label">View RAM Results</span>
+            </button>
+            <button
+              id="btn-tab-yara"
+              class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-body-md font-medium text-left"
+              data-tab="yara"
+              title="YARA Scanner"
+            >
+              <span class="material-symbols-outlined text-[20px]">biotech</span>
+              <span class="nav-label">YARA Scanner</span>
+            </button>
+          </div>
+        </nav>
+
+        <!-- Status Footer -->
+        <div
+          class="p-4 border-t border-outline-variant space-y-1.5 bg-surface-container-low/40"
+        >
+          <div class="flex items-center gap-2 px-1">
+            <span class="material-symbols-outlined text-primary text-[18px]"
+              >shield_person</span
+            >
+            <div
+              id="admin-badge"
+              class="text-label-caps text-primary font-bold uppercase tracking-wider"
+            >
+              Checking…
+            </div>
+          </div>
+          <div
+            id="clock-display"
+            class="font-mono text-[11px] text-outline px-1"
+          >
+            —
+          </div>
+          <!-- Theme toggle hidden — light mode only; kept for JS compat -->
+          <button id="btn-theme-toggle" class="hidden"></button>
+        </div>
+      </aside>
+
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- MAIN WORKSPACE                                           -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <!-- TOP APP BAR -->
+        <header
+          class="h-14 shrink-0 bg-surface border-b border-outline-variant flex items-center justify-between px-5 z-40"
+        >
+          <div class="flex items-center gap-4">
+            <span
+              id="topbar-title"
+              class="text-headline font-bold text-on-surface"
+              >Disk Imaging</span
+            >
+            <div class="relative">
+              <span
+                class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[18px]"
+                >search</span
+              >
+              <input
+                id="topbar-search"
+                type="text"
+                placeholder="Search devices or logs…"
+                class="pl-9 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded text-body-sm w-52 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-outline"
+              />
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              class="p-2 text-on-surface-variant hover:bg-surface-container rounded transition-colors"
+              title="Activity Log"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >pending_actions</span
+              >
+            </button>
+            <button
+              id="btn-settings"
+              class="p-2 text-on-surface-variant hover:bg-surface-container rounded transition-colors"
+              title="Global Settings & API Configuration"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >settings</span
+              >
+            </button>
+            <a
+              id="btn-help"
+              href="..C:\Users\kpriyansh\Desktop\Open Forensic\docs\index.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="p-2 text-on-surface-variant hover:bg-surface-container rounded transition-colors inline-flex items-center justify-center cursor-pointer"
+              title="Help"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >help_outline</span
+              >
+            </a>
+            <div class="h-6 w-px bg-outline-variant mx-1"></div>
+            <button
+              id="btn-mode-toggle"
+              class="px-3 py-1.5 text-body-sm font-bold bg-surface-container-high border border-outline-variant text-on-surface rounded hover:bg-amber-500/20 hover:border-amber-500 transition-all flex items-center gap-1.5"
+              title="Click to switch between Capture Mode and Analysis Mode"
+            >
+              <span class="material-symbols-outlined text-[16px]">lock</span>
+              <span id="mode-display-text">Mode: CAPTURE</span>
+            </button>
+            <button
+              id="btn-export-log"
+              class="px-3 py-1.5 text-body-sm font-semibold border border-outline-variant rounded hover:bg-surface-container text-on-surface transition-colors flex items-center gap-1.5"
+            >
+              <span class="material-symbols-outlined text-[16px]"
+                >file_download</span
+              >Export Log
+            </button>
+            <button
+              id="btn-start-acquisition"
+              class="px-3 py-1.5 text-body-sm font-bold bg-primary text-on-primary rounded hover:opacity-90 transition-all flex items-center gap-1.5"
+            >
+              <span class="material-symbols-outlined text-[16px]"
+                >play_arrow</span
+              >Start Acquisition
+            </button>
+            <button
+              id="btn-resume-acquisition"
+              class="hidden px-3 py-1.5 text-body-sm font-bold bg-amber-500 text-white rounded hover:opacity-90 transition-all flex items-center gap-1.5"
+            >
+              <span class="material-symbols-outlined text-[16px]">replay</span
+              >Resume Job
+            </button>
+          </div>
+        </header>
+
+        <!-- BREADCRUMB -->
+        <div
+          class="shrink-0 px-5 py-1.5 bg-surface-container-low border-b border-outline-variant text-label-caps text-outline flex items-center gap-2 uppercase tracking-wide"
+        >
+          <span>Cases</span>
+          <span class="material-symbols-outlined text-[13px]"
+            >chevron_right</span
+          >
+          <span id="breadcrumb-case">—</span>
+          <span class="material-symbols-outlined text-[13px]"
+            >chevron_right</span
+          >
+          <span id="breadcrumb-current" class="text-primary font-bold"
+            >Disk Imaging</span
+          >
+        </div>
+
+        <!-- ───────────────────────────────────── -->
+        <!-- TAB PANELS                             -->
+        <!-- ───────────────────────────────────── -->
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: DISK IMAGING                    -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-imaging-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5 space-y-4"
+        >
+          <!-- Source Device -->
+          <section class="bg-surface border border-outline-variant rounded p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h2
+                class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2"
+              >
+                <span class="material-symbols-outlined text-[16px]"
+                  >hard_drive</span
+                >Source Device
+              </h2>
+              <div class="flex items-center gap-3">
+                <button
+                  id="mode-physical"
+                  class="mode-btn active px-3 py-1 text-body-sm font-semibold rounded border transition-colors"
+                >
+                  Physical Drive
+                </button>
+                <button
+                  id="mode-logical"
+                  class="mode-btn px-3 py-1 text-body-sm font-semibold rounded border transition-colors"
+                >
+                  Logical Folder
+                </button>
+                <button
+                  id="mode-image"
+                  class="mode-btn px-3 py-1 text-body-sm font-semibold rounded border transition-colors"
+                >
+                  Disk Image / Mount
+                </button>
+                <button
+                  id="btn-rescan"
+                  class="flex items-center gap-1 text-label-caps text-primary font-bold hover:underline ml-1 uppercase tracking-wide"
+                >
+                  <span class="material-symbols-outlined text-[14px]"
+                    >refresh</span
+                  >Refresh
+                </button>
+              </div>
+            </div>
+            <!-- Physical devices -->
+            <div id="physical-container">
+              <div
+                id="device-list"
+                class="grid grid-cols-1 lg:grid-cols-2 gap-3"
+              >
+                <div class="info-message col-span-2 text-center py-6">
+                  Click "Refresh" to scan available block devices.
+                </div>
+              </div>
+            </div>
+            <!-- Logical folder -->
+            <div id="logical-container" class="hidden space-y-2">
+              <label class="block text-label-caps text-outline uppercase"
+                >Source Directory</label
+              >
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  id="logical-source-input"
+                  placeholder="Select source folder…"
+                  readonly
+                  class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                />
+                <button
+                  id="btn-browse-source"
+                  class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >folder_open</span
+                  >
+                </button>
+              </div>
+            </div>
+            <!-- Disk Image / Mount -->
+            <div id="image-mount-container" class="hidden space-y-4">
+              <div>
+                <label class="block text-label-caps text-outline uppercase mb-1"
+                  >Forensic Disk Image (.dd, .raw, .img, .e01, .vhd,
+                  .iso)</label
+                >
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="mount-image-path"
+                    placeholder="Select forensic disk image file to mount…"
+                    readonly
+                    class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                  />
+                  <button
+                    id="btn-browse-mount-image"
+                    class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                    title="Browse Disk Image"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >folder_open</span
+                    >
+                  </button>
+                </div>
+              </div>
+              <div
+                class="flex items-center justify-between bg-surface-container-low p-3 rounded border border-outline-variant"
+              >
+                <div class="flex items-center gap-4">
+                  <label
+                    class="flex items-center gap-2 text-body-sm font-semibold text-on-surface cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="mount-read-only"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                    <span>Mount Read-Only (Forensic Chain of Custody)</span>
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <span class="text-label-caps text-outline"
+                      >Custom Drive / Path:</span
+                    >
+                    <input
+                      type="text"
+                      id="mount-custom-point"
+                      placeholder="Auto / E:\"
+                      class="w-24 text-body-sm border border-outline-variant rounded px-2 py-1 font-mono bg-surface text-on-surface"
+                    />
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    id="btn-mount-action"
+                    class="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold text-body-sm rounded shadow-sm flex items-center gap-1.5 transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >lock_open</span
+                    >Mount Volume
+                  </button>
+                  <button
+                    id="btn-unmount-action"
+                    class="px-4 py-2 bg-error/10 hover:bg-error/20 text-error border border-error/30 font-bold text-body-sm rounded flex items-center gap-1.5 transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >eject</span
+                    >Unmount
+                  </button>
+                </div>
+              </div>
+
+              <!-- Active Mounted Images Table -->
+              <div
+                class="border border-outline-variant rounded overflow-hidden"
+              >
+                <div
+                  class="bg-surface-container px-4 py-2 border-b border-outline-variant flex items-center justify-between"
+                >
+                  <span
+                    class="text-label-caps font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5"
+                  >
+                    <span
+                      class="material-symbols-outlined text-[16px] text-primary"
+                      >hard_drive</span
+                    >Active Mounted Forensic Volumes
+                  </span>
+                  <button
+                    id="btn-refresh-mounts"
+                    class="text-label-caps text-primary hover:underline font-bold flex items-center gap-1"
+                  >
+                    <span class="material-symbols-outlined text-[14px]"
+                      >refresh</span
+                    >Refresh List
+                  </button>
+                </div>
+                <div class="overflow-x-auto max-h-48">
+                  <table class="w-full text-left border-collapse text-body-sm">
+                    <thead>
+                      <tr
+                        class="bg-surface-container-low text-label-caps text-outline border-b border-outline-variant"
+                      >
+                        <th class="py-2 px-3">Mount Point</th>
+                        <th class="py-2 px-3">Image Path</th>
+                        <th class="py-2 px-3">File System</th>
+                        <th class="py-2 px-3">Size (GB)</th>
+                        <th class="py-2 px-3">Mode</th>
+                        <th class="py-2 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="mounted-images-body"
+                      class="divide-y divide-outline-variant font-mono"
+                    >
+                      <tr>
+                        <td
+                          colspan="6"
+                          class="py-4 text-center text-outline italic"
+                        >
+                          No forensic disk images mounted.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Acquisition Configuration -->
+          <section class="bg-surface border border-outline-variant rounded p-5">
+            <h2
+              class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 mb-5"
+            >
+              <span class="material-symbols-outlined text-[16px]"
+                >settings_input_component</span
+              >Acquisition Configuration
+            </h2>
+            <div class="grid grid-cols-2 gap-6">
+              <!-- Col 1 -->
+              <div class="space-y-4">
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Evidence ID</label
+                  >
+                  <input
+                    type="text"
+                    id="input-evidence-id"
+                    placeholder="e.g., EVD-001"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Case Number</label
+                  >
+                  <input
+                    type="text"
+                    id="input-case-number"
+                    placeholder="e.g., CASE-2026-088"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Examiner Name</label
+                  >
+                  <input
+                    type="text"
+                    id="input-examiner"
+                    placeholder="e.g., Det. J. Miller"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Custody Notes</label
+                  >
+                  <input
+                    type="text"
+                    id="input-notes"
+                    placeholder="e.g., USB drive from desk drawer"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Destination Path</label
+                  >
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      id="input-dest-path"
+                      placeholder="Save evidence image to…"
+                      required
+                      readonly
+                      class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                    />
+                    <button
+                      id="btn-browse-dest"
+                      class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >folder_open</span
+                      >
+                    </button>
+                  </div>
+                  <div id="checkpoint-resume-banner" class="hidden mt-2 p-2.5 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-body-sm flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="material-symbols-outlined text-emerald-400 text-[18px]">restore</span>
+                      <span id="checkpoint-resume-text">Resumable checkpoint detected! Acquisition will verify 64KB crash boundary and resume.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Col 2 -->
+              <div class="space-y-4">
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Output Format</label
+                  >
+                  <select id="select-format" class="input-field">
+                    <option value="Raw / DD (.dd)">Raw / DD (.dd)</option>
+                    <option value="E01 (.e01)">
+                      E01 Evidence Image (.e01)
+                    </option>
+                    <option value="EX01 (.ex01)">
+                      EX01 Evidence Image (.ex01)
+                    </option>
+                    <option value="AFF (.aff)">
+                      Advanced Forensic Format / AFF4 (.aff / .aff4)
+                    </option>
+                    <option value="SMART (.smart)">SMART Image (.smart)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Compression</label
+                  >
+                  <select id="select-compression" class="input-field">
+                    <option value="None">None (Uncompressed)</option>
+                    <option value="Gzip">Gzip (Standard)</option>
+                    <option value="Zstd">Zstd (Fast &amp; Efficient)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Verification Hashing</label
+                  >
+                  <select id="select-verification" class="input-field">
+                    <option value="Pre &amp; Post-Acquisition">
+                      Pre &amp; Post-Acquisition (Double-Verify)
+                    </option>
+                    <option value="Post-Acquisition Only">
+                      Post-Acquisition Only (Faster)
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Block Size</label
+                  >
+                  <select id="select-blocksize" class="input-field">
+                    <option value="512">512 KB</option>
+                    <option value="1024">1024 KB (1 MB)</option>
+                    <option value="4096">4096 KB (4 MB)</option>
+                    <option value="65536" selected>65536 KB (64 MB)</option>
+                    <option value="131072">131072 KB (128 MB)</option>
+                    <option value="262144">262144 KB (256 MB)</option>
+                    <option value="1048576">1048576 KB (1 GB)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Image Splitting</label
+                  >
+                  <select id="select-split" class="input-field">
+                    <option value="None">None (Single File)</option>
+                    <option value="650">650 MB (CD-R)</option>
+                    <option value="2000">2.0 GB (FAT32)</option>
+                    <option value="4300">4.3 GB (DVD-R)</option>
+                    <option value="Custom">Custom Size…</option>
+                  </select>
+                </div>
+                <div id="custom-split-group" class="hidden">
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Custom Split (MB)</label
+                  >
+                  <input
+                    type="text"
+                    id="input-split-size"
+                    placeholder="e.g., 1024"
+                    class="input-field"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Hash + Options Row -->
+            <div
+              class="mt-5 flex flex-wrap gap-8 items-center pt-4 border-t border-outline-variant"
+            >
+              <div>
+                <label class="block text-label-caps text-outline uppercase mb-2"
+                  >Hash Algorithms</label
+                >
+                <div class="flex gap-5">
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="hash-md5"
+                      value="MD5"
+                      checked
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    />MD5
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="hash-sha1"
+                      value="SHA1"
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    />SHA-1
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="hash-sha256"
+                      value="SHA256"
+                      checked
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    />SHA-256
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="hash-sha512"
+                      value="SHA512"
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    />SHA-512
+                  </label>
+                </div>
+              </div>
+              <div class="flex gap-5 flex-wrap">
+                <label
+                  class="flex items-center gap-2 text-body-sm cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    id="check-read-verification"
+                    checked
+                    class="rounded border-outline text-primary focus:ring-primary"
+                  />Read Verification
+                </label>
+                <label
+                  class="flex items-center gap-2 text-body-sm cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    id="check-sparse"
+                    class="rounded border-outline text-primary focus:ring-primary"
+                  />Sparse Imaging
+                </label>
+                <label
+                  class="flex items-center gap-2 text-body-sm cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    id="check-digital-signature"
+                    class="rounded border-outline text-primary focus:ring-primary"
+                  />Digital Signing
+                </label>
+              </div>
+            </div>
+
+            <!-- YARA + Keywords Row -->
+            <div class="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  class="block text-label-caps text-outline uppercase mb-1.5"
+                  >Keyword Pre-Scanning</label
+                >
+                <input
+                  type="text"
+                  id="input-keywords"
+                  placeholder="e.g., password, admin, secret"
+                  class="input-field"
+                />
+              </div>
+              <div>
+                <label
+                  class="block text-label-caps text-outline uppercase mb-1.5"
+                  >YARA Rules Folder (Optional)</label
+                >
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="input-yara-path"
+                    placeholder="Folder containing .yar rules…"
+                    readonly
+                    class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                  />
+                  <button
+                    id="btn-browse-yara"
+                    class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >folder_open</span
+                    >
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Progress Monitor -->
+          <section class="bg-surface border border-outline-variant rounded p-4">
+            <div
+              id="monitor-idle"
+              class="monitor-substate flex items-center gap-3"
+            >
+              <div class="w-2.5 h-2.5 rounded-full bg-outline-variant"></div>
+              <span id="idle-status-text" class="text-body-sm text-outline"
+                >Ready for forensic configuration.</span
+              >
+            </div>
+            <div id="monitor-active" class="monitor-substate hidden space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span
+                    class="anim-pulse px-2 py-0.5 bg-primary text-on-primary text-[10px] font-bold rounded uppercase tracking-wide"
+                    >IMAGING</span
+                  >
+                  <span
+                    id="txt-active-job-desc"
+                    class="text-body-sm font-medium text-on-surface truncate max-w-sm"
+                    >Reading disk…</span
+                  >
+                </div>
+                <button
+                  id="btn-cancel-acquisition"
+                  class="flex items-center gap-1 px-3 py-1.5 bg-error text-on-error text-body-sm font-bold rounded hover:opacity-90 transition-all"
+                >
+                  <span class="material-symbols-outlined text-[16px]">stop</span
+                  >Cancel
+                </button>
+              </div>
+              <div class="grid grid-cols-4 gap-3">
+                <div
+                  class="bg-surface-container-low border border-outline-variant rounded p-2 text-center"
+                >
+                  <div class="text-label-caps text-outline uppercase mb-1">
+                    Speed
+                  </div>
+                  <div
+                    id="txt-stat-speed"
+                    class="font-mono text-body-sm font-bold text-primary"
+                  >
+                    0.00 MB/s
+                  </div>
+                </div>
+                <div
+                  class="bg-surface-container-low border border-outline-variant rounded p-2 text-center"
+                >
+                  <div class="text-label-caps text-outline uppercase mb-1">
+                    ETA
+                  </div>
+                  <div
+                    id="txt-stat-eta"
+                    class="font-mono text-body-sm font-bold text-primary"
+                  >
+                    0s
+                  </div>
+                </div>
+                <div
+                  class="bg-surface-container-low border border-outline-variant rounded p-2 text-center"
+                >
+                  <div class="text-label-caps text-outline uppercase mb-1">
+                    Bad Sectors
+                  </div>
+                  <div
+                    id="txt-stat-bad"
+                    class="stat-val font-mono text-body-sm font-bold text-teal"
+                  >
+                    0
+                  </div>
+                </div>
+                <div
+                  class="bg-surface-container-low border border-outline-variant rounded p-2 text-center"
+                >
+                  <div class="text-label-caps text-outline uppercase mb-1">
+                    Completed
+                  </div>
+                  <div
+                    id="txt-stat-percent"
+                    class="font-mono text-body-sm font-bold text-primary"
+                  >
+                    0.0%
+                  </div>
+                </div>
+              </div>
+              <div class="space-y-1">
+                <div
+                  class="h-2 bg-surface-container-highest rounded-full overflow-hidden border border-outline-variant"
+                >
+                  <div
+                    id="progress-bar-fill"
+                    class="h-full bg-primary"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <div class="flex justify-end">
+                  <span
+                    id="txt-bytes-progress"
+                    class="font-mono text-[11px] text-outline"
+                    >0 B / 0 B</span
+                  >
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Console Log -->
+          <section
+            class="bg-surface border border-outline-variant rounded flex flex-col h-44"
+          >
+            <div
+              class="px-4 py-2 border-b border-outline-variant flex items-center justify-between shrink-0 bg-surface-container-low"
+            >
+              <span
+                class="text-label-caps text-outline uppercase flex items-center gap-2"
+              >
+                <span class="material-symbols-outlined text-[14px]"
+                  >terminal</span
+                >Forensic Console Log
+              </span>
+              <button
+                id="btn-clear-log"
+                class="text-label-caps text-outline hover:text-primary transition-colors uppercase"
+              >
+                Clear
+              </button>
+            </div>
+            <div
+              id="console-logs"
+              class="flex-1 overflow-y-auto p-3 space-y-0.5 bg-surface-container-lowest"
+            >
+              <!-- JS injects log-entry divs here -->
+            </div>
+          </section>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: SYSTEM TRIAGE                   -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-triage-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <!-- Triage Sub-Nav -->
+          <div
+            class="flex items-center gap-3 mb-6 border-b border-outline-variant pb-3"
+          >
+            <button
+              id="btn-subtab-triage-collection"
+              class="triage-subtab active px-5 py-2.5 bg-primary text-on-primary font-bold text-body-sm rounded-lg flex items-center gap-2 shadow-sm transition-all"
+            >
+              <span class="material-symbols-outlined text-[18px]">download</span
+              >Collection &amp; Acquisition
+            </button>
+            <button
+              id="btn-subtab-triage-workbench"
+              class="triage-subtab px-5 py-2.5 bg-surface border border-outline-variant text-on-surface hover:bg-surface-container font-semibold text-body-sm rounded-lg flex items-center gap-2 transition-all"
+            >
+              <span class="material-symbols-outlined text-[18px]"
+                >table_chart</span
+              >SQL Workbench &amp; SIEM Streaming
+            </button>
+          </div>
+
+          <!-- VIEW 1: TRIAGE COLLECTION -->
+          <div id="triage-collection-view" class="grid grid-cols-12 gap-5">
+            <!-- Left: Collection Targets + Destination (9 cols) -->
+            <div class="col-span-12 lg:col-span-9 space-y-4">
+              <!-- Triage Source Selector -->
+              <section
+                class="bg-surface border border-outline-variant rounded p-4 mb-4"
+              >
+                <div class="flex items-center justify-between mb-2">
+                  <h2
+                    class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold tracking-wider"
+                  >
+                    <span
+                      class="material-symbols-outlined text-[18px] text-primary"
+                      >target</span
+                    >1. By System State (Triage Target Source)
+                  </h2>
+                  <div class="flex items-center gap-2">
+                    <button
+                      id="triage-mode-live"
+                      class="px-3 py-1 text-body-sm font-bold rounded bg-primary text-on-primary shadow-sm transition-all"
+                    >
+                      Live Triage (Running OS)
+                    </button>
+                    <button
+                      id="triage-mode-mounted"
+                      class="px-3 py-1 text-body-sm font-semibold rounded border border-outline-variant bg-surface text-on-surface hover:bg-surface-container transition-all"
+                    >
+                      Dead-Box (Post-Mortem / Image)
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="triage-mounted-container"
+                  class="hidden mt-3 pt-3 border-t border-outline-variant/60 flex items-center gap-3"
+                >
+                  <label
+                    class="text-label-caps text-outline uppercase whitespace-nowrap"
+                    >Target Root Drive/Path:</label
+                  >
+                  <input
+                    type="text"
+                    id="triage-source-root"
+                    placeholder="e.g. E:\ or /mnt/forensic_image"
+                    class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-1.5 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                  />
+                  <button
+                    id="btn-browse-triage-source"
+                    class="px-3 py-1.5 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors flex items-center gap-1 text-body-sm"
+                  >
+                    <span class="material-symbols-outlined text-[16px]"
+                      >folder_open</span
+                    >Browse
+                  </button>
+                </div>
+              </section>
+
+              <!-- Triage Purpose & Automation Level -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <section
+                  class="bg-surface border border-outline-variant rounded p-4"
+                >
+                  <h2
+                    class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold tracking-wider mb-2"
+                  >
+                    <span
+                      class="material-symbols-outlined text-[18px] text-primary"
+                      >flag</span
+                    >2. By Purpose / Scope (Triage Profile)
+                  </h2>
+                  <select
+                    id="triage-profile-select"
+                    class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-low font-semibold px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                  >
+                    <option value="Comprehensive / Baseline Triage">
+                      🛡️ Comprehensive / Baseline Triage (Full Artifact Set)
+                    </option>
+                    <option value="Field / First-Responder Triage">
+                      ⚡ Field / First-Responder Triage (&lt; 60s On-Scene
+                      Assessment)
+                    </option>
+                    <option value="Targeted / IOC-Driven Triage">
+                      🎯 Targeted / IOC-Driven Triage (Known Hashes/YARA/IPs)
+                    </option>
+                  </select>
+                  <p class="text-[11px] text-outline mt-1.5">
+                    Determines the depth and breadth of artifact extraction.
+                  </p>
+                </section>
+
+                <section
+                  class="bg-surface border border-outline-variant rounded p-4"
+                >
+                  <h2
+                    class="text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold tracking-wider mb-2"
+                  >
+                    <span
+                      class="material-symbols-outlined text-[18px] text-primary"
+                      >smart_toy</span
+                    >3. By Automation Level (Execution Mode)
+                  </h2>
+                  <select
+                    id="triage-automation-select"
+                    class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-low font-semibold px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                  >
+                    <option value="Automated / Scripted Triage">
+                      🤖 Automated / Scripted Triage (Tool-Driven / Repeatable)
+                    </option>
+                    <option value="Manual / Expert-Driven Triage">
+                      🧑‍💻 Manual / Expert-Driven Triage (Interactive / Adaptive)
+                    </option>
+                  </select>
+                  <p class="text-[11px] text-outline mt-1.5">
+                    Controls examiner interactivity and headless script
+                    behavior.
+                  </p>
+                </section>
+              </div>
+
+              <section
+                class="bg-surface border border-outline-variant rounded p-5"
+              >
+                <div class="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 class="text-headline font-bold text-on-surface">
+                      4. By Data Source / Domain (Artifact Collection Targets)
+                    </h2>
+                    <p class="text-body-sm text-on-surface-variant">
+                      Select forensic domains to include in this triage
+                      collection.
+                    </p>
+                  </div>
+                  <span class="text-body-sm text-outline font-mono"
+                    >Status: 10 Domains Active</span
+                  >
+                </div>
+                <div
+                  class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+                >
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >memory</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Running Processes
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          Volatile system state
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-volatile"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >public</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Browser Activity
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          Host/Disk Triage
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-browsers"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >event_note</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Windows Event Logs
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          Host/Disk Triage
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-eventlogs"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >key</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Registry &amp; Configs
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          Host/Disk Triage
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-registry"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >chat</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Messaging &amp; IM Apps
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          WhatsApp, Telegram, etc.
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-im-apps"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >psychology</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Memory (RAM) Triage
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          Handles, drivers, key carving
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-memory"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >lan</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          Network Triage
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          ARP, DNS, routing tables
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-network"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                  <label
+                    class="flex items-center justify-between p-3 border border-outline-variant rounded hover:bg-surface-container-low transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="material-symbols-outlined text-primary text-[20px]"
+                        >router</span
+                      >
+                      <div>
+                        <div class="text-body-md font-bold text-on-surface">
+                          IoT / Embedded Triage
+                        </div>
+                        <div class="text-label-caps text-outline">
+                          Firmware, NVRAM, flash
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="triage-iot"
+                      checked
+                      class="form-checkbox h-4 w-4 text-primary border-outline rounded focus:ring-primary"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section
+                class="bg-surface border border-outline-variant rounded p-5"
+              >
+                <h2 class="text-headline font-bold text-on-surface mb-4">
+                  Output Destination
+                </h2>
+                <div class="space-y-3">
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5"
+                      >Local Path / SMB Share</label
+                    >
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="triage-dest-path"
+                        placeholder="Save triage files to…"
+                        required
+                        readonly
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                      />
+                      <button
+                        id="btn-browse-triage-dest"
+                        class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >folder_open</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    id="btn-start-triage"
+                    class="w-full flex items-center justify-center gap-2 py-3 bg-primary text-on-primary font-bold text-body-md rounded hover:opacity-95 transition-all active:scale-[0.99]"
+                  >
+                    <span class="material-symbols-outlined text-[20px]"
+                      >play_arrow</span
+                    >Start Triage Collection
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <!-- Right: Live Summary (3 cols) -->
+            <aside class="col-span-12 lg:col-span-3">
+              <section
+                class="bg-surface border border-outline-variant rounded p-4"
+              >
+                <div class="flex items-center gap-2 mb-4">
+                  <span
+                    class="material-symbols-outlined text-primary text-[18px]"
+                    >summarize</span
+                  >
+                  <h3 class="font-bold text-body-md text-on-surface">
+                    Live Session Summary
+                  </h3>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Processes</span
+                    >
+                    <div
+                      id="stat-processes"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Connections</span
+                    >
+                    <div
+                      id="stat-connections"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >History Entries</span
+                    >
+                    <div
+                      id="stat-history"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Log Events</span
+                    >
+                    <div
+                      id="stat-logs"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Web Browsers</span
+                    >
+                    <div
+                      id="stat-browsers"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Messaging Apps</span
+                    >
+                    <div
+                      id="stat-im-apps"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Memory/RAM Artifacts</span
+                    >
+                    <div
+                      id="stat-memory"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Network Tables</span
+                    >
+                    <div
+                      id="stat-network-triage"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Cloud/Remote SaaS</span
+                    >
+                    <div
+                      id="stat-cloud"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >IoT/Embedded Configs</span
+                    >
+                    <div
+                      id="stat-iot"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div
+                    class="bg-surface-container-low border border-outline-variant p-3 rounded hover:border-primary transition-colors"
+                  >
+                    <span class="text-label-caps text-outline uppercase"
+                      >Audit Log Entries</span
+                    >
+                    <div
+                      id="stat-audit"
+                      class="mt-1 text-xl font-bold text-on-surface"
+                    >
+                      —
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </aside>
+          </div>
+
+          <!-- VIEW 2: TRIAGE SQL WORKBENCH & SIEM (Hidden by default) -->
+          <div id="triage-workbench-view" class="hidden space-y-6">
+            <!-- Lock Screen Overlay -->
+            <div
+              id="lock-triage"
+              class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl"
+            >
+              <div
+                class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50"
+              >
+                <span
+                  class="material-symbols-outlined text-amber-500 text-[36px]"
+                  >lock</span
+                >
+              </div>
+              <h3 class="text-headline font-bold text-on-surface mb-2">
+                Analysis Mode Required
+              </h3>
+              <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+                Interactive SQL querying and SIEM live streaming require
+                <span class="text-amber-500 font-bold">Analysis Mode</span>.
+              </p>
+              <button
+                class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2"
+              >
+                <span class="material-symbols-outlined text-[20px]"
+                  >lock_open</span
+                >Unlock Analysis Mode
+              </button>
+            </div>
+
+            <!-- Feature Content -->
+            <div
+              id="content-triage"
+              class="analysis-feature-content hidden space-y-6"
+            >
+              <!-- SQL Workbench Card -->
+              <section
+                class="bg-surface border border-outline-variant rounded-xl p-6 shadow-sm space-y-5"
+              >
+                <div
+                  class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant pb-4"
+                >
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="material-symbols-outlined text-primary text-[28px]"
+                      >database</span
+                    >
+                    <div>
+                      <h2 class="text-headline font-bold text-on-surface">
+                        Triage SQL Workbench
+                      </h2>
+                      <p class="text-body-sm text-on-surface-variant">
+                        Query SQLite triage databases and export forensic
+                        findings.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      id="btn-export-triage-csv"
+                      class="px-3.5 py-2 bg-surface-container border border-outline-variant hover:bg-surface-container-high text-on-surface font-semibold text-body-sm rounded flex items-center gap-1.5 transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-[16px]"
+                        >file_save</span
+                      >Export CSV
+                    </button>
+                    <button
+                      id="btn-export-triage-json"
+                      class="px-3.5 py-2 bg-surface-container border border-outline-variant hover:bg-surface-container-high text-on-surface font-semibold text-body-sm rounded flex items-center gap-1.5 transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-[16px]"
+                        >code</span
+                      >Export JSON
+                    </button>
+                  </div>
+                </div>
+
+
+
+                <!-- Multi-Image Correlation Engine Card -->
+                <div class="bg-surface-container-low border border-outline-variant rounded-xl p-5 mb-6 shadow-sm">
+                  <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                      <span class="material-symbols-outlined text-primary text-[22px]">compare</span>
+                      <h3 class="text-on-surface font-bold text-base">
+                        Multi-Image Correlation (Baseline vs Incident Comparison)
+                      </h3>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
+                      IR What-Changed Diff
+                    </span>
+                  </div>
+                  <p class="text-xs text-on-surface-variant mb-4">
+                    Compare two images or triage snapshots of the same system captured at different times (Baseline vs Incident). Surfaces new/modified/deleted files, installed packages/extensions, and config/process anomalies.
+                  </p>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label class="block text-label-caps text-outline uppercase mb-1 font-bold">
+                        Baseline (Clean / Earlier) Image or DB
+                      </label>
+                      <div class="flex gap-2">
+                        <input
+                          type="text"
+                          id="corr-baseline-path"
+                          placeholder="Select baseline triage.db or mounted image folder…"
+                          readonly
+                          class="flex-1 text-xs border border-outline-variant rounded bg-surface font-mono px-3 py-2 text-on-surface focus:ring-1 focus:ring-primary outline-none"
+                        />
+                        <button
+                          id="btn-browse-corr-baseline"
+                          class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                          onclick="browseCorrPath('baseline')"
+                        >
+                          <span class="material-symbols-outlined text-[18px]">folder_open</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block text-label-caps text-outline uppercase mb-1 font-bold">
+                        Incident (Compromised / Later) Image or DB
+                      </label>
+                      <div class="flex gap-2">
+                        <input
+                          type="text"
+                          id="corr-incident-path"
+                          placeholder="Select incident triage.db or mounted image folder…"
+                          readonly
+                          class="flex-1 text-xs border border-outline-variant rounded bg-surface font-mono px-3 py-2 text-on-surface focus:ring-1 focus:ring-primary outline-none"
+                        />
+                        <button
+                          id="btn-browse-corr-incident"
+                          class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                          onclick="browseCorrPath('incident')"
+                        >
+                          <span class="material-symbols-outlined text-[18px]">folder_open</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                      <select id="corr-mode-select" class="text-xs border border-outline-variant rounded bg-surface px-3 py-2 font-semibold text-on-surface">
+                        <option value="db">Triage Databases (.sqlite / .db)</option>
+                        <option value="dir">Mounted Image Directories / Folders</option>
+                      </select>
+                      <label class="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer">
+                        <input type="checkbox" id="corr-save-db" checked class="form-checkbox h-3.5 w-3.5 text-primary border-outline rounded" />
+                        <span>Save results to active Triage DB</span>
+                      </label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button
+                        id="btn-run-correlation"
+                        class="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-lg flex items-center gap-1.5 text-xs transition-colors shadow-sm"
+                        onclick="runCorrelationUI()"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">troubleshoot</span>
+                        Compare Baseline vs Incident
+                      </button>
+                      <button
+                        id="btn-export-correlation"
+                        class="hidden px-3.5 py-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface font-semibold rounded-lg flex items-center gap-1 text-xs transition-colors"
+                        onclick="exportCorrelationUI()"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">description</span>
+                        Export IR Report (.md)
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Summary Scoreboard & Results Container -->
+                  <div id="corr-results-div" class="hidden mt-4 pt-4 border-t border-outline-variant space-y-3">
+                    <div class="grid grid-cols-4 gap-3">
+                      <div class="p-3 rounded-lg bg-surface border border-outline-variant text-center">
+                        <div class="text-[11px] text-outline uppercase font-bold">Added Deltas</div>
+                        <div id="corr-stat-added" class="text-lg font-mono font-bold text-emerald-500">0</div>
+                      </div>
+                      <div class="p-3 rounded-lg bg-surface border border-outline-variant text-center">
+                        <div class="text-[11px] text-outline uppercase font-bold">Modified Deltas</div>
+                        <div id="corr-stat-modified" class="text-lg font-mono font-bold text-amber-500">0</div>
+                      </div>
+                      <div class="p-3 rounded-lg bg-surface border border-outline-variant text-center">
+                        <div class="text-[11px] text-outline uppercase font-bold">Deleted Deltas</div>
+                        <div id="corr-stat-deleted" class="text-lg font-mono font-bold text-rose-500">0</div>
+                      </div>
+                      <div class="p-3 rounded-lg bg-rose-950/30 border border-rose-500/30 text-center">
+                        <div class="text-[11px] text-rose-400 uppercase font-bold">High-Risk Anomalies</div>
+                        <div id="corr-stat-highrisk" class="text-lg font-mono font-bold text-rose-400">0</div>
+                      </div>
+                    </div>
+                    <div id="corr-report-preview" class="max-h-60 overflow-y-auto text-xs font-mono bg-surface p-3 rounded border border-outline-variant space-y-1"></div>
+                  </div>
+                </div>
+
+                <!-- Database Selector & Table Selector -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  <div class="md:col-span-7">
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5 font-bold"
+                      >Triage Database (.sqlite / .db)</label
+                    >
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="triage-db-path"
+                        placeholder="Select triage database file…"
+                        required
+                        readonly
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <button
+                        id="btn-browse-triage-db"
+                        class="px-4 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface font-semibold flex items-center gap-1"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >folder_open</span
+                        >Browse
+                      </button>
+                    </div>
+                  </div>
+                  <div class="md:col-span-5">
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5 font-bold"
+                      >Quick Table View</label
+                    >
+                    <div class="flex gap-2">
+                      <select
+                        id="triage-table-select"
+                        class="flex-1 input-field font-semibold"
+                      >
+                        <option value="processes">Running Processes</option>
+                        <option value="anti_forensics_alerts" class="text-red-400 font-bold">
+                          🚨 Anti-Forensics &amp; Evidence Tampering Alerts
+                        </option>
+                        <option value="carved_files" class="text-emerald-400 font-bold">
+                          ⚡ Recovered &amp; Carved Files (Rayon Multi-Threaded Engine)
+                        </option>
+                        <option value="network_connections">
+                          Network Connections
+                        </option>
+                        <option value="pcap_capture_packets">
+                          Live PCAP Network Capture (Correlated with PIDs)
+                        </option>
+                        <option value="dns_cache_entries">
+                          System DNS Resolver Cache
+                        </option>
+                        <option value="arp_table_entries">
+                          ARP Neighbor Table
+                        </option>
+                        <option value="wifi_profiles">
+                          Saved Wi-Fi Profiles &amp; Keys
+                        </option>
+                        <option value="browser_history">Browser History</option>
+                        <option value="browser_cookies">
+                          Browser Cookies (Chrome/Edge/Firefox)
+                        </option>
+                        <option value="browser_logins">
+                          Browser Logins &amp; Passwords (DPAPI/Keychain/NSS)
+                        </option>
+                        <option value="browser_downloads">
+                          Browser Downloads (SQLite)
+                        </option>
+                        <option value="browser_extensions">
+                          Browser Extensions &amp; Manifest Permissions
+                        </option>
+                        <option value="installed_browsers">
+                          Installed Web Browsers &amp; Profiles
+                        </option>
+                        <option value="event_logs">System Event Logs</option>
+                        <option value="im_apps">
+                          Installed Messaging &amp; IM Apps
+                        </option>
+
+                        <option value="prefetch_executions">
+                          Prefetch Executions (.pf)
+                        </option>
+                        <option value="amcache_entries">
+                          Amcache & Shimcache Evidence
+                        </option>
+                        <option value="srum_resource_usage">
+                          SRUM Resource Usage
+                        </option>
+                        <option value="memory_triage">
+                          Memory (RAM) Triage &amp; Key Carving
+                        </option>
+                        <option value="network_triage">
+                          Network Triage (ARP, DNS, Routing)
+                        </option>
+                        <option value="cloud_remote_triage">
+                          Cloud &amp; Remote Triage (SaaS/Tokens)
+                        </option>
+                        <option value="iot_embedded_triage">
+                          IoT &amp; Embedded Systems Triage
+                        </option>
+                        <option value="triage_audit_log">
+                          Triage Execution Audit Log
+                        </option>
+                        <option value="image_correlation_results">
+                          Multi-Image Correlation Results (Baseline vs Incident)
+                        </option>
+                      </select>
+                      <button
+                        id="btn-load-triage-table"
+                        class="px-5 py-2 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 transition-all flex items-center gap-1"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >query_stats</span
+                        >Load
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Custom SQL Query Box -->
+                <div
+                  class="bg-surface-container-low border border-outline-variant rounded-lg p-4 space-y-3"
+                >
+                  <div class="flex items-center justify-between">
+                    <label
+                      class="text-label-caps text-primary font-bold uppercase tracking-wider flex items-center gap-1.5"
+                    >
+                      <span class="material-symbols-outlined text-[16px]"
+                        >terminal</span
+                      >Custom Read-Only SQL Query
+                    </label>
+                    <span class="text-[11px] font-mono text-outline"
+                      >SELECT, EXPLAIN, WITH only (Zero-Panic enforced)</span
+                    >
+                  </div>
+                  <div class="flex gap-2">
+                    <textarea
+                      id="triage-custom-sql"
+                      rows="2"
+                      placeholder="e.g. SELECT * FROM processes WHERE pid > 1000;"
+                      class="flex-1 text-body-sm font-mono bg-surface border border-outline-variant rounded p-2.5 focus:ring-1 focus:ring-primary outline-none resize-y"
+                    ></textarea>
+                    <button
+                      id="btn-execute-custom-sql"
+                      class="px-5 py-2 bg-surface-container-high hover:bg-primary hover:text-on-primary text-on-surface font-bold text-body-sm rounded border border-outline-variant transition-all flex flex-col items-center justify-center gap-1 shrink-0"
+                    >
+                      <span class="material-symbols-outlined text-[20px]"
+                        >play_arrow</span
+                      >Execute
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Keyword Filter -->
+                <div class="flex items-center justify-between gap-4">
+                  <div class="relative flex-1 max-w-md">
+                    <span
+                      class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]"
+                      >filter_alt</span
+                    >
+                    <input
+                      id="triage-table-filter"
+                      type="text"
+                      placeholder="Filter loaded results by keyword, IP, or IOC…"
+                      class="w-full pl-9 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded text-body-sm focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-outline"
+                    />
+                  </div>
+                  <div
+                    id="triage-row-count"
+                    class="text-body-sm font-mono text-outline font-semibold"
+                  >
+                    0 rows loaded
+                  </div>
+                </div>
+
+                <!-- Table View -->
+                <div
+                  class="overflow-x-auto max-h-[500px] border border-outline-variant rounded-lg bg-surface shadow-inner"
+                >
+                  <table class="w-full text-left text-body-sm">
+                    <thead
+                      class="bg-surface-container sticky top-0 z-10 border-b border-outline-variant text-label-caps uppercase font-bold text-on-surface-variant"
+                    >
+                      <tr id="triage-table-head">
+                        <th class="p-3">—</th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="triage-table-body"
+                      class="divide-y divide-outline-variant/30 font-mono text-body-sm"
+                    >
+                      <tr>
+                        <td class="p-8 text-center text-outline font-sans">
+                          Select a triage database and table above, or execute a
+                          custom SQL query.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <!-- SIEM & SOC Live Streaming Card (ponytail: pruned network streaming layer) -->
+              <section
+                class="bg-surface border border-outline-variant rounded-xl p-6 shadow-sm space-y-4"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="material-symbols-outlined text-primary text-[28px]"
+                      >folder_shared</span
+                    >
+                    <div>
+                      <h2 class="text-headline font-bold text-on-surface">
+                        SIEM &amp; SOC Local Disk Shippers
+                      </h2>
+                      <p class="text-body-sm text-on-surface-variant">
+                        Triage databases are written to disk cleanly for
+                        zero-overhead ingestion by OS log agents (Wazuh, Splunk
+                        Universal Forwarder).
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    class="px-3 py-1 bg-surface-container-high rounded text-xs font-mono font-bold text-primary"
+                    >ponytail: pruned HTTP streaming</span
+                  >
+                </div>
+                <!-- Hidden stubs to retain JS DOM binding compatibility without UI bloat -->
+                <div class="hidden">
+                  <input type="checkbox" id="triage-siem-enable" />
+                  <select id="siem-type">
+                    <option value="wazuh_local_log">Local Log</option>
+                  </select>
+                  <input type="text" id="siem-endpoint" value="local_disk" />
+                  <input
+                    type="text"
+                    id="siem-index"
+                    value="openforensic_triage"
+                  />
+                  <input type="password" id="siem-token" value="" />
+                  <button id="btn-test-siem"></button>
+                  <button id="btn-save-siem"></button>
+                  <button id="btn-export-siem-now"></button>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- Hidden stubs required by main.js for image mounting compatibility -->
+          <div class="hidden">
+            <button id="btn-browse-mount-src">Browse</button>
+            <button id="btn-browse-mount-point">Browse</button>
+            <button id="btn-verify-image">Verify</button>
+            <button id="btn-mount-image">Mount</button>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: LIVE ACQUISITION                -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-live-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <div class="grid grid-cols-12 gap-5">
+            <!-- Source Config -->
+            <section
+              class="col-span-12 lg:col-span-6 bg-surface border border-outline-variant rounded p-5 space-y-5"
+            >
+              <h2
+                class="text-headline font-bold text-on-surface flex items-center gap-2"
+              >
+                <span class="material-symbols-outlined text-primary text-[20px]"
+                  >storage</span
+                >Source Configuration
+              </h2>
+              <div>
+                <label
+                  class="block text-label-caps text-outline uppercase mb-1.5"
+                  >Target Device / Volume</label
+                >
+                <div class="flex gap-2">
+                  <select id="live-volume-select" class="flex-1 input-field">
+                    <option value="">Loading volumes…</option>
+                  </select>
+                  <button
+                    id="btn-refresh-volumes"
+                    class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >refresh</span
+                    >
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-label-caps text-outline uppercase mb-2"
+                  >Capabilities</label
+                >
+                <div class="grid grid-cols-2 gap-2">
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded hover:bg-surface-container-low"
+                  >
+                    <input
+                      type="checkbox"
+                      id="live-cb-vss"
+                      checked
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    /><span>Create VSS Snapshot</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded hover:bg-surface-container-low"
+                  >
+                    <input
+                      type="checkbox"
+                      id="live-cb-ram"
+                      checked
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    /><span>Capture Physical RAM</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded hover:bg-surface-container-low"
+                  >
+                    <input
+                      type="checkbox"
+                      id="live-cb-locked"
+                      checked
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    /><span>Copy Locked Files</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded hover:bg-surface-container-low"
+                  >
+                    <input
+                      type="checkbox"
+                      id="live-cb-consistency"
+                      checked
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    /><span>Consistency Validation</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded hover:bg-surface-container-low"
+                  >
+                    <input
+                      type="checkbox"
+                      id="live-cb-image-vss"
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    /><span>Image VSS Snapshot</span>
+                  </label>
+                  <label
+                    class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded hover:bg-surface-container-low"
+                  >
+                    <input
+                      type="checkbox"
+                      id="live-cb-cleanup"
+                      class="rounded border-outline text-primary focus:ring-primary"
+                    /><span>Auto-cleanup VSS</span>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <!-- Destination + Metadata -->
+            <section
+              class="col-span-12 lg:col-span-6 bg-surface border border-outline-variant rounded p-5 space-y-4"
+            >
+              <h2 class="text-headline font-bold text-on-surface">
+                Evidence &amp; Destination
+              </h2>
+              <div>
+                <label
+                  class="block text-label-caps text-outline uppercase mb-1.5"
+                  >Destination Folder</label
+                >
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="live-dest-path"
+                    placeholder="e.g., D:\Case_001\Live_Acq"
+                    required
+                    readonly
+                    class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                  />
+                  <button
+                    id="btn-browse-live-dest"
+                    class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >folder_open</span
+                    >
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label
+                  class="block text-label-caps text-outline uppercase mb-1.5"
+                  >RAM Acquisition Tool (Optional)</label
+                >
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="live-ram-tool"
+                    placeholder="winpmem_mini_x64.exe or avml…"
+                    readonly
+                    class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                  />
+                  <button
+                    id="btn-browse-ram-tool"
+                    class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >folder_open</span
+                    >
+                  </button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Case Number</label
+                  >
+                  <input
+                    type="text"
+                    id="live-case-num"
+                    placeholder="Case Number"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Evidence ID</label
+                  >
+                  <input
+                    type="text"
+                    id="live-evidence-id"
+                    placeholder="Evidence ID"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Examiner Name</label
+                  >
+                  <input
+                    type="text"
+                    id="live-examiner"
+                    placeholder="Examiner Name"
+                    class="input-field"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Notes</label
+                  >
+                  <input
+                    type="text"
+                    id="live-notes"
+                    placeholder="Session Notes"
+                    class="input-field"
+                  />
+                </div>
+              </div>
+              <button
+                id="btn-start-live"
+                class="w-full flex items-center justify-center gap-2 py-3 bg-primary text-on-primary font-bold text-body-md rounded hover:opacity-95 transition-all"
+              >
+                <span class="material-symbols-outlined text-[20px]"
+                  >play_arrow</span
+                >Start Live Acquisition
+              </button>
+            </section>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: CASE MANAGEMENT                 -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-cases-content"
+          class="tab-panel flex-1 overflow-hidden flex flex-col relative"
+        >
+          <!-- Case Ribbon -->
+          <div
+            class="h-28 border-b border-outline-variant bg-surface flex items-center shrink-0 shadow-sm"
+          >
+            <div
+              class="px-5 border-r border-outline-variant h-full flex flex-col justify-center items-start bg-surface-container-low shrink-0 gap-2"
+            >
+              <div class="flex items-center justify-between w-full">
+                <h2
+                  class="text-label-caps text-outline font-bold uppercase tracking-wider"
+                >
+                  CASES
+                </h2>
+                <button
+                  id="btn-refresh-cases"
+                  class="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-primary transition-colors"
+                  title="Refresh Cases"
+                >
+                  refresh
+                </button>
+              </div>
+              <button
+                id="btn-show-create-case-modal"
+                class="px-3.5 py-1.5 bg-primary text-on-primary font-bold text-body-sm rounded shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5 shrink-0"
+              >
+                <span class="material-symbols-outlined text-[16px]"
+                  >create_new_folder</span
+                >New Case Folder
+              </button>
+            </div>
+            <div
+              id="cases-list"
+              class="flex-1 flex overflow-x-auto h-full items-center p-3 gap-3"
+            >
+              <div class="info-message text-body-sm text-outline p-4">
+                Loading cases…
+              </div>
+            </div>
+          </div>
+          <!-- Detail Workspace -->
+          <div
+            id="case-details-panel"
+            class="flex-1 overflow-y-auto bg-background p-6"
+          >
+            <div class="max-w-6xl mx-auto">
+              <nav
+                class="flex items-center gap-2 text-outline text-label-caps uppercase tracking-wide mb-1"
+              >
+                <span>Case Management</span>
+                <span class="material-symbols-outlined text-[13px]"
+                  >chevron_right</span
+                >
+                <span id="case-detail-breadcrumb" class="text-primary font-bold"
+                  >Select a case above</span
+                >
+              </nav>
+              <div id="case-detail-content" class="mt-4">
+                <div
+                  class="bg-surface border border-outline-variant rounded-xl p-8 text-center max-w-lg mx-auto mt-12 shadow-sm"
+                >
+                  <span
+                    class="material-symbols-outlined text-[48px] text-outline/50 mb-3"
+                    >folder_managed</span
+                  >
+                  <h3 class="text-headline font-bold text-on-surface mb-1">
+                    No Case Selected
+                  </h3>
+                  <p class="text-body-sm text-on-surface-variant mb-6">
+                    Select a case from the top ribbon or create a new unified
+                    case folder structure to manage forensic exports and
+                    evidence.
+                  </p>
+                  <button
+                    onclick="
+                      document
+                        .getElementById('btn-show-create-case-modal')
+                        .click()
+                    "
+                    class="px-5 py-2.5 bg-primary text-on-primary font-bold text-body-sm rounded-lg shadow hover:opacity-90 transition-all inline-flex items-center gap-2"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >create_new_folder</span
+                    >Create New Case Folder
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Create Case Folder Modal -->
+          <div
+            id="create-case-modal"
+            class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <div
+              class="bg-surface border border-outline-variant rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            >
+              <div
+                class="px-6 py-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between"
+              >
+                <div class="flex items-center gap-2.5">
+                  <span
+                    class="material-symbols-outlined text-primary text-[24px]"
+                    >folder_managed</span
+                  >
+                  <h3 class="text-headline font-bold text-on-surface">
+                    Create Unified Case Folder
+                  </h3>
+                </div>
+                <button
+                  id="btn-close-create-case-modal"
+                  class="text-outline hover:text-on-surface transition-colors"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >close</span
+                  >
+                </button>
+              </div>
+              <form id="form-create-case" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1 font-bold"
+                      >Case Number *</label
+                    >
+                    <input
+                      type="text"
+                      id="new-case-number"
+                      placeholder="e.g. CASE-2026-001"
+                      required
+                      class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest font-mono px-3 py-2 focus:ring-2 focus:ring-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1 font-bold"
+                      >Case Name *</label
+                    >
+                    <input
+                      type="text"
+                      id="new-case-name"
+                      placeholder="e.g. Operation CyberGuard"
+                      required
+                      class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-2 focus:ring-2 focus:ring-primary outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1 font-bold"
+                    >Lead Examiner Name *</label
+                  >
+                  <input
+                    type="text"
+                    id="new-case-examiner"
+                    placeholder="e.g. Det. Alex Vance"
+                    required
+                    class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-2 focus:ring-2 focus:ring-primary outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1 font-bold"
+                    >Case Root Folder Location *</label
+                  >
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      id="new-case-root-path"
+                      placeholder="Select destination parent directory…"
+                      required
+                      readonly
+                      class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 outline-none"
+                    />
+                    <button
+                      type="button"
+                      id="btn-browse-case-root"
+                      class="px-3.5 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface font-semibold flex items-center gap-1.5 text-body-sm shrink-0"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >folder_open</span
+                      >Browse
+                    </button>
+                  </div>
+                  <p class="text-[11px] text-outline mt-1 font-mono">
+                    A subfolder named after the Case Number will be created here
+                    with standard Cache, Export, Log, ModuleOutput, and Reports
+                    subdirectories.
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1 font-bold"
+                    >Case Notes & Scope</label
+                  >
+                  <textarea
+                    id="new-case-notes"
+                    rows="3"
+                    placeholder="Enter case summary, authority, or search warrant details…"
+                    class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-2 focus:ring-2 focus:ring-primary outline-none"
+                  ></textarea>
+                </div>
+                <div
+                  class="pt-4 border-t border-outline-variant flex justify-end gap-3"
+                >
+                  <button
+                    type="button"
+                    id="btn-cancel-create-case"
+                    class="px-4 py-2 border border-outline-variant rounded text-body-sm font-semibold hover:bg-surface-container transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    id="btn-submit-create-case"
+                    class="px-5 py-2 bg-primary text-on-primary font-bold text-body-sm rounded shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >create_new_folder</span
+                    >Create Case Structure
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Global Settings & API Configuration Modal -->
+          <div
+            id="settings-modal"
+            class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <div
+              class="bg-surface border border-outline-variant rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            >
+              <div
+                class="px-6 py-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between shrink-0"
+              >
+                <div class="flex items-center gap-2.5">
+                  <span
+                    class="material-symbols-outlined text-primary text-[24px]"
+                    >tune</span
+                  >
+                  <div>
+                    <h3 class="text-headline font-bold text-on-surface">
+                      Global Settings & API Configuration
+                    </h3>
+                    <p class="text-[11px] text-on-surface-variant">
+                      Configure external APIs and default settings across
+                      OpenForensic
+                    </p>
+                  </div>
+                </div>
+                <button
+                  id="btn-close-settings-modal"
+                  type="button"
+                  class="text-outline hover:text-on-surface transition-colors"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >close</span
+                  >
+                </button>
+              </div>
+
+              <form
+                id="form-settings"
+                class="p-6 overflow-y-auto space-y-6 flex-1"
+              >
+                <!-- SECTION 1: API KEYS & EXTERNAL ENGINES -->
+                <div>
+                  <div
+                    class="flex items-center gap-2 pb-2 mb-3 border-b border-outline-variant"
+                  >
+                    <span
+                      class="material-symbols-outlined text-primary text-[18px]"
+                      >key</span
+                    >
+                    <h4
+                      class="text-title-sm font-bold text-on-surface uppercase tracking-wider text-[12px]"
+                    >
+                      External API Keys & Services
+                    </h4>
+                  </div>
+                  <div class="space-y-3.5">
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >VirusTotal API Key</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >IOC hash scanning & reputation</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <input
+                          type="password"
+                          id="settings-key-vt"
+                          placeholder="Enter VirusTotal v3 API Key…"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest font-mono px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >AbuseIPDB API Key</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >IP threat confidence scoring</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <input
+                          type="password"
+                          id="settings-key-abuseip"
+                          placeholder="Enter AbuseIPDB API Key…"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest font-mono px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >MalwareBazaar API Key</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Malware sample enrichment</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <input
+                          type="password"
+                          id="settings-key-mb"
+                          placeholder="Enter MalwareBazaar API Key…"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest font-mono px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >SIEM / Splunk HEC Endpoint</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Default SIEM shipping receiver</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <input
+                          type="text"
+                          id="settings-siem-endpoint"
+                          placeholder="e.g. https://127.0.0.1:8088 or local_disk"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest font-mono px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >SIEM Authentication Token</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Bearer / HEC Auth Token</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <input
+                          type="password"
+                          id="settings-siem-token"
+                          placeholder="Splunk HEC or API Bearer token…"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest font-mono px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 2: SYSTEM DEFAULTS NOT IN UI -->
+                <div>
+                  <div
+                    class="flex items-center gap-2 pb-2 mb-3 border-b border-outline-variant"
+                  >
+                    <span
+                      class="material-symbols-outlined text-primary text-[18px]"
+                      >settings_applications</span
+                    >
+                    <h4
+                      class="text-title-sm font-bold text-on-surface uppercase tracking-wider text-[12px]"
+                    >
+                      Application & Engine Defaults
+                    </h4>
+                  </div>
+                  <div class="space-y-3.5">
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >Default Case Directory</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Default folder for new cases</span
+                        >
+                      </div>
+                      <div class="col-span-7 flex gap-2">
+                        <input
+                          type="text"
+                          id="settings-default-case-root"
+                          placeholder="Default workspace directory…"
+                          readonly
+                          class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-1.5 outline-none"
+                        />
+                        <button
+                          type="button"
+                          id="btn-browse-settings-case-root"
+                          class="px-3 py-1.5 border border-outline-variant rounded hover:bg-surface-container text-on-surface font-semibold text-body-sm flex items-center gap-1 shrink-0"
+                        >
+                          <span class="material-symbols-outlined text-[16px]"
+                            >folder_open</span
+                          >Browse
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >Default Volatility Engine</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Memory triage backend</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <select
+                          id="settings-default-vol-engine"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        >
+                          <option
+                            value="Built-in Native Rust Volatility Engine (Fast)"
+                          >
+                            Built-in Native Rust Volatility Engine (Fastest)
+                          </option>
+                          <option value="vol.py">
+                            Python vol.py (System Python 3)
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >Default Hashing Algorithm</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Evidence integrity verification</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <select
+                          id="settings-default-hash-algo"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        >
+                          <option value="SHA-256">
+                            SHA-256 (Recommended Standard)
+                          </option>
+                          <option value="MD5 + SHA-256">
+                            MD5 + SHA-256 (Dual verification)
+                          </option>
+                          <option value="SHA-1 + SHA-256">
+                            SHA-1 + SHA-256 (Legacy + Modern)
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >Default I/O Block Size</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Disk imaging read/write buffer</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <select
+                          id="settings-default-block-size"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        >
+                          <option value="1048576">
+                            1 MB (1,048,576 bytes - Balanced)
+                          </option>
+                          <option value="4194304">
+                            4 MB (4,194,304 bytes - High Throughput)
+                          </option>
+                          <option value="65536">
+                            64 KB (65,536 bytes - Low Memory)
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >Default Export Format</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Report output format</span
+                        >
+                      </div>
+                      <div class="col-span-7">
+                        <select
+                          id="settings-default-export-format"
+                          class="w-full text-body-sm border border-outline-variant rounded bg-surface-container-lowest px-3 py-1.5 focus:ring-2 focus:ring-primary outline-none"
+                        >
+                          <option value="JSON">
+                            JSON (Structured Evidence Metadata)
+                          </option>
+                          <option value="CSV">CSV (Tabular Dump)</option>
+                          <option value="PDF">
+                            PDF (Court-Ready Executive Report)
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4 items-center">
+                      <div class="col-span-5">
+                        <label
+                          class="block text-body-sm font-bold text-on-surface"
+                          >Image Mounting Protection</label
+                        >
+                        <span class="text-[11px] text-outline"
+                          >Write-block forensic evidence</span
+                        >
+                      </div>
+                      <div class="col-span-7 flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          id="settings-default-mount-readonly"
+                          checked
+                          class="w-4 h-4 text-primary rounded border-outline-variant focus:ring-primary"
+                        />
+                        <label
+                          for="settings-default-mount-readonly"
+                          class="text-body-sm text-on-surface"
+                          >Enforce Read-Only Mounting by Default</label
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 3: SECURITY ALLOWLISTS & KNOWN HASHES -->
+                <div>
+                  <div
+                    class="flex items-center gap-2 pb-2 mb-3 border-b border-outline-variant"
+                  >
+                    <span
+                      class="material-symbols-outlined text-primary text-[18px]"
+                      >security</span
+                    >
+                    <h4
+                      class="text-title-sm font-bold text-on-surface uppercase tracking-wider text-[12px]"
+                    >
+                      Security Allowlists & Known Hashes
+                    </h4>
+                  </div>
+                  <div class="space-y-3.5">
+                    <div>
+                      <div class="flex justify-between items-baseline mb-1">
+                        <label class="block text-body-sm font-bold text-on-surface">
+                          Memory & Plugin Tool SHA-256 Allowlist
+                        </label>
+                        <span class="text-[11px] text-outline font-mono">
+                          ~/.openforensic/memory_tools_allowlist.json
+                        </span>
+                      </div>
+                      <p class="text-[11px] text-on-surface-variant mb-2">
+                        Enter trusted SHA-256 checksums of custom memory acquisition tools (`winpmem`, `custom_volatility`, plugins) allowed to execute in Kernel mode. Enter one SHA-256 hex hash per line (or comma-separated).
+                      </p>
+                      <textarea
+                        id="settings-memory-allowlist"
+                        rows="4"
+                        placeholder="e.g. 81ed73887ba5cf1c83cdafae5caedc79f90f2305aeb3c4839cf9e3f6ea0298d9&#10;831969eac9ecde9cdff309bbac4ae643cd1fe4c2e6f47738c642aaad5ffb0b02"
+                        class="w-full text-xs font-mono border border-outline-variant rounded bg-surface-container-lowest p-2.5 focus:ring-2 focus:ring-primary outline-none text-on-surface"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="pt-4 border-t border-outline-variant flex justify-between items-center shrink-0"
+                >
+                  <button
+                    type="button"
+                    id="btn-reset-settings"
+                    class="px-3.5 py-2 border border-outline-variant rounded text-body-sm font-semibold hover:bg-surface-container text-on-surface-variant transition-colors"
+                  >
+                    Reset Defaults
+                  </button>
+                  <div class="flex gap-3">
+                    <button
+                      type="button"
+                      id="btn-cancel-settings"
+                      class="px-4 py-2 border border-outline-variant rounded text-body-sm font-semibold hover:bg-surface-container transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      id="btn-save-settings"
+                      class="px-5 py-2 bg-primary text-on-primary font-bold text-body-sm rounded shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >save</span
+                      >Save Settings
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: TIMELINE                        -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-timeline-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <!-- Lock Screen Overlay -->
+          <div
+            id="lock-timeline"
+            class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl"
+          >
+            <div
+              class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50"
+            >
+              <span class="material-symbols-outlined text-amber-500 text-[36px]"
+                >lock</span
+              >
+            </div>
+            <h3 class="text-headline font-bold text-on-surface mb-2">
+              Analysis Mode Required
+            </h3>
+            <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+              Forensic timeline generation and MFT/journal parsing requires
+              <span class="text-amber-500 font-bold">Analysis Mode</span>.
+            </p>
+            <button
+              class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >lock_open</span
+              >Unlock Analysis Mode
+            </button>
+          </div>
+
+          <!-- Feature Content -->
+          <div id="content-timeline" class="analysis-feature-content hidden">
+            <section
+              class="bg-surface border border-outline-variant rounded p-5 max-w-3xl"
+            >
+              <h2 class="text-headline font-bold text-on-surface mb-1">
+                Forensic Timeline Generator
+              </h2>
+              <p class="text-body-sm text-on-surface-variant mb-5">
+                Extract and parse MFT &amp; journals from a raw disk image to
+                produce a chronological master timeline.
+              </p>
+              <div class="space-y-4">
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Source Acquired Image (.dd)</label
+                  >
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      id="timeline-image-path"
+                      placeholder="Select raw disk image…"
+                      required
+                      readonly
+                      class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                    />
+                    <button
+                      id="btn-browse-timeline-image"
+                      class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >folder_open</span
+                      >
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5"
+                    >Timeline Output Directory</label
+                  >
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      id="timeline-dest-path"
+                      placeholder="Directory to save timeline files…"
+                      required
+                      readonly
+                      class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                    />
+                    <button
+                      id="btn-browse-timeline-dest"
+                      class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >folder_open</span
+                      >
+                    </button>
+                  </div>
+                </div>
+                <button
+                  id="btn-start-timeline"
+                  class="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 transition-all"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >play_arrow</span
+                  >Generate Timeline
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: RAM ANALYSIS                    -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-ram-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <!-- Lock Screen Overlay -->
+          <div
+            id="lock-ram"
+            class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl"
+          >
+            <div
+              class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50"
+            >
+              <span class="material-symbols-outlined text-amber-500 text-[36px]"
+                >lock</span
+              >
+            </div>
+            <h3 class="text-headline font-bold text-on-surface mb-2">
+              Analysis Mode Required
+            </h3>
+            <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+              Native Rust Volatility Engine RAM analysis and Threat Intelligence
+              enrichment requires
+              <span class="text-amber-500 font-bold">Analysis Mode</span>.
+            </p>
+            <button
+              class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >lock_open</span
+              >Unlock Analysis Mode
+            </button>
+          </div>
+
+          <!-- Feature Content -->
+          <div
+            id="content-ram"
+            class="analysis-feature-content hidden space-y-5"
+          >
+            <section
+              class="bg-surface border border-outline-variant rounded p-5 max-w-4xl"
+            >
+              <h2 class="text-headline font-bold text-on-surface mb-1">
+                Memory Forensic Analysis (Native Volatility Engine)
+              </h2>
+              <p class="text-body-sm text-on-surface-variant mb-5">
+                Analyze RAM memory dumps using the native Rust Volatility engine
+                and enrich network artifacts with Threat Intelligence APIs.
+              </p>
+              <div class="grid grid-cols-2 gap-5">
+                <div class="space-y-4">
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5"
+                      >Memory Dump (.raw / .vmem / .dmp)</label
+                    >
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="ram-image-path"
+                        placeholder="Select memory dump file…"
+                        required
+                        readonly
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <button
+                        id="btn-browse-ram-image"
+                        class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >folder_open</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5"
+                      >Analysis Engine
+                      <span class="text-xs font-normal text-outline"
+                        >(Built-in Rust engine used by default)</span
+                      ></label
+                    >
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="ram-vol-path"
+                        value="Built-in Rust Volatility Engine (Default)"
+                        placeholder="Built-in engine or browse for external tool…"
+                        readonly
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <button
+                        id="btn-browse-ram-vol"
+                        title="Browse for an external Volatility tool (optional)"
+                        class="px-3 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface-variant"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >folder_open</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5"
+                      >Analysis Plugin / Profile</label
+                    >
+                    <select id="ram-profile-select" class="input-field">
+                      <option value="windows.pslist.PsList">
+                        Windows Running Processes (pslist)
+                      </option>
+                      <option value="windows.netstat.NetStat">
+                        Windows Network Connections (netstat)
+                      </option>
+                      <option value="windows.cmdline.CmdLine">
+                        Windows Command Lines (cmdline)
+                      </option>
+                      <option value="windows.filescan.FileScan">
+                        Windows File Scan (filescan)
+                      </option>
+                      <option value="windows.malfind.Malfind">
+                        Windows Injected Code / Malfind
+                      </option>
+                      <option value="linux.pslist.PsList">
+                        Linux Running Processes
+                      </option>
+                      <option value="mac.pslist.PsList">
+                        macOS Running Processes
+                      </option>
+                      <option value="bitlocker">
+                        BitLocker VMK / FVEK Key Extraction (RAM)
+                      </option>
+                      <option value="luks">
+                        Linux LUKS Master Encryption Key Extraction (RAM)
+                      </option>
+                      <option value="filevault">
+                        Apple FileVault APFS Key Extraction (RAM)
+                      </option>
+                      <option value="crypto_keys">
+                        All Encrypted Volume Master Keys Scan (BitLocker/LUKS/FileVault)
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="space-y-4">
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-2"
+                      >Threat Intelligence Enrichment</label
+                    >
+                    <div class="space-y-2">
+                      <label
+                        class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          id="ram-enrich-abuseip"
+                          checked
+                          class="rounded border-outline text-primary focus:ring-primary"
+                        />AbuseIPDB IP Reputation
+                      </label>
+                      <label
+                        class="flex items-center gap-2 text-body-sm cursor-pointer p-2 border border-outline-variant rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          id="ram-enrich-vt"
+                          class="rounded border-outline text-primary focus:ring-primary"
+                        />VirusTotal Hash Lookup
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5"
+                      >AbuseIPDB API Key</label
+                    >
+                    <input
+                      type="password"
+                      id="ram-key-abuseip"
+                      placeholder="Enter AbuseIPDB Key…"
+                      class="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="block text-label-caps text-outline uppercase mb-1.5"
+                      >VirusTotal API Key</label
+                    >
+                    <input
+                      type="password"
+                      id="ram-key-vt"
+                      placeholder="Enter VirusTotal Key…"
+                      class="input-field"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="mt-5">
+                <button
+                  id="btn-start-ram-analysis"
+                  class="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 transition-all"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >play_arrow</span
+                  >Start Volatility Analysis
+                </button>
+              </div>
+            </section>
+
+            <!-- RAM Forensic Console & Results Output -->
+            <section
+              class="bg-surface border border-outline-variant rounded flex flex-col h-[450px] max-w-4xl shadow-md"
+            >
+              <div
+                class="px-4 py-2 border-b border-outline-variant flex items-center justify-between shrink-0 bg-surface-container-low"
+              >
+                <span
+                  class="text-label-caps text-outline uppercase flex items-center gap-2 font-bold text-on-surface"
+                >
+                  <span
+                    class="material-symbols-outlined text-[16px] text-primary"
+                    >terminal</span
+                  >RAM Forensic Console &amp; Results Output
+                </span>
+                <div class="flex items-center gap-3">
+                  <button
+                    id="btn-clear-ram-log"
+                    class="text-label-caps text-outline hover:text-primary transition-colors uppercase font-semibold flex items-center gap-1"
+                  >
+                    <span class="material-symbols-outlined text-[14px]"
+                      >delete</span
+                    >Clear
+                  </button>
+                  <button
+                    id="btn-export-ram-results"
+                    class="px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded text-label-caps uppercase font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span class="material-symbols-outlined text-[14px]"
+                      >file_download</span
+                    >Export Results
+                  </button>
+                </div>
+              </div>
+              <div
+                id="ram-console-logs"
+                class="flex-1 overflow-y-auto p-3 space-y-0.5 bg-surface-container-lowest font-mono text-body-sm select-text"
+              >
+                <div class="text-on-surface-variant/60 italic">
+                  Ready to run Native Rust Volatility Engine analysis. Select a
+                  memory dump and click Start...
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: RAM RESULTS VIEWER (.JSON)      -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-ram-viewer-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <!-- Lock Screen Overlay -->
+          <div
+            id="lock-ram-viewer"
+            class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl"
+          >
+            <div
+              class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50"
+            >
+              <span class="material-symbols-outlined text-amber-500 text-[36px]"
+                >lock</span
+              >
+            </div>
+            <h3 class="text-headline font-bold text-on-surface mb-2">
+              Analysis Mode Required
+            </h3>
+            <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+              Viewing stored RAM forensic database results requires
+              <span class="text-amber-500 font-bold">Analysis Mode</span>.
+            </p>
+            <button
+              class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >lock_open</span
+              >Unlock Analysis Mode
+            </button>
+          </div>
+
+          <div
+            id="content-ram-viewer"
+            class="analysis-feature-content hidden space-y-5"
+          >
+            <section
+              class="bg-surface border border-outline-variant rounded p-5 max-w-6xl shadow-sm"
+            >
+              <div
+                class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-outline-variant pb-4"
+              >
+                <div>
+                  <h2
+                    class="text-headline font-bold text-on-surface mb-1 flex items-center gap-2"
+                  >
+                    <span
+                      class="material-symbols-outlined text-primary text-[24px]"
+                      >table_view</span
+                    >RAM Forensic Database Viewer (.json)
+                  </h2>
+                  <p class="text-body-sm text-on-surface-variant">
+                    View, search, and filter structured forensic analysis
+                    results stored in your JSON database files.
+                  </p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button
+                    id="btn-refresh-ram-db"
+                    class="px-3 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-body-sm rounded flex items-center gap-1.5 border border-outline-variant transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >refresh</span
+                    >Refresh DB List
+                  </button>
+                  <button
+                    id="btn-browse-ram-db"
+                    class="px-4 py-2 bg-primary text-on-primary font-bold text-body-sm rounded hover:opacity-90 flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >folder_open</span
+                    >Open .json DB
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5 bg-surface-container-low p-3 rounded border border-outline-variant"
+              >
+                <div class="md:col-span-1">
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1"
+                    >Select Database File</label
+                  >
+                  <select
+                    id="ram-db-select"
+                    class="input-field bg-surface font-mono text-xs"
+                  >
+                    <option value="">No database loaded…</option>
+                  </select>
+                </div>
+                <div class="md:col-span-1">
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1"
+                    >Select Analysis Run / Profile</label
+                  >
+                  <select id="ram-db-run-select" class="input-field bg-surface">
+                    <option value="">All runs…</option>
+                  </select>
+                </div>
+                <div class="md:col-span-1">
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1"
+                    >Search &amp; Filter Rows</label
+                  >
+                  <div class="relative">
+                    <span
+                      class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-[18px]"
+                      >search</span
+                    >
+                    <input
+                      type="text"
+                      id="ram-db-search"
+                      placeholder="Filter PID, Process, Address, IOC…"
+                      class="input-field pl-9 bg-surface"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Metadata Banner -->
+              <div
+                id="ram-db-meta-banner"
+                class="hidden mb-4 p-3 bg-primary/5 border border-primary/20 rounded flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface"
+              >
+                <div>
+                  <span class="font-bold text-primary">Image:</span>
+                  <span id="meta-image-path" class="font-mono">N/A</span>
+                </div>
+                <div>
+                  <span class="font-bold text-primary">Profile:</span>
+                  <span id="meta-profile" class="font-mono">N/A</span>
+                </div>
+                <div>
+                  <span class="font-bold text-primary">Engine:</span>
+                  <span id="meta-engine">N/A</span>
+                </div>
+                <div>
+                  <span class="font-bold text-primary">Timestamp:</span>
+                  <span id="meta-timestamp" class="font-mono">N/A</span>
+                </div>
+                <div>
+                  <span class="font-bold text-primary">Total Rows:</span>
+                  <span id="meta-rows-count" class="font-bold">0</span>
+                </div>
+              </div>
+
+              <!-- Table Container -->
+              <div
+                class="overflow-x-auto border border-outline-variant rounded max-h-[550px] bg-surface-container-lowest shadow-inner"
+              >
+                <table
+                  id="ram-db-table"
+                  class="w-full text-left border-collapse font-mono text-xs"
+                >
+                  <thead
+                    class="bg-surface-container sticky top-0 border-b border-outline-variant text-on-surface font-bold"
+                  >
+                    <tr id="ram-db-thead-tr">
+                      <th class="p-3">
+                        Select a JSON database to view results
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="ram-db-tbody"
+                    class="divide-y divide-outline-variant/40"
+                  >
+                    <tr>
+                      <td
+                        class="p-6 text-center text-on-surface-variant italic"
+                      >
+                        No data loaded. Use "Open .json DB" or select from
+                        dropdown.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: YARA SCANNER                    -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-yara-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <!-- Lock Screen Overlay -->
+          <div
+            id="lock-yara"
+            class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl"
+          >
+            <div
+              class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50"
+            >
+              <span class="material-symbols-outlined text-amber-500 text-[36px]"
+                >lock</span
+              >
+            </div>
+            <h3 class="text-headline font-bold text-on-surface mb-2">
+              Analysis Mode Required
+            </h3>
+            <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+              On-demand YARA and IOC pattern scanning against evidence images
+              requires
+              <span class="text-amber-500 font-bold">Analysis Mode</span>.
+            </p>
+            <button
+              class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >lock_open</span
+              >Unlock Analysis Mode
+            </button>
+          </div>
+
+          <!-- Feature Content -->
+          <div id="content-yara" class="analysis-feature-content hidden">
+            <section
+              class="bg-surface border border-outline-variant rounded p-6 max-w-4xl space-y-5"
+            >
+              <div
+                class="flex items-center gap-3 border-b border-outline-variant pb-4"
+              >
+                <span class="material-symbols-outlined text-primary text-[28px]"
+                  >biotech</span
+                >
+                <div>
+                  <h2 class="text-headline font-bold text-on-surface">
+                    On-Demand YARA & IOC Scanner
+                  </h2>
+                  <p class="text-body-sm text-on-surface-variant">
+                    Scan acquired forensic images (.dd, .raw, .e01) or memory
+                    dumps against YARA rulesets without re-running imaging.
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5 font-bold"
+                    >Target Evidence Image / Memory Dump</label
+                  >
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      id="yara-scan-image-path"
+                      placeholder="Select .dd, .raw, or memory dump file…"
+                      required
+                      readonly
+                      class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2.5 focus:ring-1 focus:ring-primary outline-none"
+                    />
+                    <button
+                      id="btn-browse-yara-image"
+                      class="px-4 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface font-semibold flex items-center gap-1.5"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >folder_open</span
+                      >Browse
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    class="block text-label-caps text-outline uppercase mb-1.5 font-bold"
+                    >YARA Ruleset File or Directory (.yar / .yara)</label
+                  >
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      id="yara-scan-rules-path"
+                      placeholder="Select .yar file or directory containing rules…"
+                      required
+                      readonly
+                      class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2.5 focus:ring-1 focus:ring-primary outline-none"
+                    />
+                    <button
+                      id="btn-browse-yara-rules-file"
+                      class="px-4 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface font-semibold flex items-center gap-1.5"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >description</span
+                      >File
+                    </button>
+                    <button
+                      id="btn-browse-yara-rules-dir"
+                      class="px-4 py-2 border border-outline-variant rounded hover:bg-surface-container text-on-surface font-semibold flex items-center gap-1.5"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >folder</span
+                      >Folder
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pt-2">
+                  <button
+                    id="btn-start-yara-scan"
+                    class="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-on-primary font-bold text-body-md rounded-lg hover:opacity-90 shadow-md transition-all w-full md:w-auto"
+                  >
+                    <span class="material-symbols-outlined text-[20px]"
+                      >play_arrow</span
+                    >Start YARA Scan
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: DATA RECOVERY & FILE CARVING    -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-data-recovery-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-surface-container-low p-5"
+        >
+          <!-- Lock Screen Overlay -->
+          <div
+            id="lock-data-recovery"
+            class="analysis-lock-screen flex flex-col items-center justify-center p-12 my-8 mx-auto max-w-2xl text-center bg-surface-container-high/90 backdrop-blur-md border border-amber-500/40 rounded-2xl shadow-2xl"
+          >
+            <div
+              class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/50"
+            >
+              <span class="material-symbols-outlined text-amber-500 text-[36px]"
+                >lock</span
+              >
+            </div>
+            <h3 class="text-headline font-bold text-on-surface mb-2">
+              Analysis Mode Required
+            </h3>
+            <p class="text-body-md text-on-surface-variant mb-6 max-w-md">
+              High-performance raw disk/memory file carving and data recovery
+              requires
+              <span class="text-amber-500 font-bold">Analysis Mode</span>.
+            </p>
+            <button
+              class="btn-unlock-analysis px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-body-md rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-[20px]"
+                >lock_open</span
+              >Unlock Analysis Mode
+            </button>
+          </div>
+
+          <!-- Feature Content -->
+          <div
+            id="content-data-recovery"
+            class="analysis-feature-content hidden space-y-5"
+          >
+            <section
+              class="bg-surface border border-outline-variant rounded p-5 max-w-5xl shadow-sm"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <h2 class="text-headline font-bold text-on-surface flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">restore_page</span>
+                    Data Recovery & File Carving Workbench
+                  </h2>
+                  <p class="text-body-sm text-on-surface-variant">
+                    Recover lost, deleted, or unallocated files (images, documents, databases, event logs) from raw disk or memory dumps using OpenForensic's multi-threaded signature engine.
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-label-caps text-outline uppercase mb-1.5 font-semibold">
+                      Target Forensic Image / Raw Dump (.raw / .dd / .vmem)
+                    </label>
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="carve-image-path"
+                        placeholder="Select source dump or disk image…"
+                        readonly
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none text-on-surface"
+                      />
+                      <button
+                        id="btn-browse-carve-image"
+                        class="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-secondary-container rounded font-semibold flex items-center gap-1.5 transition-colors text-body-sm"
+                      >
+                        <span class="material-symbols-outlined text-[18px]">folder_open</span>
+                        Browse
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-label-caps text-outline uppercase mb-1.5 font-semibold">
+                      Output Directory for Carved Files
+                    </label>
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="carve-out-dir"
+                        placeholder="Select output folder for recovered files…"
+                        readonly
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none text-on-surface"
+                      />
+                      <button
+                        id="btn-browse-carve-output"
+                        class="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-secondary-container rounded font-semibold flex items-center gap-1.5 transition-colors text-body-sm"
+                      >
+                        <span class="material-symbols-outlined text-[18px]">create_new_folder</span>
+                        Browse
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="space-y-4 bg-surface-container-low p-4 rounded border border-outline-variant/60">
+                  <h4 class="text-label-caps uppercase text-primary font-bold flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[18px]">tune</span>
+                    Engine Parameters
+                  </h4>
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="check-carve-save-db" checked class="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4" />
+                    <label for="check-carve-save-db" class="text-body-sm text-on-surface font-medium">
+                      Store metadata in Triage SQLite Database
+                    </label>
+                  </div>
+                  <div id="carve-db-group" class="space-y-1.5">
+                    <label class="block text-label-caps text-outline uppercase text-[11px]">
+                      Triage SQLite DB Path (Optional)
+                    </label>
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        id="carve-db-path"
+                        placeholder="Path to triage.db…"
+                        class="flex-1 text-body-sm border border-outline-variant rounded bg-surface font-mono px-3 py-1.5 focus:ring-1 focus:ring-primary outline-none text-on-surface"
+                      />
+                      <button
+                        id="btn-browse-carve-db"
+                        class="px-3 py-1.5 border border-outline-variant rounded hover:bg-surface-container text-on-surface text-body-sm"
+                      >
+                        Browse
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between gap-4 mt-6 pt-4 border-t border-outline-variant">
+                <div class="flex items-center gap-3">
+                  <button
+                    id="btn-run-parallel-carver"
+                    class="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-on-primary font-bold text-body-md rounded-lg hover:opacity-90 shadow-md transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[20px]">play_arrow</span>
+                    Start Rayon Carver
+                  </button>
+                  <button
+                    id="btn-benchmark-carver"
+                    class="flex items-center justify-center gap-1.5 px-4 py-3 border border-primary/40 text-primary hover:bg-primary/10 font-semibold text-body-md rounded-lg transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">speed</span>
+                    Run Engine Benchmark
+                  </button>
+                </div>
+                <div id="carve-status-badge" class="text-body-sm font-mono text-outline">
+                  Status: Ready
+                </div>
+              </div>
+            </section>
+
+            <!-- Carver Benchmark Results Box -->
+            <div id="carver-benchmark-result" class="hidden bg-surface-container-high border border-outline-variant rounded p-4 font-mono text-xs text-on-surface space-y-1"></div>
+
+            <!-- Carving Progress & Results Box -->
+            <section class="bg-surface border border-outline-variant rounded p-5 max-w-5xl shadow-sm space-y-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-title-md font-bold text-on-surface flex items-center gap-2">
+                  <span class="material-symbols-outlined text-teal-500">folder_zip</span>
+                  Recovered Files Manifest
+                </h3>
+                <span id="carved-files-count" class="px-2.5 py-0.5 rounded-full text-label-caps font-bold bg-teal-500/20 text-teal-400 border border-teal-500/30">
+                  0 Files Recovered
+                </span>
+              </div>
+
+              <div id="carving-progress-bar-container" class="hidden space-y-1.5">
+                <div class="flex justify-between text-body-xs font-mono text-on-surface-variant">
+                  <span id="carving-progress-label">Processing memory/disk image chunks...</span>
+                  <span id="carving-progress-pct">0.0%</span>
+                </div>
+                <div class="w-full bg-surface-container-high rounded-full h-2 overflow-hidden">
+                  <div id="carving-progress-bar" class="bg-primary h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div class="border border-outline-variant rounded overflow-hidden">
+                <table class="w-full text-left text-body-sm border-collapse">
+                  <thead class="bg-surface-container-high text-label-caps uppercase text-outline font-semibold">
+                    <tr>
+                      <th class="p-3 border-b border-outline-variant">File Type</th>
+                      <th class="p-3 border-b border-outline-variant">Ext</th>
+                      <th class="p-3 border-b border-outline-variant">Start Offset</th>
+                      <th class="p-3 border-b border-outline-variant">Size</th>
+                      <th class="p-3 border-b border-outline-variant">SHA-256 Checksum</th>
+                      <th class="p-3 border-b border-outline-variant">Saved Location</th>
+                    </tr>
+                  </thead>
+                  <tbody id="carved-files-tbody" class="divide-y divide-outline-variant/50 font-mono text-xs text-on-surface">
+                    <tr>
+                      <td colspan="6" class="p-6 text-center text-outline italic">No files recovered yet. Select an image and click Start Rayon Carver.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════ -->
+        <!-- TAB: PGP PROVENANCE                  -->
+        <!-- ════════════════════════════════════ -->
+        <div
+          id="tab-pgp-content"
+          class="tab-panel hidden flex-1 overflow-y-auto bg-background p-6"
+        >
+          <div class="max-w-7xl mx-auto space-y-5">
+            <div>
+              <nav
+                class="flex items-center gap-2 text-outline text-label-caps uppercase tracking-wide mb-1"
+              >
+                <span>Cases</span>
+                <span class="material-symbols-outlined text-[13px]"
+                  >chevron_right</span
+                >
+                <span class="text-primary">PGP Provenance</span>
+              </nav>
+              <h2 class="text-display font-bold text-on-surface">
+                Digital Evidence Custody
+              </h2>
+              <p class="text-body-sm text-on-surface-variant mt-1">
+                Cryptographic signing &amp; chain-of-custody verification via
+                Sequoia PGP.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-12 gap-5">
+              <!-- Left: Key Management -->
+              <div class="col-span-12 lg:col-span-5 space-y-4">
+                <div
+                  class="bg-surface border border-outline-variant rounded-sm shadow-sm"
+                >
+                  <div
+                    class="p-5 border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="material-symbols-outlined text-primary"
+                        >key</span
+                      >
+                      <h3 class="font-bold text-body-lg text-on-surface">
+                        Examiner Key Certificate
+                      </h3>
+                    </div>
+                    <span
+                      class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/20 rounded-sm"
+                      >Secure Enclave</span
+                    >
+                  </div>
+                  <div class="p-5 space-y-5">
+                    <p class="text-body-sm text-on-surface-variant">
+                      All forensic reports and evidence manifests are
+                      automatically signed with this Rust-native Sequoia PGP key
+                      to guarantee tamper-proof chain of custody.
+                    </p>
+                    <div
+                      id="pgp-key-info"
+                      class="bg-surface-container-low border border-outline-variant rounded-sm p-4 text-body-sm text-outline font-mono"
+                    >
+                      Loading active PGP key info…
+                    </div>
+                    <div class="flex gap-3">
+                      <input
+                        type="text"
+                        id="pgp-user-id-input"
+                        value="OpenForensic Investigator &lt;dfir@openforensic.local&gt;"
+                        placeholder="Examiner Name &lt;email@dfir.local&gt;"
+                        class="flex-1 text-body-sm border border-outline-variant rounded-sm bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                      />
+                      <button
+                        id="btn-generate-pgp-key"
+                        class="flex-shrink-0 px-3 py-2 border border-outline-variant rounded-sm text-body-sm font-semibold hover:bg-surface-container-high transition-colors text-on-surface flex items-center gap-1"
+                      >
+                        <span class="material-symbols-outlined text-[16px]"
+                          >key</span
+                        >Generate / Reset
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="bg-surface border border-outline-variant rounded-sm p-4 flex items-center gap-4"
+                >
+                  <div
+                    class="w-10 h-10 bg-surface-container-high rounded-sm flex items-center justify-center shrink-0"
+                  >
+                    <span class="material-symbols-outlined text-outline"
+                      >terminal</span
+                    >
+                  </div>
+                  <div class="flex-1">
+                    <p class="text-label-caps text-outline uppercase">
+                      GPG Engine (Sequoia PGP)
+                    </p>
+                    <p class="text-body-sm font-bold text-on-surface">
+                      Pure-Rust (Active)
+                    </p>
+                  </div>
+                  <div
+                    class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Right: Verification -->
+              <div class="col-span-12 lg:col-span-7 space-y-4">
+                <div
+                  class="bg-surface border border-outline-variant rounded-sm shadow-sm overflow-hidden"
+                >
+                  <div
+                    class="p-5 border-b border-outline-variant flex items-center gap-2 bg-surface-container-low/30"
+                  >
+                    <span class="material-symbols-outlined text-primary"
+                      >security</span
+                    >
+                    <h3 class="font-bold text-body-lg text-on-surface">
+                      Provenance Verification
+                    </h3>
+                  </div>
+                  <div class="p-5 space-y-4">
+                    <div>
+                      <label
+                        class="block text-label-caps text-outline uppercase mb-1.5"
+                        >Manifest / Report File to Verify</label
+                      >
+                      <div class="flex gap-2">
+                        <input
+                          type="text"
+                          id="pgp-manifest-path"
+                          placeholder="Select manifest or report file (.txt, .json, .csv)…"
+                          readonly
+                          class="flex-1 text-body-sm border border-outline-variant rounded-sm bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                        />
+                        <button
+                          id="btn-browse-pgp-manifest"
+                          class="px-3 py-2 border border-outline-variant rounded-sm hover:bg-surface-container text-on-surface-variant transition-colors"
+                        >
+                          <span class="material-symbols-outlined text-[18px]"
+                            >upload_file</span
+                          >
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        class="block text-label-caps text-outline uppercase mb-1.5"
+                        >Detached Signature (.asc) — optional</label
+                      >
+                      <div class="flex gap-2">
+                        <input
+                          type="text"
+                          id="pgp-sig-path"
+                          placeholder="Select signature file (.asc)…"
+                          readonly
+                          class="flex-1 text-body-sm border border-outline-variant rounded-sm bg-surface-container-low font-mono px-3 py-2 focus:ring-1 focus:ring-primary outline-none"
+                        />
+                        <button
+                          id="btn-browse-pgp-sig"
+                          class="px-3 py-2 border border-outline-variant rounded-sm hover:bg-surface-container text-on-surface-variant transition-colors"
+                        >
+                          <span class="material-symbols-outlined text-[18px]"
+                            >upload_file</span
+                          >
+                        </button>
+                      </div>
+                    </div>
+                    <div class="flex justify-end">
+                      <button
+                        id="btn-verify-pgp-manifest"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white font-bold text-body-sm rounded-sm hover:bg-green-700 transition-colors"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >verified</span
+                        >Verify Integrity Signature
+                      </button>
+                    </div>
+                    <div
+                      id="pgp-verify-result"
+                      class="hidden p-4 rounded-sm font-mono text-[13px]"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- end main workspace -->
+    </div>
+    <!-- end app shell -->
+
+    <script src="main.js"></script>
+    <script>
+      // ── Post-load patches ──────────────────────────────────────────
+      // 1. Wrap switchTab to also update topbar title + breadcrumb + nav styles
+      const _TAB_TITLES = {
+        imaging: "Disk Imaging",
+        triage: "System Triage",
+        live: "Live Acquisition",
+        cases: "Case Management",
+        pgp: "PGP Provenance",
+        timeline: "Timeline",
+        ram: "RAM Analysis",
+        "ram-viewer": "RAM Results Viewer",
+        "data-recovery": "Data Recovery & Carving",
+        yara: "YARA Scanner",
+      };
+
+      const _orig_switchTab = window.switchTab;
+      window.switchTab = function (tabName) {
+        if (typeof _orig_switchTab === "function") _orig_switchTab(tabName);
+
+        // Update sidebar active state via data-tab attribute
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.tab === tabName);
+        });
+
+        // Update topbar title + breadcrumb
+        const title = _TAB_TITLES[tabName] || tabName;
+        const el = document.getElementById("topbar-title");
+        if (el) el.textContent = title;
+        const bc = document.getElementById("breadcrumb-current");
+        if (bc) bc.textContent = title;
+      };
+
+      // 2. Wire sidebar nav buttons directly (in addition to JS)
+      document.querySelectorAll(".tab-btn[data-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tab = btn.dataset.tab;
+          if (tab === "cases") {
+            switchTab("cases");
+            if (typeof loadCases === "function") loadCases();
+          } else if (tab === "pgp") {
+            switchTab("pgp");
+            if (typeof loadPgpKeyInfo === "function") loadPgpKeyInfo();
+          } else {
+            switchTab(tab);
+          }
+        });
+      });
+
+      // 3. Sync active case label from case number input
+      const _caseInput = document.getElementById("input-case-number");
+      function syncCaseLabel() {
+        const val = _caseInput ? _caseInput.value.trim() : "";
+        const lbl = document.getElementById("active-case-label");
+        const bc = document.getElementById("breadcrumb-case");
+        if (lbl) lbl.textContent = val || "—";
+        if (bc) bc.textContent = val || "—";
+      }
+      if (_caseInput) _caseInput.addEventListener("input", syncCaseLabel);
+
+      // 4. Set initial active state — Case Management is the default landing tab
+      window.switchTab("cases");
+      if (typeof loadCases === "function") loadCases();
+    </script>
+  </body>
+</html>

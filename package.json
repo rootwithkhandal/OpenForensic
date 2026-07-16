@@ -1,0 +1,11 @@
+{
+  "name": "openforensic-ui",
+  "version": "2.1.0",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

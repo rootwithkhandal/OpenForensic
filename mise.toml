@@ -1,0 +1,60 @@
+[tools]
+rust = "stable"
+node = "20"
+
+[tasks.check]
+description = "Check syntax and compilation without building binary"
+run = "cargo check"
+
+[tasks.test]
+description = "Run all automated unit tests"
+run = "cargo test"
+
+[tasks.clean]
+description = "Clean build artifacts and reset Cargo target cache"
+run = "cargo clean"
+
+[tasks.build]
+description = "Build the forensic imager standalone binary in release mode"
+run = "cargo build --release"
+
+[tasks.build-app]
+description = "Build full production installer packages and app bundles via Tauri"
+run = "npm run tauri build"
+
+[tasks.dev]
+description = "Launch Tauri development server with live-reload"
+run = "npm run tauri dev"
+
+[tasks.run]
+description = "Run GUI forensic imager in release mode (Prompts for Admin)"
+depends = ["build"]
+run = "powershell -Command \"Start-Process -FilePath '.\\target\\release\\openforensic.exe' -Verb RunAs\""
+
+[tasks.cli]
+description = "Run headless CLI mode help"
+depends = ["build"]
+run = ".\\target\\release\\openforensic.exe --cli --help"
+
+[tasks.cli-devices]
+description = "List physical block storage devices via headless CLI (Prompts for Admin)"
+depends = ["build"]
+run = "powershell -Command \"Start-Process -FilePath '.\\target\\release\\openforensic.exe' -ArgumentList '--cli','list-devices' -Verb RunAs -Wait\""
+
+[tasks.cli-volumes]
+description = "List logical system volumes and mount points via headless CLI"
+depends = ["build"]
+run = ".\\target\\release\\openforensic.exe --cli list-volumes"
+
+[tasks.snyk]
+description = "Run Snyk dependency and SAST security scans"
+run = "snyk test && snyk code test"
+
+[tasks.commit]
+description = "Commit changes to git"
+run = "git add . && git commit -m 'issue-resolved'"
+
+[tasks.push]
+description = "Push changes to git"
+depends = ["commit"]
+run = "git push"

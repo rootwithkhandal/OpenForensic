@@ -1,0 +1,498 @@
+/* =========================================================
+   OpenForensic — Style Sheet
+   Stitch "High-Precision Modern" Light Theme
+   Only overrides/extensions on top of Tailwind utility layer.
+   ========================================================= */
+
+/* CSS Custom Properties (needed by JS renderPgpKeyInfo inline styles) */
+:root {
+  --color-primary:   #00488d;
+  --color-bg:        #edeeef;
+  --color-border:    #c2c6d4;
+  --text-main:       #191c1d;
+  --text-muted:      #727783;
+}
+
+/* Shared form input base style (Tailwind @apply equivalent) */
+.input-field {
+  width: 100%;
+  font-size: 14px;
+  line-height: 20px;
+  border: 1px solid #c2c6d4;
+  border-radius: 0.125rem;
+  background: #f3f4f5;
+  color: #191c1d;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.input-field:focus {
+  border-color: #00488d;
+  box-shadow: 0 0 0 2px rgba(0, 72, 141, 0.12);
+}
+.input-field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ----------------------------------------------------------
+   FONT VARIABLE SETTINGS
+   ---------------------------------------------------------- */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* ----------------------------------------------------------
+   SCROLLBAR POLISH
+   ---------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c2c6d4;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #727783;
+}
+
+/* ----------------------------------------------------------
+   SIDEBAR NAV ACTIVE STATE
+   ---------------------------------------------------------- */
+.tab-btn {
+  color: #424752;           /* text-on-surface-variant */
+  background: transparent;
+  border-left: 2px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.tab-btn:hover {
+  background: #e7e8e9;      /* surface-container-high */
+}
+.tab-btn.active {
+  color: #00488d;           /* primary */
+  font-weight: 700;
+  background: rgba(213, 227, 252, 0.30); /* secondary-container/30 */
+  border-left-color: #00488d;
+}
+
+/* ----------------------------------------------------------
+   IMAGING MODE TOGGLE BUTTONS
+   ---------------------------------------------------------- */
+.mode-btn {
+  color: #424752;
+  border-color: #c2c6d4;
+  background: transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.mode-btn:hover {
+  background: #edeeef;
+}
+.mode-btn.active {
+  background: #00488d;
+  color: #ffffff;
+  border-color: #00488d;
+}
+
+/* ----------------------------------------------------------
+   DEVICE CARDS (rendered by JS renderDeviceList)
+   ---------------------------------------------------------- */
+.device-card {
+  background: #ffffff;
+  border: 1px solid #c2c6d4;
+  border-radius: 2px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.device-card:hover {
+  border-color: #00488d;
+}
+.device-card.selected {
+  border-color: #00488d;
+  background: rgba(213, 227, 252, 0.15);
+  box-shadow: 0 0 0 2px rgba(0, 72, 141, 0.10);
+}
+.device-card .device-name {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #00488d;
+}
+.device-card .device-model {
+  font-size: 14px;
+  font-weight: 600;
+  color: #191c1d;
+}
+.device-card .device-meta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: #424752;
+}
+.device-card .device-badge {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+}
+.device-badge-ssd {
+  background: #d5e3fc;
+  color: #00488d;
+}
+.device-badge-usb {
+  background: #ffdbcb;
+  color: #7b3200;
+}
+.device-badge-hdd {
+  background: #e1e3e4;
+  color: #424752;
+}
+.device-badge-nvme {
+  background: rgba(213, 227, 252, 0.6);
+  color: #00488d;
+}
+.partition-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  background: #f3f4f5;
+  border: 1px solid #c2c6d4;
+  border-radius: 2px;
+  color: #424752;
+}
+
+/* ----------------------------------------------------------
+   CONSOLE LOG ENTRIES (rendered by JS logMessage)
+   ---------------------------------------------------------- */
+.log-entry {
+  display: flex;
+  gap: 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 2px 0;
+}
+.log-ts {
+  color: #00488d;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 85px;
+}
+.log-type {
+  font-weight: 700;
+  flex-shrink: 0;
+  min-width: 72px;
+}
+.log-type-system   { color: #515f74; }
+.log-type-success  { color: #1a6b2d; }
+.log-type-error    { color: #ba1a1a; }
+.log-type-warning  { color: #7b3200; }
+.log-type-info     { color: #515f74; }
+.log-type-volatility{ color: #783100; }
+.log-msg {
+  color: #191c1d;
+  word-break: break-word;
+}
+
+/* ----------------------------------------------------------
+   ADMIN BADGE (managed by JS updateAdminBadge)
+   ---------------------------------------------------------- */
+.badge {}
+.badge-admin {
+  color: #00488d;
+}
+.badge-needs-admin {
+  color: #ba1a1a;
+}
+
+/* ----------------------------------------------------------
+   TAB PANEL / ANIMATION
+   ---------------------------------------------------------- */
+.tab-panel.hidden {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------
+   PULSING ANIMATION HELPER (used by JS)
+   ---------------------------------------------------------- */
+@keyframes openforensic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.anim-pulse {
+  animation: openforensic-pulse 1.5s ease-in-out infinite;
+}
+
+/* ----------------------------------------------------------
+   INFO MESSAGES (empty states in lists)
+   ---------------------------------------------------------- */
+.info-message {
+  color: #727783;
+  font-size: 14px;
+}
+
+/* ----------------------------------------------------------
+   PROGRESS BAR FILL — animated transition handled inline
+   ---------------------------------------------------------- */
+#progress-bar-fill {
+  min-width: 0;
+  transition: width 0.3s ease;
+}
+
+/* ----------------------------------------------------------
+   HIDDEN (general utility, must be !important)
+   ---------------------------------------------------------- */
+.hidden {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------
+   DEVICE CARD INNER ELEMENTS (rendered by JS doRescan)
+   ---------------------------------------------------------- */
+.device-icon-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.device-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.device-info {
+  flex: 1;
+  min-width: 0;
+}
+.device-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.device-path {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #00488d;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.device-size {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: #727783;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.device-model {
+  font-size: 13px;
+  font-weight: 600;
+  color: #191c1d;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-health-row {
+  font-size: 11px;
+  color: #424752;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Chip / Badge inline elements */
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  line-height: 16px;
+}
+.chip-blue {
+  background: #d5e3fc;
+  color: #00488d;
+}
+.chip-green {
+  background: #d4edda;
+  color: #1a6b2d;
+}
+.chip-orange {
+  background: #ffdbcb;
+  color: #7b3200;
+}
+.chip-gray {
+  background: #e1e3e4;
+  color: #424752;
+}
+
+/* Partition list */
+.partition-list {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #c2c6d4;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.partition-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #424752;
+}
+.partition-icon { color: #727783; }
+.partition-name { font-weight: 600; color: #191c1d; }
+.partition-type {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: #515f74;
+  background: #f3f4f5;
+  border: 1px solid #c2c6d4;
+  border-radius: 2px;
+  padding: 0 4px;
+}
+.partition-size {
+  margin-left: auto;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: #727783;
+}
+
+/* ----------------------------------------------------------
+   LOG ENTRY LEVEL COLORS (rendered by JS logMessage)
+   ---------------------------------------------------------- */
+.log-entry {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 1px 0;
+  color: #191c1d;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.log-system     { color: #424752; }
+.log-error      { color: #ba1a1a; font-weight: 600; }
+.log-warning    { color: #7b3200; }
+.log-success    { color: #1a6b2d; font-weight: 600; }
+.log-info       { color: #515f74; }
+.log-acquisition{ color: #191c1d; }
+.log-volatility { color: #783100; }
+
+/* stat value color helpers used by JS */
+.text-teal { color: #00488d !important; }
+.text-red  { color: #ba1a1a !important; }
+
+/* btn helpers used by loadCases inline HTML */
+.btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 2px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.12s; }
+.btn:hover { opacity: 0.85; }
+.btn-secondary { background: transparent; border: 1px solid #c2c6d4; color: #424752; }
+.btn-sm { font-size: 11px; padding: 3px 8px; }
+.error-text { color: #ba1a1a; }
+
+/* ----------------------------------------------------------
+   CASE CARD (in Case Management ribbon)
+   ---------------------------------------------------------- */
+.case-card {
+  min-width: 240px;
+  height: calc(100% - 8px);
+  padding: 10px 12px;
+  border: 1px solid #c2c6d4;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.case-card:hover {
+  background: #edeeef;
+}
+.case-card.active {
+  border-color: #00488d;
+  background: rgba(213, 227, 252, 0.20);
+}
+
+/* ==========================================================
+   OPENFORENSIC ANALYSIS SUITE RESPONSIVE LAYOUT SYSTEM
+   Supports Mobile, Tablet, Laptop, and Ultra-Wide Screens
+   ========================================================== */
+
+/* Responsive Sidebar Navigation Modes */
+#app-sidebar {
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Compact Icon-Only Sidebar Mode (Width: 64px) */
+#app-sidebar.sidebar-compact {
+  width: 68px !important;
+}
+#app-sidebar.sidebar-compact .nav-label,
+#app-sidebar.sidebar-compact .brand-label,
+#app-sidebar.sidebar-compact .case-label-box {
+  display: none !important;
+}
+#app-sidebar.sidebar-compact .tab-btn {
+  justify-content: center !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Mobile Sidebar Drawer Overlay (< 768px) */
+@media (max-width: 768px) {
+  #app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+  #app-sidebar.mobile-hidden {
+    transform: translateX(-100%);
+  }
+}
+
+/* Responsive Table Wrapper with Touch Scrolling */
+.table-responsive-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+}
+
+/* Responsive Grids & Spacing Adjustments */
+@media (max-width: 1024px) {
+  .responsive-grid-12 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  .responsive-grid-split {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .tab-panel {
+    padding: 0.75rem !important;
+  }
+  .header-flex-responsive {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+}

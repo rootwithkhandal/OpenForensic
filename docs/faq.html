@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ — OpenForensic</title>
+  <meta name="description" content="Frequently asked questions about OpenForensic v2.1.0: installation, disk imaging, RAM analysis, hash verification, SIEM integration, and more." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══ NAVIGATION ════════════════════════════════════════ -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg class="nav-logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      OpenForensic
+    </a>
+    <div class="nav-links">
+      <a href="index.html#features" class="nav-link">Features</a>
+      <a href="index.html#modes"    class="nav-link">Modes</a>
+      <a href="help.html"           class="nav-link">Help</a>
+      <a href="faq.html"            class="nav-link active">FAQ</a>
+    </div>
+    <div class="nav-actions">
+      <span class="badge badge-gray" style="font-size:11px;">v2.1.0</span>
+      <a href="https://github.com/rootwithkhandal/OpenForensic" target="_blank" class="btn btn-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      </a>
+      <a href="index.html#download" class="btn btn-primary">Download v2.1.0</a>
+      <button
+        class="nav-toggle"
+        aria-label="Toggle navigation"
+        onclick="toggleMobileNav()"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ PAGE HERO ════════════════════════════════════════ -->
+<div class="page-hero">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">FAQ</span>
+    </div>
+    <h1 class="section-title">Frequently Asked Questions</h1>
+    <p style="font-size:15px;color:var(--on-surface-variant);max-width:540px;">
+      Answers to the most common questions about installation, forensic workflows, hash verification, SIEM integration, and CLI automation.
+    </p>
+  </div>
+</div>
+
+<!-- ══ FAQ BODY ══════════════════════════════════════════ -->
+<section class="section-sm">
+  <div class="container" style="max-width:900px;">
+
+    <!-- Category filter row -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:40px;">
+      <button class="btn btn-primary" id="filter-all"     onclick="filterFaq('all', this)"         style="font-size:12px;padding:6px 14px;">All</button>
+      <button class="btn btn-secondary" id="filter-install" onclick="filterFaq('install', this)"     style="font-size:12px;padding:6px 14px;">Installation</button>
+      <button class="btn btn-secondary" id="filter-imaging" onclick="filterFaq('imaging', this)"     style="font-size:12px;padding:6px 14px;">Disk Imaging</button>
+      <button class="btn btn-secondary" id="filter-ram"    onclick="filterFaq('ram', this)"          style="font-size:12px;padding:6px 14px;">RAM Analysis</button>
+      <button class="btn btn-secondary" id="filter-recovery" onclick="filterFaq('recovery', this)"     style="font-size:12px;padding:6px 14px;">Data Recovery</button>
+      <button class="btn btn-secondary" id="filter-allowlists" onclick="filterFaq('allowlists', this)" style="font-size:12px;padding:6px 14px;">Security Allowlists</button>
+      <button class="btn btn-secondary" id="filter-hashes" onclick="filterFaq('hashes', this)"      style="font-size:12px;padding:6px 14px;">Hash Verification</button>
+      <button class="btn btn-secondary" id="filter-modes"  onclick="filterFaq('modes', this)"        style="font-size:12px;padding:6px 14px;">Capture / Analysis Modes</button>
+      <button class="btn btn-secondary" id="filter-siem"   onclick="filterFaq('siem', this)"         style="font-size:12px;padding:6px 14px;">SIEM &amp; IOC</button>
+      <button class="btn btn-secondary" id="filter-cli"    onclick="filterFaq('cli', this)"          style="font-size:12px;padding:6px 14px;">CLI</button>
+    </div>
+
+    <!-- ── INSTALLATION ─────────────────────────────── -->
+    <div style="margin-bottom:12px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">Installation &amp; Setup</p>
+    </div>
+
+    <div class="faq-item" data-category="install">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        What operating systems does OpenForensic support?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        OpenForensic v2.1.0 supports <strong>Windows 10 / 11 (64-bit)</strong>, <strong>Linux</strong> (Ubuntu 20.04+, Debian, Arch, Fedora), and <strong>macOS 11 Big Sur or newer</strong> (including Apple Silicon via Rosetta 2 / native ARM builds). All three platforms receive the same feature set, though the RAM capture tools differ: WinPmem on Windows, LiME on Linux, and raw disk nodes on macOS.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="install">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Why does OpenForensic require Administrator / root privileges?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Forensic disk imaging requires reading raw physical block devices (e.g., <code>\\.\PhysicalDrive0</code> on Windows, <code>/dev/sda</code> on Linux) which are kernel-protected resources. Additionally, live RAM acquisition temporarily loads kernel-level drivers (WinPmem, LiME) that require ring-0 access. Without administrator / root privileges, these operations are blocked by the OS.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="install">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How do I build OpenForensic from source?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        OpenForensic uses <a href="https://mise.jdx.dev/" style="color:var(--primary-container);">mise</a> for reproducible toolchain management. Steps:
+        <pre>git clone https://github.com/rootwithkhandal/OpenForensic.git
+cd OpenForensic
+npm install           # Install Node.js dependencies for Tauri
+mise run check        # Verify Rust toolchain & cargo check
+npm run tauri dev     # Launch in development mode
+npm run tauri build   # Compile optimized release binary</pre>
+        The compiled binary lands at <code>src-tauri/target/release/openforensic.exe</code> (Windows) or <code>./target/release/openforensic</code> (Linux/macOS).
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="install">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        What are the minimum hardware requirements?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        <strong>CPU:</strong> 4+ cores recommended for parallel SHA-512 hashing and YARA rule compilation.<br>
+        <strong>RAM:</strong> 4 GB minimum; 8 GB+ recommended when analyzing multi-gigabyte RAM dumps with the native Rust Volatility engine.<br>
+        <strong>Storage:</strong> NVMe / SSD destination recommended to avoid write bottlenecks during multi-algorithm hashing of large drives.
+      </div>
+    </div>
+
+    <!-- ── DISK IMAGING ──────────────────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">Disk Imaging</p>
+    </div>
+
+    <div class="faq-item" data-category="imaging">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        What image formats does OpenForensic support?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        OpenForensic supports three output formats:
+        <ul>
+          <li><code>Raw (.dd / .img)</code> — Flat sector-by-sector copy. Stream hash == container hash. Simple and universally compatible.</li>
+          <li><code>E01 (.e01)</code> — EnCase Evidence File. Compressed segments with embedded metadata. Industry standard for court submissions.</li>
+          <li><code>AFF (.aff)</code> — Advanced Forensic Format. Segment-based with compression, metadata, and embedded stream hashes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="imaging">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How does OpenForensic ensure the source drive is not modified during imaging?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Write-blocking is enforced at the OS kernel boundary:
+        <ul>
+          <li><strong>Windows:</strong> Devices opened via <code>CreateFileW</code> requesting strictly <code>GENERIC_READ</code> with shared read access — the OS prevents any write flag from being set.</li>
+          <li><strong>Linux:</strong> Devices opened with <code>O_RDONLY | O_DIRECT</code> to bypass page caches. The <code>BLKROSET</code> ioctl is queried to verify read-only enforcement on block devices.</li>
+          <li><strong>macOS:</strong> Reads directly from raw disk nodes (<code>/dev/rdiskX</code>) for unbuffered, read-only hardware speed.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="imaging hashes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Why does my AFF/E01 container hash not match the acquisition stream hash?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        <strong>This is entirely normal and expected.</strong> AFF and E01 containers include more than raw data:
+        <ol style="padding-left:20px;margin:8px 0;">
+          <li style="margin-bottom:6px;"><strong>Metadata Inclusion:</strong> Case number, examiner name, timestamps, bad sector logs, and the stream hashes themselves are written into the file, changing its binary content.</li>
+          <li style="margin-bottom:6px;"><strong>Data Compression:</strong> Sectors are compressed with zstd or gzip — compressed bytes differ from raw bytes.</li>
+          <li><strong>Container Structure:</strong> Segment headers, footers, and internal index tables add structural overhead.</li>
+        </ol>
+        <strong>Evidence integrity</strong> is verified via the acquisition stream hash embedded inside the container (verified by Autopsy, EnCase, etc. on decompression). The container hash only verifies the file wasn't corrupted during storage or transfer.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="imaging">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Can I scan for malware during disk imaging?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Yes. OpenForensic integrates a pure-Rust <strong>YARA-X</strong> engine that performs real-time pattern matching against custom <code>.yar</code> rulesets simultaneously while streaming disk data — with zero degradation to acquisition throughput. Attach your YARA ruleset in the Disk Imaging tab before starting. YARA hits are logged to the case's <code>openforensic.db</code> with byte offsets and sector numbers.
+      </div>
+    </div>
+
+    <!-- ── HASH VERIFICATION ─────────────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">Hash Verification</p>
+    </div>
+
+    <div class="faq-item" data-category="hashes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Which hash algorithms does OpenForensic support?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        OpenForensic computes all four algorithms simultaneously in a single streaming read pass — no second-read disk I/O overhead:
+        <ul>
+          <li><strong>SHA-256</strong> — NIST-approved primary cryptographic proof for court-ready evidence verification</li>
+          <li><strong>SHA-512</strong> — NIST-approved extended proof with 512-bit digest</li>
+          <li><strong>MD5</strong> — Legacy compatibility for NIST NSRL and VirusTotal cross-referencing</li>
+          <li><strong>SHA-1</strong> — Legacy compatibility for historical case databases and CFTT verification suites</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="hashes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        What is a Keyed Integrity Manifest and how is it different from a plain hash?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        A plain hash (e.g., SHA-256 of the image file) proves the file was not corrupted, but does not prove <em>who</em> created it or <em>when</em> it was sealed. A <strong>Keyed Integrity Manifest</strong> goes further:
+        <ul>
+          <li>Binds the hash to an <strong>investigator identity</strong> using HMAC-SHA256 with a 256-bit secret key</li>
+          <li>Includes full <strong>case metadata</strong> (Case ID, examiner name, agency, timestamps, device geometry)</li>
+          <li>Generates a tamper-evident <code>.manifest</code> / <code>.sig</code> file — even a single changed byte breaks the HMAC seal</li>
+          <li>Enables <strong>court-admissible chain-of-custody</strong> without heavyweight OpenPGP dependencies</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── CAPTURE / ANALYSIS MODES ─────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">Capture Mode &amp; Analysis Mode</p>
+    </div>
+
+    <div class="faq-item" data-category="modes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        What is the difference between Capture Mode and Analysis Mode?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        <strong>Capture Mode</strong> (default on launch): Strictly read-only acquisition — disk cloning, physical memory acquisition, cryptographic hashing, and general utilities. No external network connections or data mutations.<br><br>
+        <strong>Analysis Mode</strong> (opt-in, requires confirmation): Unlocks post-acquisition investigative suites — Triage SQL Workbench, Native Rust Volatility RAM analysis, Timeline Generator, AbuseIPDB/VirusTotal IOC enrichment, and Splunk HEC/Wazuh SIEM streaming.<br><br>
+        The boundary is enforced by Rust runtime guards (<code>require_analysis_mode</code>), dual static capability allowlists (<code>capabilities/default.json</code> and <code>capabilities/analysis.json</code>), and audit-logged in the SQLite <code>audit_logs</code> table.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="modes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How do I switch to Analysis Mode in the GUI?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        <ol style="padding-left:20px;margin:8px 0;">
+          <li style="margin-bottom:6px;">Look at the top navigation bar — the badge shows 🟢 <strong>Capture Mode</strong>.</li>
+          <li style="margin-bottom:6px;">Click <strong>"Switch to Analysis Mode"</strong>.</li>
+          <li style="margin-bottom:6px;">Confirm the dialog: <em>"Switching to Analysis Mode unlocks deep analysis features, threat intelligence API enrichment, and live SIEM streaming. This disables further read-only evidence safeguards for this session."</em></li>
+          <li>The badge updates to 🔴 <strong>Analysis Mode Active</strong> and all previously locked tabs unlock immediately.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="modes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How do I enable Analysis Mode in the CLI?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Pass the <code>--mode analysis</code> flag before your target subcommand:
+        <pre>openforensic --cli --mode analysis triage --dest /mnt/evidence/triage
+
+openforensic --cli --mode analysis ram \
+  --dump /mnt/evidence/memory.raw \
+  --profile windows.pslist.PsList \
+  --ioc-enrich</pre>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="modes">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Is the mode switch audited? How can I prove it in court?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Yes. Every mode transition is cryptographically recorded in the <code>audit_logs</code> table of both the global <code>cases.db</code> and the portable per-case <code>openforensic.db</code>:
+        <pre>SELECT timestamp, event_type, details
+FROM audit_logs
+WHERE event_type = 'MODE_TRANSITION';</pre>
+        Example entries:
+        <table class="data-table" style="margin-top:12px;">
+          <thead><tr><th>Timestamp</th><th>Event Type</th><th>Details</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">2026-07-09T07:15:00Z</td><td>APP_BOOT</td><td>Initialized in Capture Mode</td></tr>
+            <tr><td class="mono">2026-07-09T07:18:22Z</td><td>MODE_TRANSITION</td><td>Examiner 'ID-4402' switched to Analysis Mode</td></tr>
+            <tr><td class="mono">2026-07-09T07:19:05Z</td><td>SIEM_EXPORT_START</td><td>Triage exported to Splunk HEC (index: main_dfir)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── RAM ANALYSIS ──────────────────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">RAM Analysis</p>
+    </div>
+
+    <div class="faq-item" data-category="ram">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Do I need Python installed for RAM / memory analysis?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        <strong>No.</strong> OpenForensic includes a proprietary <strong>native Rust Volatility Engine</strong> (<code>volatility/</code> workspace) that replaces Python-based Volatility 3 entirely. It operates as a pure native binary with zero Python interpreters, pip packages, or virtual environments required. This makes it ideal for:
+        <ul>
+          <li>Field triage laptops without Python pre-installed</li>
+          <li>Headless AWS EC2 / cloud servers without display managers</li>
+          <li>Air-gapped forensic lab systems</li>
+          <li>Automated SOAR pipelines requiring instant startup (no Python interpreter overhead)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="ram">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Why is my RAM dump file larger than my installed RAM?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        This is expected and caused by <strong>Memory-Mapped I/O (MMIO)</strong>. The CPU's physical address space is shared between your RAM and hardware devices (PCIe, GPU VRAM, ACPI tables, NICs). The OS shifts actual RAM addresses higher to accommodate these hardware reservations — pushing the highest physical address past your installed RAM boundary.<br><br>
+        WinPmem reads from address <code>0x0</code> to the highest physical address, padding "holes" (MMIO ranges) with zeros to maintain accurate file offsets for memory analysis. Result: a 16 GB RAM system may produce a 16.5–17 GB raw dump.<br><br>
+        <strong>If space matters:</strong> Modern memory formats like <code>.aff4</code> or Windows Crash Dumps compress or omit zero-padded hardware holes. Raw (<code>.raw</code>) retains exact address mapping, which is why Volatility profiles depend on it.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="ram">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Which Volatility profiles / plugins are supported?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        The native Rust engine supports these profiles in v2.1.0:
+        <table class="data-table" style="margin-top:12px;">
+          <thead><tr><th>Profile</th><th>OS</th><th>Capability</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">windows.pslist.PsList</td><td>Windows x64/x86</td><td>Enumerate processes via EPROCESS list</td></tr>
+            <tr><td class="mono">windows.netstat.NetStat</td><td>Windows x64/x86</td><td>Open TCP/UDP connections</td></tr>
+            <tr><td class="mono">windows.cmdline.CmdLine</td><td>Windows x64/x86</td><td>Process command-line arguments</td></tr>
+            <tr><td class="mono">windows.filescan.FileScan</td><td>Windows x64/x86</td><td>Open FILE_OBJECT handles</td></tr>
+            <tr><td class="mono">windows.malfind.Malfind</td><td>Windows x64/x86</td><td>Injected DLLs &amp; hollowed processes</td></tr>
+            <tr><td class="mono">linux.pslist.PsList</td><td>Linux x64/ARM64</td><td>Kernel task_struct enumeration</td></tr>
+            <tr><td class="mono">mac.pslist.PsList</td><td>macOS x64/Apple Silicon</td><td>Darwin kernel process enumeration</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="ram">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Why do APFS, LUKSv1/v2, BitLocker, or dm-crypt candidates appear in my Windows RAM dump?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        When taking a live memory snapshot (<code>memory_dump.raw</code>) of a running Windows machine while developing or executing OpenForensic, physical memory contains OpenForensic's own compiled binary strings, source code literals, and disk cache blocks sitting in the OS page cache.<br><br>
+        When our native Volatility engine's <code>crypto_keys</code> profile scans the memory image, it searches for exact header signatures and hex sequences (such as <code>-FVE-FS-</code> for BitLocker, <code>LUKS\xBA\xBE</code>, <code>dm-crypt</code>, or <code>NXSB</code> for APFS). Because our carving routines (<code>encryption.rs</code>) resided in active RAM when the dump was captured, our carver discovers its own string literals and reports them as candidate structures/keys.<br><br>
+        Additionally, if you run WSL2, Docker Desktop, or third-party Linux VMs on your Windows host, the virtual disk blocks in Windows RAM naturally contain real Linux LUKS headers (`4c554b53babe`) and superblock traces.
+      </div>
+    </div>
+
+    <!-- ── DATA RECOVERY & CARVING ───────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">Data Recovery &amp; File Carving (Rayon Parallel Engine)</p>
+    </div>
+
+    <div class="faq-item" data-category="recovery">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How does OpenForensic recover deleted files without relying on filesystem allocation tables?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        When files are deleted or formatted, operating systems only mark directory pointers as free space while the raw data payloads (JPEG, PNG, PDF, ZIP/DOCX, SQLite, EVTX) remain intact on physical sectors until overwritten.<br><br>
+        OpenForensic uses a multi-threaded <strong>Rayon Parallel Carving Engine</strong> that slices raw disk images (<code>.dd</code>, <code>.raw</code>), USB drives, and memory dumps into overlapping blocks and scans across all CPU cores simultaneously for magic header and footer signatures. Recovered objects are streamed directly to your destination directory and indexed in the SQLite case database.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="recovery">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Why does Data Recovery &amp; Carving require switching to Analysis Mode?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Like all analytical suites in OpenForensic, running multi-threaded data recovery requires transitioning your session from <strong>Capture Mode 🟢</strong> to <strong>Analysis Mode 🔴</strong>. This ensures read-only acquisition boundaries are explicitly respected, capability allowlists (<code>capabilities/analysis.json</code>) permit background carving operations, and every recovered file artifact (e.g., <code>carved_0001a4c0.pdf</code>) is cryptographically hashed (SHA-256) and logged inside the case chain-of-custody tables.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="recovery">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How do I benchmark the multi-threaded carver against single-threaded baselines?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        In the <strong>Recovered &amp; Carved Files</strong> dashboard, click <strong>Run Carver Benchmark</strong>. The engine executes a synthetic 32 MB multi-threaded vs. single-threaded comparison across your CPU cores and outputs exact throughput metrics: single-thread baseline duration, Rayon parallel duration, speedup factor across cores (e.g., <code>3.85x speedup</code>), and data processing throughput in MB/s.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="recovery">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How does OpenForensic prevent Out-Of-Memory (OOM) crashes when carving multi-terabyte `.dd` or `.raw` disk images?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Traditional file carving tools often attempt to read entire disk images or oversized chunks into memory upfront, leading to Out-Of-Memory (OOM) heap crashes when processing multi-gigabyte or multi-terabyte forensic dumps.<br><br>
+        OpenForensic v2.1.0 implements a <strong>Batched Streaming Architecture (<code>batch_limit = 16</code>)</strong> in its Rayon parallel engine. The carver reads and processes disk image chunks in isolated batches of 16 chunks (~256 MB maximum memory footprint). Each batch is scanned in parallel across all CPU cores and immediately freed from heap memory before the next batch is read from disk. This guarantees bounded, constant ~256 MB memory usage whether carving a 500 MB thumb drive image or a 10 TB server RAID array.
+      </div>
+    </div>
+
+    <!-- ── SECURITY ALLOWLISTS ───────────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">Security Allowlists &amp; Known Hashes</p>
+    </div>
+
+    <div class="faq-item" data-category="allowlists">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        What is the Security Allowlist (`memory_tools_allowlist.json`) and how does it protect against malware?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        OpenForensic enforces zero-trust execution for kernel-level acquisition binaries and external plugins. Before launching any tool (such as <code>winpmem.exe</code> or <code>LiME</code>), the application computes its exact <code>SHA-256</code> hash and checks it against the trusted allowlist (`~/.openforensic/memory_tools_allowlist.json`). If a binary has been modified, infected, or tampered with, execution is immediately blocked (`Hash Verification Failed / Access Denied`).
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="allowlists">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How do I add or update allowed SHA-256 digests in the GUI?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        You can manage trusted hashes directly from the interface without manually editing JSON configuration files:
+        <ol style="padding-left:20px;margin:8px 0;">
+          <li style="margin-bottom:6px;">Click the <strong>⚙️ Settings</strong> button in the top navigation bar.</li>
+          <li style="margin-bottom:6px;">Scroll down to <strong>Section 3: Security Allowlists &amp; Known Hashes (`~/.openforensic/memory_tools_allowlist.json`)</strong>.</li>
+          <li style="margin-bottom:6px;">In the text area, add or remove 64-character hex SHA-256 digests (one per line or comma-separated).</li>
+          <li>Click <strong>Save Settings</strong>. The backend validates each hash format and saves the updated list, immediately protecting subsequent capture commands.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- ── SIEM & IOC ────────────────────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">SIEM Integration &amp; Threat Intelligence</p>
+    </div>
+
+    <div class="faq-item" data-category="siem">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Which SIEM platforms does OpenForensic support?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        OpenForensic supports two enterprise SIEM platforms in v2.1.0:
+        <ul>
+          <li><strong>Splunk HTTP Event Collector (HEC):</strong> Emits structured JSON events over HTTPS POST authenticated via HEC bearer tokens (<code>Authorization: Splunk &lt;token&gt;</code>). Automatically indexes running processes, network connections, browser visits, and OS event logs.</li>
+          <li><strong>Wazuh Agent Socket / Syslog:</strong> Formats forensic records into Wazuh JSON lines and streams them over TCP/UDP sockets (default port 1514) or appends to local log queues monitored by the active Wazuh agent.</li>
+        </ul>
+        SIEM integration requires <strong>Analysis Mode</strong>.
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="siem">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Will my SIEM endpoint URL be compiled into the binary?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        No. SIEM endpoints default to <strong>empty strings</strong> in all compiled binaries — ensuring internal lab URLs or hostnames are never accidentally shipped. In CLI mode, supplying <code>--siem-endpoint</code> is strictly validated and <em>required</em> whenever <code>--siem-export</code> is activated (enforced by clap's <code>required_if_eq</code>):
+        <pre>openforensic --cli --mode analysis triage \
+  --siem-export \
+  --siem-type splunk_hec \
+  --siem-endpoint https://splunk.corp.example.com:8088 \
+  --siem-token &lt;HEC_TOKEN&gt;</pre>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="siem">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        How does AbuseIPDB and VirusTotal enrichment work?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        During memory analysis profiles (e.g., <code>windows.netstat.NetStat</code> or <code>windows.malfind.Malfind</code>), OpenForensic automatically:
+        <ul>
+          <li>Extracts all unique remote IP addresses from network connections and queries <strong>AbuseIPDB</strong> reputation scores in real-time — flagging known C2 nodes and botnet infrastructure</li>
+          <li>Computes cryptographic digests of suspicious memory sections or unlinked PE headers, querying <strong>VirusTotal</strong> detection matrices</li>
+        </ul>
+        Enable with <code>--ioc-enrich</code> in CLI mode or by checking the enrichment box in the RAM Analysis tab (Analysis Mode required). Your API keys are stored in the application configuration — never compiled into the binary.
+      </div>
+    </div>
+
+    <!-- ── CLI ──────────────────────────────────────── -->
+    <div style="margin-bottom:12px; margin-top:48px;">
+      <p class="section-eyebrow" style="margin-bottom:16px;">CLI &amp; Automation</p>
+    </div>
+
+    <div class="faq-item" data-category="cli">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Can I run OpenForensic without a display server (headless)?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Yes. OpenForensic's headless CLI mode (<code>--cli</code>) bypasses the Tauri GUI entirely, enabling full scriptable forensic automation on:
+        <ul>
+          <li>AWS EC2 / cloud instances without display managers</li>
+          <li>Remote SSH triage sessions</li>
+          <li>SOAR pipeline automation</li>
+          <li>Unattended overnight acquisition jobs</li>
+        </ul>
+        <pre>openforensic --cli list-devices
+openforensic --cli acquire --source /dev/sda --dest /mnt/evidence/disk.e01 --format e01</pre>
+      </div>
+    </div>
+
+    <div class="faq-item" data-category="cli">
+      <div class="faq-question" onclick="toggleFaq(this)">
+        Can I automate manifest signing in a CI/CD pipeline?
+        <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="faq-answer">
+        Yes. The CLI supports automated signing and batch verification:
+        <pre># Acquire and automatically sign the integrity manifest
+openforensic --cli acquire \
+  --source /dev/sda \
+  --dest /mnt/evidence/drive.raw \
+  --format raw \
+  --hashes md5,sha1,sha256,sha512 \
+  --sign-manifest \
+  --key /keys/openforensic_hmac.key
+
+# Batch verify all manifests in an archive directory
+for sig in /archive/*.sig; do
+  openforensic --cli verify-manifest \
+    --manifest "$sig" \
+    --pubkey /keys/openforensic_hmac.pub
+done</pre>
+        The resulting <code>.sig</code> is a cleartext ASCII-armored file — easy to parse and archive in automated intake systems.
+      </div>
+    </div>
+
+    <!-- ── STILL HAVE QUESTIONS ─────────────────────── -->
+    <div style="margin-top:56px; padding:32px; background:var(--surface-container-low); border:1px solid var(--outline-variant); border-radius:var(--radius-lg); text-align:center;">
+      <div style="width:48px;height:48px;background:var(--primary-fixed);border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-container)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h3 style="font-size:20px;font-weight:700;margin-bottom:8px;">Still have questions?</h3>
+      <p style="font-size:14px;color:var(--on-surface-variant);margin-bottom:20px;">Check the full documentation or open an issue on GitHub.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="help.html" class="btn btn-secondary">Browse Documentation</a>
+        <a href="https://github.com/rootwithkhandal/OpenForensic/issues" target="_blank" class="btn btn-primary">Open a GitHub Issue</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ FOOTER ════════════════════════════════════════════ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="nav-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-container)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          OpenForensic
+        </div>
+        <p>Enterprise-grade digital forensics suite. Built in Rust for forensic investigators, incident responders, and law enforcement.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#modes">Architecture</a></li><li><a href="index.html#download">Download</a></li></ul>
+      </div>
+      <div class="footer-col">
+        <h4>Documentation</h4>
+        <ul><li><a href="help.html">Getting Started</a></li><li><a href="help.html">Disk Imaging</a></li><li><a href="help.html">RAM Analysis</a></li></ul>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <ul><li><a href="faq.html">FAQ</a></li><li><a href="https://github.com/rootwithkhandal/OpenForensic/issues" target="_blank">Issues</a></li><li><a href="https://github.com/rootwithkhandal/OpenForensic/blob/main/SECURITY.md" target="_blank">Security</a></li></ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 OpenForensic. Proprietary License.</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--outline);">Rust 1.85 · Tauri 2.11 · Edition 2024</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Toggle FAQ accordion
+function toggleFaq(el) {
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  // Close all open items
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  // Open clicked item (unless it was already open)
+  if (!isOpen) item.classList.add('open');
+}
+
+// Category filter
+function filterFaq(category, btn) {
+  // Update button styles
+  document.querySelectorAll('[id^="filter-"]').forEach(b => {
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-secondary');
+  });
+  btn.classList.add('btn-primary');
+  btn.classList.remove('btn-secondary');
+
+  // Show/hide FAQ items
+  document.querySelectorAll('.faq-item').forEach(item => {
+    if (category === 'all') {
+      item.style.display = '';
+    } else {
+      const cats = (item.dataset.category || '').split(' ');
+      item.style.display = cats.includes(category) ? '' : 'none';
+    }
+    item.classList.remove('open');
+  });
+
+  // Show/hide category headers
+  document.querySelectorAll('.section-eyebrow').forEach(h => {
+    h.closest('div').style.display = category === 'all' ? '' : 'none';
+  });
+}
+
+function toggleMobileNav() {
+  const navLinks = document.querySelector('.nav-links');
+  if (navLinks) navLinks.classList.toggle('nav-open');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/schema.json",
+  "identifier": "default",
+  "description": "Static allowlist for always-active Capture Mode commands and core utilities: set_acquisition_mode, get_admin_status, scan_devices, browse_folder, browse_file, save_file_dialog, check_checkpoint, start_acquisition, cancel_acquisition, start_triage, list_volumes, start_live_acquisition, get_cases, get_case_details, export_case_report, browse_yara_folder, load_plugin, list_plugins, unload_plugin, scan_plugins_directory, get_siem_config, pgp_get_key_info, pgp_generate_new_key, pgp_verify_manifest, inspect_volume_encryption",
+  "windows": ["*"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:default"
+  ]
+}

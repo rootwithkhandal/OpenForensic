@@ -2099,6 +2099,7 @@ fn main() {
             crate::case_management::get_case_folder_structure,
             crate::case_management::get_case_export_path,
             crate::case_management::verify_case_audit_chain,
+            crate::case_management::delete_case,
             run_data_recovery_carving,
             benchmark_data_recovery_carving,
             check_acquisition_checkpoint,

@@ -2384,6 +2384,9 @@ async function selectCase(caseId) {
                 <button onclick="exportCaseReport(${caseId}, '${details.case.case_number}')" class="px-3.5 py-2 border border-outline-variant rounded-lg hover:bg-surface-container text-on-surface font-semibold text-body-sm flex items-center gap-1.5 transition-colors">
                   <span class="material-symbols-outlined text-[18px]">file_download</span>Export HTML Report
                 </button>
+                <button onclick="deleteCase(${caseId}, '${details.case.case_number}', ${!!details.case.case_root})" class="px-3.5 py-2 border border-red-500/30 rounded-lg hover:bg-red-500/10 text-red-500 font-semibold text-body-sm flex items-center gap-1.5 transition-colors" title="Delete this case">
+                  <span class="material-symbols-outlined text-[18px]">delete_forever</span>Delete Case
+                </button>
               </div>
             </div>
 
@@ -2431,9 +2434,14 @@ async function selectCase(caseId) {
             <h4 class="text-headline font-bold text-on-surface">Legacy Case (No Folder Assigned)</h4>
             <p class="text-body-sm text-on-surface-variant">This case was created without a unified directory structure.</p>
           </div>
-          <button onclick="exportCaseReport(${caseId}, '${details.case.case_number}')" class="px-4 py-2 bg-primary text-on-primary font-bold text-body-sm rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-[18px]">file_download</span>Export Report
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="exportCaseReport(${caseId}, '${details.case.case_number}')" class="px-4 py-2 bg-primary text-on-primary font-bold text-body-sm rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[18px]">file_download</span>Export Report
+            </button>
+            <button onclick="deleteCase(${caseId}, '${details.case.case_number}', false)" class="px-3.5 py-2 border border-red-500/30 rounded-lg hover:bg-red-500/10 text-red-500 font-semibold text-body-sm flex items-center gap-1.5 transition-colors" title="Delete this case">
+              <span class="material-symbols-outlined text-[18px]">delete_forever</span>Delete
+            </button>
+          </div>
         </div>
       `;
     }
@@ -2549,6 +2557,27 @@ async function exportCaseReport(caseId, caseNumber) {
   } catch (e) {
     logMessage('ERROR', `Failed to export report for case ${caseNumber}: ` + e);
     alert('Failed to export report: ' + e);
+  }
+}
+
+async function deleteCase(caseId, caseNumber, hasCaseRoot) {
+  const baseConfirm = confirm(`⚠️ Are you sure you want to delete case "${caseNumber}"?\n\nThis will permanently remove the case record, all associated evidence items, and acquisition logs from the database.\n\nThis action cannot be undone.`);
+  if (!baseConfirm) return;
+
+  let deleteFiles = false;
+  if (hasCaseRoot) {
+    deleteFiles = confirm(`🗂️ Case "${caseNumber}" has a unified folder on disk.\n\nDo you ALSO want to permanently delete all files and folders from disk?\n\n• Click OK to delete database records AND disk files\n• Click Cancel to delete database records only (preserve disk files)`);
+  }
+
+  try {
+    logMessage('SYSTEM', `Deleting case ${caseNumber} (ID: ${caseId})${deleteFiles ? ' including disk files' : ' (database only)'}...`);
+    const result = await invoke('delete_case', { caseId, deleteFiles });
+    logMessage('SYSTEM', result);
+    activeSelectedCaseId = null;
+    await loadCases();
+  } catch (e) {
+    logMessage('ERROR', `Failed to delete case ${caseNumber}: ` + e);
+    alert('Failed to delete case: ' + e);
   }
 }
 

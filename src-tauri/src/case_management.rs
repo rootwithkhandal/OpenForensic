@@ -736,3 +736,56 @@ pub fn get_case_export_path(app: AppHandle, case_id: i64, filename: String, subf
 pub async fn verify_case_audit_chain(app: AppHandle) -> Result<AuditChainVerificationReport, String> {
     verify_audit_log_chain(&app)
 }
+
+#[tauri::command]
+pub fn delete_case(app: AppHandle, case_id: i64, delete_files: bool) -> Result<String, String> {
+    let db_path = get_db_path(&app)?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    // Fetch case details before deleting so we can log it and optionally remove disk files
+    let (case_number, case_root, examiner): (String, String, String) = conn.query_row(
+        "SELECT case_number, COALESCE(case_root, ''), examiner_name FROM cases WHERE id = ?1",
+        params![case_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ).map_err(|_| format!("Case with id {} not found.", case_id))?;
+
+    // Delete acquisition_logs for all evidence_items belonging to this case
+    conn.execute(
+        "DELETE FROM acquisition_logs WHERE evidence_id IN (SELECT id FROM evidence_items WHERE case_id = ?1)",
+        params![case_id],
+    ).map_err(|e| e.to_string())?;
+
+    // Delete evidence_items
+    conn.execute(
+        "DELETE FROM evidence_items WHERE case_id = ?1",
+        params![case_id],
+    ).map_err(|e| e.to_string())?;
+
+    // Delete the case record itself
+    conn.execute(
+        "DELETE FROM cases WHERE id = ?1",
+        params![case_id],
+    ).map_err(|e| e.to_string())?;
+
+    // Optionally remove the on-disk unified case folder
+    let mut disk_deleted = false;
+    if delete_files && !case_root.is_empty() {
+        let root = std::path::Path::new(&case_root);
+        if root.exists() && root.is_dir() {
+            std::fs::remove_dir_all(root).map_err(|e| format!("Case record deleted from database, but failed to remove disk folder {}: {}", case_root, e))?;
+            disk_deleted = true;
+        }
+    }
+
+    // Log deletion to audit chain for chain-of-custody compliance
+    let details = if disk_deleted {
+        format!("Deleted case {} (ID: {}) and removed all disk files from {}", case_number, case_id, case_root)
+    } else if delete_files && !case_root.is_empty() {
+        format!("Deleted case {} (ID: {}) from database (disk folder {} was not found)", case_number, case_id, case_root)
+    } else {
+        format!("Deleted case {} (ID: {}) from database only (disk files preserved at {})", case_number, case_id, if case_root.is_empty() { "N/A".to_string() } else { case_root.clone() })
+    };
+    let _ = log_audit_event(&app, &examiner, &case_id.to_string(), "CASE_DELETED", &details);
+
+    Ok(details)
+}

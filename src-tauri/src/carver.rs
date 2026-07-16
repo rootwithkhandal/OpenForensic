@@ -41,34 +41,115 @@ pub struct FileSignature {
 
 pub fn get_default_signatures() -> Vec<FileSignature> {
     vec![
+        // 1. Media & Images
         FileSignature {
             name: "JPEG Image",
             extension: "jpg",
             header: &[0xFF, 0xD8, 0xFF],
             footer: Some(&[0xFF, 0xD9]),
-            max_size: 25 * 1024 * 1024,
+            max_size: 50 * 1024 * 1024,
         },
         FileSignature {
             name: "PNG Image",
             extension: "png",
             header: &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
             footer: Some(&[0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]),
+            max_size: 100 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "GIF Image",
+            extension: "gif",
+            header: b"GIF89a",
+            footer: Some(&[0x00, 0x3B]),
             max_size: 50 * 1024 * 1024,
         },
+        FileSignature {
+            name: "GIF Legacy Image",
+            extension: "gif",
+            header: b"GIF87a",
+            footer: Some(&[0x00, 0x3B]),
+            max_size: 50 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "BMP Bitmap Image",
+            extension: "bmp",
+            header: b"BM",
+            footer: None,
+            max_size: 100 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "WebP Image",
+            extension: "webp",
+            header: b"RIFF",
+            footer: None,
+            max_size: 50 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "AVI Video File",
+            extension: "avi",
+            header: b"RIFF",
+            footer: None,
+            max_size: 500 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "WAV Audio File",
+            extension: "wav",
+            header: b"RIFF",
+            footer: None,
+            max_size: 200 * 1024 * 1024,
+        },
+        // 2. Documents & Office
         FileSignature {
             name: "PDF Document",
             extension: "pdf",
             header: b"%PDF-",
             footer: Some(b"%%EOF"),
-            max_size: 100 * 1024 * 1024,
+            max_size: 200 * 1024 * 1024,
         },
         FileSignature {
-            name: "ZIP / Office OpenXML",
+            name: "ZIP / Office OpenXML (DOCX/XLSX)",
             extension: "zip",
             header: &[0x50, 0x4B, 0x03, 0x04],
             footer: None,
+            max_size: 500 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "Legacy Microsoft Office Compound Binary",
+            extension: "doc",
+            header: &[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1],
+            footer: None,
+            max_size: 100 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "Rich Text Format (RTF)",
+            extension: "rtf",
+            header: b"{\\rtf1",
+            footer: Some(b"}"),
+            max_size: 50 * 1024 * 1024,
+        },
+        // 3. Archives & Compression
+        FileSignature {
+            name: "GZIP Compressed Archive",
+            extension: "gz",
+            header: &[0x1F, 0x8B, 0x08],
+            footer: None,
             max_size: 200 * 1024 * 1024,
         },
+        FileSignature {
+            name: "7-Zip Compressed Archive",
+            extension: "7z",
+            header: &[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C],
+            footer: None,
+            max_size: 500 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "RAR Archive",
+            extension: "rar",
+            header: &[0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00],
+            footer: None,
+            max_size: 500 * 1024 * 1024,
+        },
+        // 4. Databases & OS Artifacts
         FileSignature {
             name: "SQLite Database",
             extension: "sqlite",
@@ -80,6 +161,49 @@ pub fn get_default_signatures() -> Vec<FileSignature> {
             name: "Windows Event Log (EVTX)",
             extension: "evtx",
             header: b"ElfFile\x00",
+            footer: None,
+            max_size: 200 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "Windows Registry Hive",
+            extension: "dat",
+            header: b"regf",
+            footer: None,
+            max_size: 200 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "Windows Shortcut (LNK)",
+            extension: "lnk",
+            header: &[0x4C, 0x00, 0x00, 0x00, 0x01, 0x14, 0x02, 0x00],
+            footer: None,
+            max_size: 10 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "Windows Prefetch File",
+            extension: "pf",
+            header: b"SCCA",
+            footer: None,
+            max_size: 10 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "PCAP Network Capture",
+            extension: "pcap",
+            header: &[0xD4, 0xC3, 0xB2, 0xA1],
+            footer: None,
+            max_size: 500 * 1024 * 1024,
+        },
+        // 5. Executables & Binaries
+        FileSignature {
+            name: "Windows Portable Executable (EXE/DLL)",
+            extension: "exe",
+            header: b"MZ",
+            footer: None,
+            max_size: 100 * 1024 * 1024,
+        },
+        FileSignature {
+            name: "ELF Executable Binary",
+            extension: "elf",
+            header: &[0x7F, 0x45, 0x4C, 0x46],
             footer: None,
             max_size: 100 * 1024 * 1024,
         },
@@ -93,8 +217,7 @@ pub struct CarveChunkJob {
     pub buffer: Vec<u8>,
 }
 
-/// Scan a memory/file buffer for signatures single-threaded
-/// Scan a memory/file buffer for signatures single-threaded
+/// Scan a memory/file buffer for signatures single-threaded with exact structure validation
 pub fn scan_buffer_signatures(
     base_offset: u64,
     buffer: &[u8],
@@ -108,36 +231,269 @@ pub fn scan_buffer_signatures(
 
         let mut pos = 0;
         while pos + hdr_len <= buffer.len() {
-            if &buffer[pos..pos + hdr_len] == sig.header {
-                let start_offset = base_offset + pos as u64;
-                let max_search = std::cmp::min(buffer.len(), pos + sig.max_size as usize);
+            if &buffer[pos..pos + hdr_len] != sig.header {
+                pos += 1;
+                continue;
+            }
 
-                if let Some(footer_bytes) = sig.footer {
-                    let f_len = footer_bytes.len();
-                    let mut found_footer = false;
-                    if pos + hdr_len < max_search {
-                        let search_slice = &buffer[pos + hdr_len..max_search];
-                        if let Some(rel_end) = find_subsequence(search_slice, footer_bytes) {
-                            let end_idx = pos + hdr_len + rel_end + f_len;
-                            if end_idx <= buffer.len() {
+            let start_offset = base_offset + pos as u64;
+            let max_search = std::cmp::min(buffer.len(), pos + sig.max_size as usize);
+
+            match sig.extension {
+                "jpg" => {
+                    // 1. JPEG: Verify 4th marker byte (0xE0..=0xEF JFIF/EXIF, 0xDB DQT, 0xC0..=0xC4 SOF)
+                    if pos + 4 <= buffer.len() {
+                        let b4 = buffer[pos + 3];
+                        if !matches!(b4, 0xE0..=0xEF | 0xDB | 0xC0..=0xC4 | 0xDD | 0xFE) {
+                            pos += 1;
+                            continue;
+                        }
+                    }
+                    // 2. Locate Start of Scan (SOS: 0xFF, 0xDA) so we bypass embedded EXIF thumbnail footers
+                    let mut sos_pos = None;
+                    if pos + 4 < max_search {
+                        let search_slice = &buffer[pos + 4..max_search];
+                        if let Some(rel_sos) = find_subsequence(search_slice, &[0xFF, 0xDA]) {
+                            sos_pos = Some(pos + 4 + rel_sos);
+                        }
+                    }
+                    // 3. Find true End of Image marker (0xFF, 0xD9) located AFTER sos_pos
+                    let search_start = sos_pos.map(|s| s + 2).unwrap_or(pos + hdr_len);
+                    if search_start < max_search {
+                        let search_slice = &buffer[search_start..max_search];
+                        if let Some(rel_end) = find_subsequence(search_slice, &[0xFF, 0xD9]) {
+                            let end_idx = search_start + rel_end + 2;
+                            if end_idx <= buffer.len() && end_idx > pos {
                                 let file_data = buffer[pos..end_idx].to_vec();
-                                let end_offset = base_offset + end_idx as u64;
                                 hits.push((
                                     sig.name.to_string(),
                                     sig.extension.to_string(),
                                     start_offset,
-                                    end_offset,
+                                    base_offset + end_idx as u64,
                                     file_data,
                                 ));
                                 pos = end_idx;
-                                found_footer = true;
+                                continue;
                             }
                         }
                     }
-                    if !found_footer {
-                        pos += 1;
+                    pos += 1;
+                }
+                "png" => {
+                    // PNG: Verify IHDR magic chunk at pos+12 and extract exact IEND + 4 CRC bytes
+                    if pos + 16 <= buffer.len() && &buffer[pos + 12..pos + 16] == b"IHDR" {
+                        if pos + hdr_len < max_search {
+                            let search_slice = &buffer[pos + hdr_len..max_search];
+                            if let Some(rel_end) = find_subsequence(search_slice, &[0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]) {
+                                let end_idx = pos + hdr_len + rel_end + 8;
+                                if end_idx <= buffer.len() {
+                                    let file_data = buffer[pos..end_idx].to_vec();
+                                    hits.push((
+                                        sig.name.to_string(),
+                                        sig.extension.to_string(),
+                                        start_offset,
+                                        base_offset + end_idx as u64,
+                                        file_data,
+                                    ));
+                                    pos = end_idx;
+                                    continue;
+                                }
+                            }
+                        }
                     }
-                } else {
+                    pos += 1;
+                }
+                "bmp" => {
+                    // BMP Bitmap: Read exact file_size from u32 at pos + 2
+                    if pos + 26 <= buffer.len() {
+                        let total_size = u32::from_le_bytes([
+                            buffer[pos + 2], buffer[pos + 3], buffer[pos + 4], buffer[pos + 5]
+                        ]) as u64;
+                        if total_size >= 54 && total_size <= sig.max_size && pos + (total_size as usize) <= buffer.len() {
+                            let end_idx = pos + (total_size as usize);
+                            let file_data = buffer[pos..end_idx].to_vec();
+                            hits.push((
+                                sig.name.to_string(),
+                                sig.extension.to_string(),
+                                start_offset,
+                                base_offset + end_idx as u64,
+                                file_data,
+                            ));
+                            pos = end_idx;
+                            continue;
+                        }
+                    }
+                    pos += 1;
+                }
+                "webp" | "avi" | "wav" => {
+                    // RIFF Container: Verify subtype and calculate exact size from RIFF length header
+                    if pos + 12 <= buffer.len() {
+                        let subtype = &buffer[pos + 8..pos + 12];
+                        let matches_subtype = match sig.extension {
+                            "webp" => subtype == b"WEBP",
+                            "avi" => subtype == b"AVI ",
+                            "wav" => subtype == b"WAVE",
+                            _ => false,
+                        };
+                        if matches_subtype {
+                            let riff_size = u32::from_le_bytes([
+                                buffer[pos + 4], buffer[pos + 5], buffer[pos + 6], buffer[pos + 7]
+                            ]) as u64;
+                            let total_size = riff_size + 8;
+                            if total_size >= 12 && total_size <= sig.max_size && pos + (total_size as usize) <= buffer.len() {
+                                let end_idx = pos + (total_size as usize);
+                                let file_data = buffer[pos..end_idx].to_vec();
+                                hits.push((
+                                    sig.name.to_string(),
+                                    sig.extension.to_string(),
+                                    start_offset,
+                                    base_offset + end_idx as u64,
+                                    file_data,
+                                ));
+                                pos = end_idx;
+                                continue;
+                            }
+                        }
+                    }
+                    pos += 1;
+                }
+                "pdf" => {
+                    // PDF: Verify %PDF-1. or %PDF-2. version byte
+                    if pos + 7 <= buffer.len() && (buffer[pos + 5] == b'1' || buffer[pos + 5] == b'2') {
+                        let mut last_eof = None;
+                        let curr_search_pos = pos + hdr_len;
+                        while curr_search_pos < max_search {
+                            if let Some(rel_pdf) = find_subsequence(&buffer[curr_search_pos..max_search], b"%PDF-") {
+                                // Another PDF begins here; search for %%EOF before this boundary
+                                if let Some(rel_eof) = find_last_subsequence(&buffer[pos..curr_search_pos + rel_pdf], b"%%EOF") {
+                                    last_eof = Some(pos + rel_eof + 5);
+                                }
+                                break;
+                            } else {
+                                if let Some(rel_eof) = find_last_subsequence(&buffer[pos..max_search], b"%%EOF") {
+                                    last_eof = Some(pos + rel_eof + 5);
+                                }
+                                break;
+                            }
+                        }
+                        if let Some(mut end_idx) = last_eof {
+                            while end_idx < buffer.len() && (buffer[end_idx] == b'\r' || buffer[end_idx] == b'\n' || buffer[end_idx] == b' ') && end_idx - last_eof.unwrap() < 10 {
+                                end_idx += 1;
+                            }
+                            if end_idx <= buffer.len() && end_idx > pos {
+                                let file_data = buffer[pos..end_idx].to_vec();
+                                hits.push((
+                                    sig.name.to_string(),
+                                    sig.extension.to_string(),
+                                    start_offset,
+                                    base_offset + end_idx as u64,
+                                    file_data,
+                                ));
+                                pos = end_idx;
+                                continue;
+                            }
+                        }
+                    }
+                    pos += 1;
+                }
+                "zip" => {
+                    // ZIP / Office OpenXML: Locate exact End of Central Directory (PK\x05\x06) and comment length
+                    if pos + 22 < max_search {
+                        let search_slice = &buffer[pos + 4..max_search];
+                        if let Some(rel_eocd) = find_last_subsequence(search_slice, &[0x50, 0x4B, 0x05, 0x06]) {
+                            let eocd_pos = pos + 4 + rel_eocd;
+                            if eocd_pos + 22 <= buffer.len() {
+                                let comment_len = u16::from_le_bytes([buffer[eocd_pos + 20], buffer[eocd_pos + 21]]) as usize;
+                                let end_idx = eocd_pos + 22 + comment_len;
+                                if end_idx <= buffer.len() && end_idx > pos {
+                                    let file_data = buffer[pos..end_idx].to_vec();
+                                    hits.push((
+                                        sig.name.to_string(),
+                                        sig.extension.to_string(),
+                                        start_offset,
+                                        base_offset + end_idx as u64,
+                                        file_data,
+                                    ));
+                                    pos = end_idx;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    pos += 1;
+                }
+                "sqlite" => {
+                    // SQLite: Exact page_size * page_count calculation from database header bytes
+                    if pos + 32 <= buffer.len() {
+                        let page_size_raw = u16::from_be_bytes([buffer[pos + 16], buffer[pos + 17]]);
+                        let page_size = if page_size_raw == 1 { 65536u64 } else { page_size_raw as u64 };
+                        let page_count = u32::from_be_bytes([
+                            buffer[pos + 28], buffer[pos + 29], buffer[pos + 30], buffer[pos + 31]
+                        ]) as u64;
+                        if page_size >= 512 && page_size <= 65536 && (page_size & (page_size - 1) == 0) && page_count > 0 {
+                            let total_size = page_size * page_count;
+                            if total_size >= 512 && total_size <= sig.max_size && pos + (total_size as usize) <= buffer.len() {
+                                let end_idx = pos + (total_size as usize);
+                                let file_data = buffer[pos..end_idx].to_vec();
+                                hits.push((
+                                    sig.name.to_string(),
+                                    sig.extension.to_string(),
+                                    start_offset,
+                                    base_offset + end_idx as u64,
+                                    file_data,
+                                ));
+                                pos = end_idx;
+                                continue;
+                            }
+                        }
+                    }
+                    pos += 1;
+                }
+                "evtx" => {
+                    // EVTX: ElfFile header (4096 bytes) + exact chunk_count * 65536 calculation
+                    if pos + 44 <= buffer.len() {
+                        let chunk_count = u16::from_le_bytes([buffer[pos + 42], buffer[pos + 43]]) as u64;
+                        if chunk_count > 0 && chunk_count <= 20000 {
+                            let total_size = 4096 + (chunk_count * 65536);
+                            if total_size <= sig.max_size && pos + (total_size as usize) <= buffer.len() {
+                                let end_idx = pos + (total_size as usize);
+                                let file_data = buffer[pos..end_idx].to_vec();
+                                hits.push((
+                                    sig.name.to_string(),
+                                    sig.extension.to_string(),
+                                    start_offset,
+                                    base_offset + end_idx as u64,
+                                    file_data,
+                                ));
+                                pos = end_idx;
+                                continue;
+                            }
+                        }
+                    }
+                    pos += 1;
+                }
+                _ => {
+                    // Fallback for custom/unknown signatures using footer if provided
+                    if let Some(footer_bytes) = sig.footer {
+                        if pos + hdr_len < max_search {
+                            let search_slice = &buffer[pos + hdr_len..max_search];
+                            if let Some(rel_end) = find_subsequence(search_slice, footer_bytes) {
+                                let end_idx = pos + hdr_len + rel_end + footer_bytes.len();
+                                if end_idx <= buffer.len() {
+                                    let file_data = buffer[pos..end_idx].to_vec();
+                                    hits.push((
+                                        sig.name.to_string(),
+                                        sig.extension.to_string(),
+                                        start_offset,
+                                        base_offset + end_idx as u64,
+                                        file_data,
+                                    ));
+                                    pos = end_idx;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
                     let slice_len = std::cmp::min(buffer.len() - pos, 65536);
                     if slice_len > 0 && pos + slice_len <= buffer.len() {
                         let file_data = buffer[pos..pos + slice_len].to_vec();
@@ -153,8 +509,6 @@ pub fn scan_buffer_signatures(
                         pos += 1;
                     }
                 }
-            } else {
-                pos += 1;
             }
         }
     }
@@ -166,6 +520,13 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         return None;
     }
     haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+fn find_last_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).rposition(|w| w == needle)
 }
 
 /// Multi-Threaded Parallel Carving Engine using Rayon (Batched Streaming)

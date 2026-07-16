@@ -1902,8 +1902,8 @@ async fn run_data_recovery_carving(
     let records = crate::carver::run_parallel_carving(
         std::path::Path::new(&image_path),
         std::path::Path::new(&out_dir),
+        64 * 1024 * 1024,
         16 * 1024 * 1024,
-        65536,
         Some(cb),
     )?;
 

@@ -296,12 +296,33 @@ ORDER BY visit_time DESC LIMIT 50;</pre>
           <table class="data-table" style="margin-bottom:20px;">
             <thead><tr><th>File Type</th><th>Extension</th><th>Header Signature</th><th>Footer Signature</th><th>Max Size</th></tr></thead>
             <tbody>
-              <tr><td><strong>JPEG Image</strong></td><td><span class="mono">.jpg</span></td><td><span class="mono">FF D8 FF</span></td><td><span class="mono">FF D9</span></td><td>25 MB</td></tr>
-              <tr><td><strong>PNG Image</strong></td><td><span class="mono">.png</span></td><td><span class="mono">89 50 4E 47 0D 0A 1A 0A</span></td><td><span class="mono">49 45 4E 44 AE 42 60 82</span></td><td>50 MB</td></tr>
-              <tr><td><strong>PDF Document</strong></td><td><span class="mono">.pdf</span></td><td><span class="mono">%PDF-</span></td><td><span class="mono">%%EOF</span></td><td>100 MB</td></tr>
-              <tr><td><strong>ZIP / Office OpenXML</strong></td><td><span class="mono">.zip</span> (<span class="mono">.docx</span>, <span class="mono">.xlsx</span>)</td><td><span class="mono">50 4B 03 04</span></td><td><em>Variable / Slice</em></td><td>200 MB</td></tr>
-              <tr><td><strong>SQLite Database</strong></td><td><span class="mono">.sqlite</span></td><td><span class="mono">SQLite format 3\0</span></td><td><em>Variable / Slice</em></td><td>500 MB</td></tr>
-              <tr><td><strong>Windows Event Log</strong></td><td><span class="mono">.evtx</span></td><td><span class="mono">ElfFile\0</span></td><td><em>Variable / Slice</em></td><td>100 MB</td></tr>
+              <!-- Media & Images -->
+              <tr><td><strong>JPEG Image</strong></td><td><span class="mono">.jpg</span></td><td><span class="mono">FF D8 FF</span></td><td><span class="mono">FF D9</span> (SOS Bypass)</td><td>50 MB</td></tr>
+              <tr><td><strong>PNG Image</strong></td><td><span class="mono">.png</span></td><td><span class="mono">89 50 4E ... 1A 0A</span></td><td><span class="mono">IEND + CRC (8 bytes)</span></td><td>100 MB</td></tr>
+              <tr><td><strong>GIF Image (89a/87a)</strong></td><td><span class="mono">.gif</span></td><td><span class="mono">GIF89a / GIF87a</span></td><td><span class="mono">00 3B</span></td><td>50 MB</td></tr>
+              <tr><td><strong>BMP Bitmap Image</strong></td><td><span class="mono">.bmp</span></td><td><span class="mono">BM</span></td><td><em>Header DIB Size Calculation</em></td><td>100 MB</td></tr>
+              <tr><td><strong>WebP Image</strong></td><td><span class="mono">.webp</span></td><td><span class="mono">RIFF ... WEBP</span></td><td><em>Exact RIFF Length Header</em></td><td>50 MB</td></tr>
+              <tr><td><strong>AVI Video File</strong></td><td><span class="mono">.avi</span></td><td><span class="mono">RIFF ... AVI </span></td><td><em>Exact RIFF Length Header</em></td><td>500 MB</td></tr>
+              <tr><td><strong>WAV Audio File</strong></td><td><span class="mono">.wav</span></td><td><span class="mono">RIFF ... WAVE</span></td><td><em>Exact RIFF Length Header</em></td><td>200 MB</td></tr>
+              <!-- Documents & Office -->
+              <tr><td><strong>PDF Document</strong></td><td><span class="mono">.pdf</span></td><td><span class="mono">%PDF-</span></td><td><span class="mono">%%EOF</span> (Last EOF check)</td><td>200 MB</td></tr>
+              <tr><td><strong>ZIP / Office OpenXML</strong></td><td><span class="mono">.zip</span> (<span class="mono">.docx</span>, <span class="mono">.xlsx</span>)</td><td><span class="mono">50 4B 03 04</span></td><td><span class="mono">PK\x05\x06</span> (Exact EOCD + Comment)</td><td>500 MB</td></tr>
+              <tr><td><strong>Legacy MS Office Binary</strong></td><td><span class="mono">.doc</span> (<span class="mono">.xls</span>, <span class="mono">.ppt</span>)</td><td><span class="mono">D0 CF 11 E0 A1 B1 1A E1</span></td><td><em>OLE CFB Sector Bounds</em></td><td>100 MB</td></tr>
+              <tr><td><strong>Rich Text Format</strong></td><td><span class="mono">.rtf</span></td><td><span class="mono">{\rtf1</span></td><td><span class="mono">}</span></td><td>50 MB</td></tr>
+              <!-- Archives & Compression -->
+              <tr><td><strong>GZIP Archive</strong></td><td><span class="mono">.gz</span></td><td><span class="mono">1F 8B 08</span></td><td><em>Stream / Slice Bounds</em></td><td>200 MB</td></tr>
+              <tr><td><strong>7-Zip Archive</strong></td><td><span class="mono">.7z</span></td><td><span class="mono">37 7A BC AF 27 1C</span></td><td><em>Archive Header Bounds</em></td><td>500 MB</td></tr>
+              <tr><td><strong>RAR Archive</strong></td><td><span class="mono">.rar</span></td><td><span class="mono">52 61 72 21 1A 07 00</span></td><td><em>Archive Header Bounds</em></td><td>500 MB</td></tr>
+              <!-- Databases & OS Artifacts -->
+              <tr><td><strong>SQLite Database</strong></td><td><span class="mono">.sqlite</span></td><td><span class="mono">SQLite format 3\0</span></td><td><em>Exact Page Size &times; Count</em></td><td>500 MB</td></tr>
+              <tr><td><strong>Windows Event Log</strong></td><td><span class="mono">.evtx</span></td><td><span class="mono">ElfFile\0</span></td><td><em>ElfChnk Block Count Arithmetic</em></td><td>200 MB</td></tr>
+              <tr><td><strong>Windows Registry Hive</strong></td><td><span class="mono">.dat</span></td><td><span class="mono">regf</span></td><td><em>Data Size Header Calculation</em></td><td>200 MB</td></tr>
+              <tr><td><strong>Windows Shortcut</strong></td><td><span class="mono">.lnk</span></td><td><span class="mono">4C 00 00 00 01 14 ...</span></td><td><em>GUID Header &amp; Section Bounds</em></td><td>10 MB</td></tr>
+              <tr><td><strong>Windows Prefetch</strong></td><td><span class="mono">.pf</span></td><td><span class="mono">SCCA</span></td><td><em>Prefetch Header Bounds</em></td><td>10 MB</td></tr>
+              <tr><td><strong>PCAP Capture</strong></td><td><span class="mono">.pcap</span></td><td><span class="mono">D4 C3 B2 A1</span></td><td><em>Packet Record Bounds</em></td><td>500 MB</td></tr>
+              <!-- Executables & Binaries -->
+              <tr><td><strong>Windows Executable/DLL</strong></td><td><span class="mono">.exe</span> (<span class="mono">.dll</span>)</td><td><span class="mono">MZ</span></td><td><em>PE Optional Header &amp; Sections Table</em></td><td>100 MB</td></tr>
+              <tr><td><strong>ELF Binary</strong></td><td><span class="mono">.elf</span></td><td><span class="mono">7F 45 4C 46</span></td><td><em>Section Table Header Bounds</em></td><td>100 MB</td></tr>
             </tbody>
           </table>
 

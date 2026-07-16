@@ -374,8 +374,8 @@ WHERE event_type = 'MODE_TRANSITION';</pre>
         <span class="faq-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="faq-answer">
-        When files are deleted or formatted, operating systems only mark directory pointers as free space while the raw data payloads (JPEG, PNG, PDF, ZIP/DOCX, SQLite, EVTX) remain intact on physical sectors until overwritten.<br><br>
-        OpenForensic uses a multi-threaded <strong>Rayon Parallel Carving Engine</strong> that slices raw disk images (<code>.dd</code>, <code>.raw</code>), USB drives, and memory dumps into overlapping blocks and scans across all CPU cores simultaneously for magic header and footer signatures. Recovered objects are streamed directly to your destination directory and indexed in the SQLite case database.
+        When files are deleted or formatted, operating systems only mark directory pointers as free space while the raw data payloads remain intact on physical sectors until overwritten.<br><br>
+        OpenForensic uses a multi-threaded <strong>Rayon Parallel Carving Engine</strong> with <strong>Exact Structure Validation</strong> across <strong>23+ forensic file formats</strong> (JPEG, PNG, GIF, BMP, WebP, AVI, WAV, PDF, ZIP/DOCX/XLSX, Legacy DOC/XLS, RTF, GZIP, 7-Zip, RAR, SQLite, EVTX, Windows Registry Hives <code>.dat</code>, Shortcuts <code>.lnk</code>, Prefetch <code>.pf</code>, PCAP captures, Windows PE <code>.exe/.dll</code>, and ELF binaries). The engine slices raw disk images (<code>.dd</code>, <code>.raw</code>), USB drives, and memory dumps into overlapping blocks and scans across all CPU cores simultaneously. Recovered objects are streamed directly to your destination directory and indexed in the SQLite case database without truncation or corruption.
       </div>
     </div>
 
